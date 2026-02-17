@@ -1,6 +1,6 @@
 Package: dplyneage
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Column Lineage Visualization for dplyr Pipelines
 Version: 0.1.0
 Authors@R: c(
     person(
@@ -9,8 +9,16 @@ Authors@R: c(
       role = c("aut", "cre")
     )
   )
-Description: More about what it does (maybe more than one line).
-    Continuation lines should be indented.
-License: What license is it under?
+Description: Implements column lineage visualizations using React Flow 
+    for dplyr and dbplyr pipelines. Provides a tidyverse-style interface
+    for tracking data transformations through pipeline operations.
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
+Imports:
+    htmlwidgets
+Suggests:
+    dplyr,
+    dbplyr,
+    duckdb
+RoxygenNote: 7.3.3

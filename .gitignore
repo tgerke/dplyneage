@@ -1,6 +1,7 @@
 .Rproj.user
 .Rhistory
 .RData
-.httr-oauth
-.DS_Store
-.quarto
+.Ruserdata
+srcjs/node_modules/
+srcjs/package-lock.json
+test_*.R

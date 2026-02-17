@@ -1,2 +1,10 @@
-^.*\.Rproj$
 ^\.Rproj\.user$
+^.*\.Rproj$
+^\.git$
+^\.gitignore$
+^srcjs/node_modules$
+^srcjs/package-lock\.json$
+^build_bundle\.sh$
+^BUILD\.md$
+^test.*\.R$
+^examples\.R$
