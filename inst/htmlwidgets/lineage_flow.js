@@ -32,12 +32,18 @@ function renderReactFlow(el, x, width, height) {
   var applyNodeChanges = window.ReactFlowBundle.applyNodeChanges;
   var applyEdgeChanges = window.ReactFlowBundle.applyEdgeChanges;
   var addEdge = window.ReactFlowBundle.addEdge;
+  var TableNode = window.ReactFlowBundle.TableNode;
   
   el.style.width = '100%';
-  el.style.height = height || '400px';
+  el.style.height = height || '600px';
   el.innerHTML = '<div id="reactflow-container" style="width: 100%; height: 100%;"></div>';
   
   var container = el.querySelector('#reactflow-container');
+  
+  // Define custom node types
+  var nodeTypes = {
+    tableNode: TableNode
+  };
   
   // Ensure nodes are connectable with default styling
   var initialNodes = (x.nodes || []).map(function(node) {
@@ -49,7 +55,7 @@ function renderReactFlow(el, x, width, height) {
   
   var initialEdges = (x.edges || []).map(function(edge) {
     return Object.assign({}, edge, {
-      type: edge.type || 'default',
+      type: edge.type || 'smoothstep',
       animated: edge.animated || false
     });
   });
@@ -96,18 +102,26 @@ function renderReactFlow(el, x, width, height) {
           onNodesChange: onNodesChange,
           onEdgesChange: onEdgesChange,
           onConnect: onConnect,
+          nodeTypes: nodeTypes,
           fitView: true,
+          fitViewOptions: { padding: 0.2 },
           minZoom: 0.1,
           maxZoom: 4,
           nodesDraggable: true,
           nodesConnectable: true,
           elementsSelectable: true,
           snapToGrid: true,
-          snapGrid: [15, 15]
+          snapGrid: [15, 15],
+          connectionLineStyle: { stroke: '#64748b', strokeWidth: 2 },
+          defaultEdgeOptions: { 
+            type: 'smoothstep',
+            animated: false,
+            style: { stroke: '#64748b', strokeWidth: 2 }
+          }
         },
         React.createElement(Background, { 
-          color: "#aaa", 
-          gap: 16,
+          color: "#d1d5db", 
+          gap: 20,
           variant: "dots"
         }),
         React.createElement(Controls, { showInteractive: false })
