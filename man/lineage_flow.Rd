@@ -13,37 +13,39 @@ lineage_flow(
 )
 }
 \arguments{
-\item{nodes}{A list of nodes, where each node has an id, position (list with x and y), 
-and data (list with a label).}
+\item{nodes}{A list of nodes, or the output from extract_lineage() 
+(a list with $nodes and $edges). When piping from extract_lineage(),
+this will be automatically detected.}
 
-\item{edges}{A list of edges, where each edge has an id, source, and target.}
+\item{edges}{A list of edges (only needed if nodes is not from extract_lineage())}
 
-\item{width}{Width of the widget (default: NULL, auto-size).}
+\item{width}{Width of the widget}
 
-\item{height}{Height of the widget (default: NULL, auto-size).}
+\item{height}{Height of the widget}
 
-\item{elementId}{An optional element ID for the widget.}
+\item{elementId}{Element ID}
 }
 \value{
-An htmlwidget object.
+An htmlwidget object
 }
 \description{
-This function creates an interactive lineage visualization using React Flow.
+Creates an interactive lineage visualization using React Flow.
+Can be used with the output from extract_lineage() directly in a pipe,
+or called with separate nodes and edges arguments.
 }
 \examples{
 \dontrun{
-# Create a simple lineage diagram
-nodes <- list(
-  list(id = "1", position = list(x = 0, y = 0), data = list(label = "Source")),
-  list(id = "2", position = list(x = 200, y = 100), data = list(label = "Transform")),
-  list(id = "3", position = list(x = 400, y = 0), data = list(label = "Output"))
-)
+# Method 1: Direct pipe from extract_lineage() (recommended)
+tbl(con, "customers") |>
+  select(id, name) |>
+  extract_lineage() |>
+  lineage_flow()
 
-edges <- list(
-  list(id = "e1-2", source = "1", target = "2"),
-  list(id = "e2-3", source = "2", target = "3")
-)
+# Method 2: Manual nodes and edges
+lineage_flow(nodes = my_nodes, edges = my_edges)
 
-lineage_flow(nodes, edges)
+# Method 3: Extract lineage first, then visualize
+lineage <- extract_lineage(query)
+lineage_flow(lineage)
 }
 }

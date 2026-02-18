@@ -14,7 +14,10 @@ import '@xyflow/react/dist/style.css';
 
 // Custom Table Node Component for column-level lineage
 const TableNode = ({ data, isConnectable }) => {
-  const columns = data.columns || [];
+  // Ensure columns is always an array (handle R's single-element vectors)
+  const columns = Array.isArray(data.columns) 
+    ? data.columns 
+    : (data.columns ? [data.columns] : []);
   const colors = data.colors || { bg: '#f0f7ff', border: '#3b82f6', header: '#1d4ed8' };
   
   return (

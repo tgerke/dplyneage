@@ -1,0 +1,239 @@
+---
+title: "Python Integration"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Python Integration}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+The `dplyneage` package uses [sqlglot](https://github.com/tobymao/sqlglot) via the `reticulate` package to automatically extract column-level lineage from SQL queries. This follows the best practices outlined in the [reticulate package documentation](https://rstudio.github.io/reticulate/articles/package.html) for embedding Python dependencies in R packages.
+
+## Installation
+
+### First Time Setup
+
+1. **Install the R package**:
+
+```{r}
+devtools::install()  # or load_all() for development
+```
+
+2. **Install Python dependencies**:
+
+```{r}
+library(dplyneage)
+install_sqlglot()
+```
+
+The `install_sqlglot()` function will:
+
+- Create a dedicated Python virtual environment (named `r-dplyneage` by default)
+- Install `sqlglot` and its dependencies
+- Configure the package to use this environment
+
+3. **Restart R** to ensure the Python environment is properly loaded.
+
+## Checking Installation
+
+You can verify that sqlglot is available:
+
+```{r}
+library(dplyneage)
+
+# Check if sqlglot is available
+has_sqlglot()
+#> [1] TRUE
+```
+
+If it returns `FALSE`, you may need to install or reconfigure:
+
+```{r}
+install_sqlglot()
+```
+
+## How It Works
+
+### Architecture
+
+```
+R (dplyr/dbplyr) → SQL (via dbplyr::sql_render)
+                        ↓
+                 Python (sqlglot)
+                        ↓
+      Column Lineage Metadata (parse & analyze)
+                        ↓
+            R (create nodes & edges)
+                        ↓
+        React Flow Visualization
+```
+
+### Key Components
+
+1. **R/zzz.R**: Package initialization and Python environment setup
+   - `.onLoad()`: Initializes package-level variables
+   - `configure_python_env()`: Lazy-loads sqlglot
+   - `install_sqlglot()`: Installs Python dependencies
+   - `has_sqlglot()`: Checks if sqlglot is available
+
+2. **R/sqlglot_utils.R**: Core lineage extraction logic
+   - `extract_lineage()`: Main user-facing function
+   - `get_sql_from_dplyr()`: Converts dbplyr to SQL
+   - `extract_lineage_from_sql()`: Calls Python sqlglot
+   - `convert_lineage_to_graph()`: Creates visualization data
+
+3. **inst/python/requirements.txt**: Python dependencies
+   - Currently just `sqlglot>=23.0.0`
+
+## Using Different Python Environments
+
+By default, `dplyneage` creates its own virtual environment. You can customize this:
+
+### Use a different environment name
+
+```{r}
+install_sqlglot(envname = "my-custom-env")
+```
+
+### Use conda instead of virtualenv
+
+```{r}
+install_sqlglot(method = "conda", envname = "r-dplyneage")
+```
+
+### Use an existing environment
+
+If you already have sqlglot installed in a Python environment:
+
+```{r}
+# Point reticulate to your environment
+Sys.setenv(RETICULATE_PYTHON = "/path/to/your/python")
+
+# Then load the package
+library(dplyneage)
+
+# Check it works
+has_sqlglot()
+```
+
+## SQL Dialects
+
+sqlglot supports many SQL dialects. Specify the dialect when extracting lineage:
+
+```{r}
+# DuckDB (default)
+extract_lineage(query, dialect = "duckdb")
+
+# PostgreSQL
+extract_lineage(query, dialect = "postgres")
+
+# Snowflake
+extract_lineage(query, dialect = "snowflake")
+
+# BigQuery
+extract_lineage(query, dialect = "bigquery")
+
+# MySQL
+extract_lineage(query, dialect = "mysql")
+```
+
+The dialect should match your database backend to ensure accurate parsing.
+
+### Supported Dialects
+
+Thanks to sqlglot, the package supports numerous SQL dialects:
+
+- DuckDB (default - recommended for examples)
+- PostgreSQL
+- MySQL/MariaDB
+- Snowflake
+- BigQuery
+- Redshift
+- SQLite
+- Oracle
+- SQL Server
+- And many more...
+
+See the [sqlglot documentation](https://sqlglot.com/) for the full list.
+
+## Performance
+
+- **First call**: May be slow as Python environment initializes (~1-2 seconds)
+- **Subsequent calls**: Fast (<100ms for typical queries)
+- **Complex queries**: sqlglot can handle very complex SQL including:
+  - CTEs (Common Table Expressions)
+  - Subqueries
+  - Window functions
+  - Complex joins
+  - Set operations (UNION, INTERSECT, etc.)
+
+## Troubleshooting
+
+### Python not found
+
+If you get an error about Python not being found:
+
+```{r}
+# Install Miniconda (if needed)
+reticulate::install_miniconda()
+
+# Then install sqlglot
+install_sqlglot()
+```
+
+### Import errors
+
+If sqlglot imports fail:
+
+```{r}
+# Reinstall in a fresh environment
+install_sqlglot(envname = "r-dplyneage-new")
+```
+
+### Check Python configuration
+
+```{r}
+# See which Python reticulate is using
+reticulate::py_config()
+
+# List installed packages
+reticulate::py_list_packages()
+```
+
+## Development Notes
+
+### Adding new Python dependencies
+
+1. Add the package to `inst/python/requirements.txt`
+2. Update `install_sqlglot()` if needed
+3. Rebuild and reinstall the package
+4. Run `install_sqlglot()` to update the environment
+
+### Testing without installation
+
+During development, you can test Python integration:
+
+```{r}
+devtools::load_all()
+
+# This will warn if sqlglot isn't installed
+has_sqlglot()
+
+# Install if needed
+install_sqlglot()
+```
+
+## References
+
+- [Reticulate Package Documentation](https://rstudio.github.io/reticulate/)
+- [Embedding Python in R Packages](https://rstudio.github.io/reticulate/articles/package.html)
+- [sqlglot Documentation](https://sqlglot.com/)
+- [sqlglot GitHub](https://github.com/tobymao/sqlglot)

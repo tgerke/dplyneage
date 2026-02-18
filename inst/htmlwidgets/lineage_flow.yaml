@@ -3,4 +3,5 @@ dependencies:
     version: 1.0.0
     src: htmlwidgets/lib/reactflow
     script: reactflow-bundle.min.js
+    all_files: false
 

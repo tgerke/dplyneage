@@ -1,0 +1,210 @@
+---
+title: "Getting Started with dplyneage"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with dplyneage}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = TRUE
+)
+```
+
+This guide walks you through setting up and using `dplyneage` to visualize column lineage in your dplyr/dbplyr pipelines.
+
+## Installation
+
+```{r, eval=FALSE}
+pak::pak("tgerke/dplyneage")
+```
+
+## Setup
+
+### Build React Flow Bundle (if needed)
+
+The React Flow bundle should be pre-built and included with the package. However, if visualization doesn't work, you may need to build it yourself:
+
+```{r, eval=FALSE}
+library(dplyneage)
+
+# Check if bundle exists
+has_bundle()
+
+# Build if needed (requires Node.js v18+)
+build_bundle()
+```
+
+**For developers**: You can also build from the terminal in the package source directory:
+
+```bash
+./build_bundle.sh
+```
+
+### Install Python Dependencies
+
+```{r, eval=FALSE}
+install_sqlglot()
+```
+
+This will:
+
+- Create a Python virtual environment
+- Install sqlglot for SQL parsing and lineage extraction
+- Configure the package to use this environment
+
+**Important:** Restart R after installing Python dependencies.
+
+### Verify Installation
+
+```{r}
+library(dplyneage)
+
+# Check that sqlglot is available
+has_sqlglot()
+#> [1] TRUE
+
+# Try the built-in example
+lineage_example()
+```
+
+## Quick Start: Your First Lineage Visualization
+
+### Simple Pipeline
+
+```{r message=FALSE}
+library(dplyr)
+library(duckdb)
+
+# Create a DuckDB connection
+con <- dbConnect(duckdb(), ":memory:")
+
+# Create sample data
+customers <- tibble(
+  id = 1:5,
+  name = c("Alice", "Bob", "Charlie", "Diana", "Eve")
+)
+
+orders <- tibble(
+  order_id = 1:10,
+  customer_id = rep(1:5, each = 2),
+  amount = c(100, 150, 200, 75, 300, 125, 180, 90, 250, 160)
+)
+
+copy_to(con, customers, "customers", overwrite = TRUE)
+copy_to(con, orders, "orders", overwrite = TRUE)
+
+# Build a dplyr pipeline and visualize lineage
+tbl(con, "customers") |>
+  select(id, name) |>
+  left_join(tbl(con, "orders"), by = c("id" = "customer_id")) |>
+  group_by(id, name) |>
+  summarise(total = sum(amount, na.rm = TRUE), .groups = "drop") |>
+  extract_lineage() |>
+  lineage_flow(height = "600px")
+```
+
+### Using Raw SQL
+
+You can also extract lineage from raw SQL:
+
+```{r}
+sql <- "
+SELECT 
+  c.customer_id,
+  c.name,
+  SUM(o.amount) as total_spent
+FROM customers c
+LEFT JOIN orders o ON c.customer_id = o.customer_id
+GROUP BY c.customer_id, c.name
+"
+
+extract_lineage(sql, dialect = "duckdb") |>
+  lineage_flow()
+```
+
+### Manual Lineage Creation
+
+For complete control, you can manually create lineage visualizations:
+
+```{r}
+# Define tables with their columns
+source_table <- create_table_node(
+  table_name = "customers",
+  columns = c("id", "name", "email"),
+  x = 0,
+  y = 100,
+  table_type = "source"
+)
+
+target_table <- create_table_node(
+  table_name = "customer_summary",
+  columns = c("customer_id", "full_name", "contact"),
+  x = 500,
+  y = 100,
+  table_type = "target"
+)
+
+# Create column-to-column edges
+edges <- list(
+  create_column_edge("customers", "id", "customer_summary", "customer_id"),
+  create_column_edge("customers", "name", "customer_summary", "full_name"),
+  create_column_edge("customers", "email", "customer_summary", "contact")
+)
+
+# Visualize
+lineage_flow(
+  nodes = list(source_table, target_table),
+  edges = edges
+)
+```
+
+## Understanding the Workflow
+
+The package follows this pipeline:
+
+```
+dplyr Pipeline (R code)
+         ↓
+dbplyr (SQL generation)
+         ↓
+sqlglot (Python parsing & column lineage)
+         ↓
+dplyneage (Graph creation)
+         ↓
+React Flow (Visualization)
+```
+
+## Interactive Features
+
+Once your lineage is displayed, you can:
+
+- **Drag nodes**: Click and drag tables to reposition them
+- **Zoom**: Use mouse wheel to zoom in/out
+- **Pan**: Click and drag the background to pan around
+- **Select**: Click nodes or edges to select them
+
+## Column Attribution
+
+The package uses smart heuristics to determine which table each column comes from:
+
+- Columns from `SELECT table.*` → attributed to `table`
+- Standalone columns in JOINs → attributed to joined table
+- Explicitly prefixed columns → attributed to specified table
+
+Example:
+
+```sql
+SELECT customers.*, amount
+FROM customers
+LEFT JOIN orders ON (...)
+```
+
+Result:
+
+- **customers**: `id`, `name` (from `customers.*`)
+- **orders**: `amount` (standalone column from JOIN)

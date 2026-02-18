@@ -8,3 +8,10 @@
 ^BUILD\.md$
 ^test.*\.R$
 ^examples\.R$
+^LICENSE\.md$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^README\.Rmd$
+^examples$
+^srcjs$

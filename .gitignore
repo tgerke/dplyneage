@@ -5,3 +5,4 @@
 srcjs/node_modules/
 srcjs/package-lock.json
 test_*.R
+docs

@@ -1,0 +1,50 @@
+url: https://tgerke.github.io/dplyneage/
+template:
+  bootstrap: 5
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, github]
+
+articles:
+  - title: Getting Started
+    navbar: ~
+    contents:
+    - getting-started
+  - title: Configuration
+    contents:
+    - python-integration
+    - building-reactflow
+
+reference:
+  - title: Main Functions
+    desc: >
+      Core functions for extracting and visualizing lineage
+    contents:
+    - extract_lineage
+    - lineage_flow
+    - lineage_example
+    - lineage_flow-shiny
+  
+  - title: Manual Lineage Creation
+    desc: >
+      Functions for manually creating lineage visualizations
+    contents:
+    - create_table_node
+    - create_column_edge
+  
+  - title: Python Integration
+    desc: >
+      Functions for managing Python dependencies
+    contents:
+    - install_sqlglot
+    - has_sqlglot
+  
+  - title: Bundle Management
+    desc: >
+      Functions for building and checking the React Flow bundle
+    contents:
+    - build_bundle
+    - has_bundle
+

@@ -4,8 +4,8 @@ Title: Column Lineage Visualization for dplyr Pipelines
 Version: 0.1.0
 Authors@R: c(
     person(
-      "Jane", "Doe",
-      email = "jane@example.com",
+      "Travis", "Gerke",
+      email = "tgerke@mail.harvard.edu",
       role = c("aut", "cre")
     )
   )
@@ -13,12 +13,19 @@ Description: Implements column lineage visualizations using React Flow
     for dplyr and dbplyr pipelines. Provides a tidyverse-style interface
     for tracking data transformations through pipeline operations.
 License: MIT + file LICENSE
+URL: https://tgerke.github.io/dplyneage/
 Encoding: UTF-8
 LazyData: true
 Imports:
-    htmlwidgets
+    htmlwidgets,
+    reticulate
 Suggests:
     dplyr,
     dbplyr,
-    duckdb
+    duckdb,
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
+VignetteBuilder: knitr
 RoxygenNote: 7.3.3
+Config/testthat/edition: 3
