@@ -64,6 +64,7 @@ function renderReactFlow(el, x, width, height) {
     var FlowComponent = function() {
       var useState = React.useState;
       var useCallback = React.useCallback;
+      var useMemo = React.useMemo;
       
       var nodesState = useState(initialNodes);
       var nodes = nodesState[0];
@@ -72,6 +73,58 @@ function renderReactFlow(el, x, width, height) {
       var edgesState = useState(initialEdges);
       var edges = edgesState[0];
       var setEdges = edgesState[1];
+      
+      // State for tracking hovered column
+      var hoveredHandleState = useState(null);
+      var hoveredHandle = hoveredHandleState[0];
+      var setHoveredHandle = hoveredHandleState[1];
+      
+      // Callback for when a column is hovered
+      var onColumnHover = useCallback(function(nodeId, handleId) {
+        if (nodeId && handleId) {
+          setHoveredHandle({ nodeId: nodeId, handleId: handleId });
+        } else {
+          setHoveredHandle(null);
+        }
+      }, []);
+      
+      // Update nodes to inject the hover callback
+      var nodesWithCallback = useMemo(function() {
+        return nodes.map(function(node) {
+          return Object.assign({}, node, {
+            data: Object.assign({}, node.data, {
+              onColumnHover: onColumnHover
+            })
+          });
+        });
+      }, [nodes, onColumnHover]);
+      
+      // Update edges based on hovered handle
+      var styledEdges = useMemo(function() {
+        if (!hoveredHandle) {
+          return edges;
+        }
+        
+        return edges.map(function(edge) {
+          // Check if this edge is connected to the hovered handle
+          var isConnected = (
+            (edge.source === hoveredHandle.nodeId && edge.sourceHandle === hoveredHandle.handleId) ||
+            (edge.target === hoveredHandle.nodeId && edge.targetHandle === hoveredHandle.handleId)
+          );
+          
+          if (isConnected) {
+            return Object.assign({}, edge, {
+              animated: true,
+              style: { stroke: '#f59e0b', strokeWidth: 3 }
+            });
+          } else {
+            return Object.assign({}, edge, {
+              animated: false,
+              style: { stroke: '#d1d5db', strokeWidth: 2, opacity: 0.3 }
+            });
+          }
+        });
+      }, [edges, hoveredHandle]);
       
       // Handle node changes (dragging, selecting, etc.)
       var onNodesChange = useCallback(function(changes) {
@@ -97,8 +150,8 @@ function renderReactFlow(el, x, width, height) {
       return React.createElement(
         ReactFlow,
         {
-          nodes: nodes,
-          edges: edges,
+          nodes: nodesWithCallback,
+          edges: styledEdges,
           onNodesChange: onNodesChange,
           onEdgesChange: onEdgesChange,
           onConnect: onConnect,

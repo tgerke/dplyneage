@@ -13,12 +13,15 @@ import {
 import '@xyflow/react/dist/style.css';
 
 // Custom Table Node Component for column-level lineage
-const TableNode = ({ data, isConnectable }) => {
+const TableNode = ({ data, isConnectable, id }) => {
   // Ensure columns is always an array (handle R's single-element vectors)
   const columns = Array.isArray(data.columns) 
     ? data.columns 
     : (data.columns ? [data.columns] : []);
   const colors = data.colors || { bg: '#f0f7ff', border: '#3b82f6', header: '#1d4ed8' };
+  
+  // Get the hover callback from data if available
+  const onColumnHover = data.onColumnHover || (() => {});
   
   return (
     <div style={{
@@ -55,8 +58,14 @@ const TableNode = ({ data, isConnectable }) => {
             position: 'relative',
             transition: 'background 0.15s ease'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.background = '#ffffff'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#ffffff';
+            onColumnHover(id, column);
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+            onColumnHover(null, null);
+          }}
           >
             {/* Left handle for incoming connections */}
             <Handle
