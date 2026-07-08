@@ -67,7 +67,7 @@ tbl(con, "customers") |>
   left_join(tbl(con, "orders"), by = "customer_id") |>
   group_by(customer_id, first_name, last_name, email) |>
   summarise(
-    total_orders = n(),
+    total_orders = n_distinct(order_id),
     total_spent = sum(amount, na.rm = TRUE),
     .groups = "drop"
   ) |>
