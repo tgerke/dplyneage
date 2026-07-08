@@ -25,6 +25,7 @@ Suggests:
     dbplyr,
     dplyr,
     duckdb,
+    ducklake,
     igraph,
     knitr,
     rmarkdown,
@@ -33,6 +34,8 @@ Suggests:
     withr,
     xml2
 VignetteBuilder: knitr
+Remotes:
+    tgerke/ducklake-r
 Roxygen: list(markdown = TRUE)
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.0.0

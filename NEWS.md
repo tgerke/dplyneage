@@ -1,5 +1,9 @@
 # dplyneage (development version)
 
+* New vignette `vignette("ducklake-lineage")` shows dplyneage working with
+  [ducklake](https://github.com/tgerke/ducklake-r): lineage for lake
+  pipelines, per-layer diagrams, and time-travel queries (#1).
+
 * New `lineage_json()` and `lineage_graphml()` export `extract_lineage()`
   results (or hand-built node/edge lists) to interchange formats: a clean
   JSON schema for scripting, CI diffs, and data catalogs, and column-level

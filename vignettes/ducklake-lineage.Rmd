@@ -1,0 +1,147 @@
+---
+title: "Column lineage for ducklake pipelines"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Column lineage for ducklake pipelines}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+can_eval <- requireNamespace("ducklake", quietly = TRUE) &&
+  requireNamespace("dplyr", quietly = TRUE) &&
+  requireNamespace("dbplyr", quietly = TRUE) &&
+  requireNamespace("duckdb", quietly = TRUE)
+
+# The time-travel example renders raw SQL, which needs the sqlglot engine
+can_eval_sqlglot <- can_eval &&
+  tryCatch(dplyneage::has_sqlglot(), error = function(e) FALSE)
+
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = can_eval
+)
+```
+
+[ducklake](https://github.com/tgerke/ducklake-r) gives you a versioned data lake: related tables stored together, every change snapshotted, full audit trails. dplyneage answers a question ducklake deliberately leaves to its query layer: *within a pipeline, where did each column come from?*
+
+The two compose without any glue code. `get_ducklake_table()` returns an ordinary dbplyr lazy table, and that is exactly what `extract_lineage()` accepts — so any query you can write against a lake, you can also diagram.
+
+## Setting up a small lake
+
+We'll build a lake with two related tables. If you already have one, skip ahead and pipe your own queries.
+
+```{r message=FALSE}
+library(dplyneage)
+library(ducklake)
+library(dplyr)
+
+install_ducklake()
+
+lake_dir <- file.path(tempdir(), "lineage_lake")
+dir.create(lake_dir, showWarnings = FALSE)
+attach_ducklake("demo_lake", lake_path = lake_dir)
+```
+
+Load customers and their orders, with commit messages so the lake's audit trail says why each table exists:
+
+```{r}
+customers <- data.frame(
+  customer_id = 1:5,
+  name = c("Alice", "Bob", "Charlie", "Diana", "Eve"),
+  region = c("east", "west", "east", "south", "west")
+)
+
+orders <- data.frame(
+  order_id = 1:10,
+  customer_id = rep(1:5, each = 2),
+  amount = c(100, 150, 200, 75, 300, 125, 180, 90, 250, 160)
+)
+
+with_transaction(
+  create_table(customers, "customers"),
+  author = "Data Engineer",
+  commit_message = "Load customer master"
+)
+
+with_transaction(
+  create_table(orders, "orders"),
+  author = "Data Engineer",
+  commit_message = "Load order transactions"
+)
+```
+
+## Lineage for a lake pipeline
+
+Here is a typical analysis query — join orders to customers, aggregate by region — piped straight into lineage extraction:
+
+```{r}
+get_ducklake_table("orders") |>
+  left_join(get_ducklake_table("customers"), by = "customer_id") |>
+  group_by(region) |>
+  summarise(total_sales = sum(amount, na.rm = TRUE), .groups = "drop") |>
+  extract_lineage() |>
+  lineage_flow(height = "400px")
+```
+
+Two things worth noticing:
+
+- **Lake tables appear as blue source nodes under their plain names** (`orders`, `customers`) — the same names you passed to `create_table()`, with no catalog prefix cluttering the diagram.
+- **No Python was involved.** Because ducklake queries are dbplyr pipelines under the hood, dplyneage's pure-R engine reads column provenance directly from the query tree. `total_sales` attributes to `orders.amount` and `region` to `customers.region`, exactly, with nothing to install beyond the two packages.
+
+## Layered lakes: one diagram per hop
+
+ducklake encourages a layered (bronze/silver/gold) architecture where each layer is materialized with `create_table()`. Lineage slots naturally into that workflow: the pipeline that *builds* a layer is also the recipe for its lineage diagram, so you can document the hop at the moment you materialize it.
+
+```{r}
+region_sales <- get_ducklake_table("orders") |>
+  left_join(get_ducklake_table("customers"), by = "customer_id") |>
+  group_by(region) |>
+  summarise(total_sales = sum(amount, na.rm = TRUE), .groups = "drop")
+
+with_transaction(
+  create_table(region_sales, "region_sales"),
+  author = "Data Analyst",
+  commit_message = "Gold layer: sales by region"
+)
+```
+
+A downstream query now sees `region_sales` as its source, and its lineage diagram documents just that hop:
+
+```{r}
+get_ducklake_table("region_sales") |>
+  filter(total_sales > 300) |>
+  extract_lineage() |>
+  lineage_flow(height = "300px")
+```
+
+Chain the per-hop diagrams together and you have column-level documentation of the whole lake, each piece generated from the code that built it.
+
+## Time travel and lineage
+
+ducklake's snapshots version your *data*; lineage describes your pipeline's *structure*. They compose: you can extract lineage from a time-travel query just like any other.
+
+```{r, eval = can_eval_sqlglot}
+first_version <- list_table_snapshots("orders")$snapshot_id[[1]]
+
+get_ducklake_table_version("orders", first_version) |>
+  group_by(customer_id) |>
+  summarise(total = sum(amount, na.rm = TRUE), .groups = "drop") |>
+  extract_lineage() |>
+  lineage_flow(height = "300px")
+```
+
+One implementation detail surfaces here. `get_ducklake_table_version()` builds its query from raw SQL (`AT (VERSION => ...)` under the hood), which the pure-R engine can't see inside — so `extract_lineage()` falls back to the sqlglot engine, with a message. sqlglot parses DuckDB's time-travel syntax and traces the columns identically; the only practical difference is that this path uses dplyneage's Python dependency (provisioned automatically — see `vignette("python-integration")`).
+
+The diagram is the same at every version, and that's the point: snapshots change what the data *was*, not where the columns *come from*. If a refactor ever does change provenance, `lineage_json()` gives you a stable document you can commit and diff in CI — see `vignette("getting-started")`.
+
+```{r, include = FALSE}
+detach_ducklake()
+```
+
+## Next steps
+
+- ducklake's [time travel](https://tgerke.github.io/ducklake-r/articles/time-travel.html) and [transactions](https://tgerke.github.io/ducklake-r/articles/transactions.html) vignettes cover the lake side of this story
+- `vignette("getting-started")` works through the cases where lineage gets hard: CTEs, multi-source columns, and `SELECT *`
+- Found a lake query that traces incorrectly? Please [open an issue](https://github.com/tgerke/dplyneage/issues)

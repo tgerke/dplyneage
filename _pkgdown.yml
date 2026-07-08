@@ -12,6 +12,9 @@ articles:
     navbar: ~
     contents:
     - getting-started
+  - title: Integrations
+    contents:
+    - ducklake-lineage
   - title: Configuration
     contents:
     - python-integration
