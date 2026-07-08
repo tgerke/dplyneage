@@ -171,6 +171,12 @@ get_ducklake_table("orders") |>
   lineage_flow()
 ```
 
+The [ducklake lineage
+vignette](https://tgerke.github.io/dplyneage/articles/ducklake-lineage.html)
+works through a full example: building a small lake, diagramming each
+layer of a bronze/silver/gold pipeline, and extracting lineage from
+time-travel queries.
+
 ## Exporting lineage
 
 Diagrams are for people; the same lineage is also useful as plain data.

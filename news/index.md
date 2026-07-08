@@ -2,6 +2,13 @@
 
 ## dplyneage (development version)
 
+- New vignette
+  [`vignette("ducklake-lineage")`](https://tgerke.github.io/dplyneage/articles/ducklake-lineage.md)
+  shows dplyneage working with
+  [ducklake](https://github.com/tgerke/ducklake-r): lineage for lake
+  pipelines, per-layer diagrams, and time-travel queries
+  ([\#1](https://github.com/tgerke/dplyneage/issues/1)).
+
 - New
   [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
   and

@@ -171,6 +171,12 @@ get_ducklake_table("orders") |>
   lineage_flow()
 ```
 
+The [ducklake lineage
+vignette](https://tgerke.github.io/dplyneage/articles/ducklake-lineage.html)
+works through a full example: building a small lake, diagramming each
+layer of a bronze/silver/gold pipeline, and extracting lineage from
+time-travel queries.
+
 ## Exporting lineage
 
 Diagrams are for people; the same lineage is also useful as plain data.
@@ -332,6 +338,11 @@ The React Flow bundle ships pre-built; this helper checks it exists
 
 - [Getting Started with
   dplyneage](https://tgerke.github.io/dplyneage/articles/getting-started.md):
+
+### Integrations
+
+- [Column lineage for ducklake
+  pipelines](https://tgerke.github.io/dplyneage/articles/ducklake-lineage.md):
 
 ### Configuration
 
