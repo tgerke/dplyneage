@@ -107,7 +107,7 @@
 <span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"600px"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="reference/figures/README-unnamed-chunk-3-1.png"><!-- --></p>
+<p><img src="reference/figures/README-unnamed-chunk-3-1.png" alt="Column-level lineage diagram with the customers and orders tables on the left and the summarised output table on the right, with edges tracing each output column back to its source columns"></p>
 <p>Behind that one pipe, <code><a href="reference/extract_lineage.html">extract_lineage()</a></code>:</p>
 <ul>
 <li>walks the pipeline’s lazy query tree in pure R, tracing every output column to its source columns (joins, aggregations, unions, and multi-source computed columns all resolve exactly)</li>
@@ -149,8 +149,8 @@
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span><span class="va">nodes</span>, <span class="va">edges</span>, height <span class="op">=</span> <span class="st">"600px"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpmG3oXW/file1253eb256af/widget1253e3c58fb84.html screenshot completed</span></span></code></pre></div>
-<p><img src="reference/figures/README-unnamed-chunk-4-1.png"><!-- --></p>
+<span><span class="co">#&gt; file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpvZgp4P/file8032ddf1b44/widget803127724e3.html screenshot completed</span></span></code></pre></div>
+<p><img src="reference/figures/README-unnamed-chunk-4-1.png" alt="Hand-built lineage diagram showing the customers and orders source tables in blue connected to a customer_summary target table in green, with a SUM() label on the total_spent edge"></p>
 <p>Table types follow the color conventions used by dbt and SQLMesh:</p>
 <table class="table">
 <thead><tr>
