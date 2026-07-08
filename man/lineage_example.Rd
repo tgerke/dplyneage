@@ -2,18 +2,24 @@
 % Please edit documentation in R/column_lineage.R
 \name{lineage_example}
 \alias{lineage_example}
-\title{Create Column Lineage Example}
+\title{A built-in example lineage diagram}
 \usage{
 lineage_example()
 }
 \value{
-A lineage_flow widget
+A \code{\link[=lineage_flow]{lineage_flow()}} htmlwidget
 }
 \description{
-Create an example column-level lineage visualization
+Renders a small customers/orders lineage diagram built with the manual
+helpers. Handy for checking that the visualization works in your
+environment, and as a template for building diagrams by hand.
 }
 \examples{
-\dontrun{
 lineage_example()
 }
+\seealso{
+Other manual lineage builders:
+\code{\link[=create_column_edge]{create_column_edge()}},
+\code{\link[=create_table_node]{create_table_node()}}
 }
+\concept{manual lineage builders}

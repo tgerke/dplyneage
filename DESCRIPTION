@@ -26,8 +26,10 @@ Suggests:
     duckdb,
     knitr,
     rmarkdown,
+    shiny,
     testthat (>= 3.0.0),
     withr
 VignetteBuilder: knitr
+Roxygen: list(markdown = TRUE)
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.0.0

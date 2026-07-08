@@ -28,3 +28,16 @@ is useful if you want to save an expression in a variable.}
 Output and render functions for using lineage_flow within Shiny
 applications and interactive Rmd documents.
 }
+\examples{
+if (interactive() && requireNamespace("shiny", quietly = TRUE)) {
+  library(shiny)
+
+  ui <- fluidPage(
+    lineage_flowOutput("lineage", height = "600px")
+  )
+  server <- function(input, output, session) {
+    output$lineage <- renderLineageFlow(lineage_example())
+  }
+  shinyApp(ui, server)
+}
+}

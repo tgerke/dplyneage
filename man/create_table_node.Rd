@@ -2,24 +2,45 @@
 % Please edit documentation in R/column_lineage.R
 \name{create_table_node}
 \alias{create_table_node}
-\title{Create a Column Lineage Node}
+\title{Create a table node for a lineage diagram}
 \usage{
 create_table_node(table_name, columns, x = 0, y = 0, table_type = "source")
 }
 \arguments{
-\item{table_name}{Name of the table}
+\item{table_name}{Name shown in the node header. Also used as the node
+id, so it must be unique within a diagram.}
 
-\item{columns}{Character vector of column names}
+\item{columns}{Character vector of column names listed in the node. Each
+column gets connection handles that edges can attach to.}
 
-\item{x}{Horizontal position}
+\item{x, y}{Position of the node on the canvas, in pixels. Nodes remain
+draggable, so these only set the starting layout.}
 
-\item{y}{Vertical position}
-
-\item{table_type}{Type of table: "source", "transform", or "target"}
+\item{table_type}{One of \code{"source"} (blue), \code{"transform"} (orange), or
+\code{"target"} (green). The colors follow the conventions used by tools
+like dbt and SQLMesh.}
 }
 \value{
-A list structure compatible with lineage_flow
+A node list ready to pass to \code{\link[=lineage_flow]{lineage_flow()}}
 }
 \description{
-Helper function to create a table node with columns for lineage visualization
+Builds one table, with its columns, for lineage diagrams rendered by
+\code{\link[=lineage_flow]{lineage_flow()}}. Use this together with \code{\link[=create_column_edge]{create_column_edge()}} when you
+want full control over the diagram instead of extracting lineage
+automatically.
 }
+\examples{
+create_table_node(
+  table_name = "customers",
+  columns = c("id", "name", "email"),
+  table_type = "source"
+)
+}
+\seealso{
+\code{\link[=extract_lineage]{extract_lineage()}} to build nodes and edges automatically
+
+Other manual lineage builders:
+\code{\link[=create_column_edge]{create_column_edge()}},
+\code{\link[=lineage_example]{lineage_example()}}
+}
+\concept{manual lineage builders}

@@ -1,14 +1,29 @@
-#' Create a Column Lineage Node
+#' Create a table node for a lineage diagram
 #'
-#' Helper function to create a table node with columns for lineage visualization
+#' Builds one table, with its columns, for lineage diagrams rendered by
+#' [lineage_flow()]. Use this together with [create_column_edge()] when you
+#' want full control over the diagram instead of extracting lineage
+#' automatically.
 #'
-#' @param table_name Name of the table
-#' @param columns Character vector of column names
-#' @param x Horizontal position
-#' @param y Vertical position
-#' @param table_type Type of table: "source", "transform", or "target"
-#' @return A list structure compatible with lineage_flow
+#' @param table_name Name shown in the node header. Also used as the node
+#'   id, so it must be unique within a diagram.
+#' @param columns Character vector of column names listed in the node. Each
+#'   column gets connection handles that edges can attach to.
+#' @param x,y Position of the node on the canvas, in pixels. Nodes remain
+#'   draggable, so these only set the starting layout.
+#' @param table_type One of `"source"` (blue), `"transform"` (orange), or
+#'   `"target"` (green). The colors follow the conventions used by tools
+#'   like dbt and SQLMesh.
+#' @return A node list ready to pass to [lineage_flow()]
+#' @family manual lineage builders
+#' @seealso [extract_lineage()] to build nodes and edges automatically
 #' @export
+#' @examples
+#' create_table_node(
+#'   table_name = "customers",
+#'   columns = c("id", "name", "email"),
+#'   table_type = "source"
+#' )
 create_table_node <- function(table_name, columns, x = 0, y = 0, table_type = "source") {
   # Color scheme based on industry standards (dbt, SQLMesh, OpenMetadata)
   colors <- list(
@@ -35,18 +50,30 @@ create_table_node <- function(table_name, columns, x = 0, y = 0, table_type = "s
   )
 }
 
-#' Create Column-Level Edge
+#' Connect two columns in a lineage diagram
 #'
-#' Create an edge connecting specific columns between tables
+#' Creates an edge from one table's column to another's, for diagrams built
+#' with [create_table_node()] and rendered by [lineage_flow()]. Table and
+#' column names must match the `table_name` and `columns` used when
+#' creating the nodes.
 #'
-#' @param from_table Source table name
-#' @param from_column Source column name
-#' @param to_table Target table name
-#' @param to_column Target column name
-#' @param label Optional edge label (e.g., transformation description)
-#' @param animated Whether to animate the edge
-#' @return A list structure compatible with lineage_flow
+#' @param from_table,from_column Table and column the data comes from.
+#' @param to_table,to_column Table and column the data flows into.
+#' @param label Optional label drawn on the edge, typically the
+#'   transformation applied (e.g. `"SUM()"`).
+#' @param animated If `TRUE`, the edge is drawn with a moving dash pattern.
+#'   Useful for drawing attention to aggregations.
+#' @return An edge list ready to pass to [lineage_flow()]
+#' @family manual lineage builders
 #' @export
+#' @examples
+#' # A direct column mapping
+#' create_column_edge("customers", "id", "customer_summary", "customer_id")
+#'
+#' # An aggregation, labeled and animated
+#' create_column_edge("orders", "amount", "customer_summary", "total_spent",
+#'   label = "SUM()", animated = TRUE
+#' )
 create_column_edge <- function(from_table, from_column, to_table, to_column, 
                                label = NULL, animated = FALSE) {
   edge <- list(
@@ -78,16 +105,17 @@ create_column_edge <- function(from_table, from_column, to_table, to_column,
   edge
 }
 
-#' Create Column Lineage Example
+#' A built-in example lineage diagram
 #'
-#' Create an example column-level lineage visualization
+#' Renders a small customers/orders lineage diagram built with the manual
+#' helpers. Handy for checking that the visualization works in your
+#' environment, and as a template for building diagrams by hand.
 #'
-#' @return A lineage_flow widget
+#' @return A [lineage_flow()] htmlwidget
+#' @family manual lineage builders
 #' @export
 #' @examples
-#' \dontrun{
 #' lineage_example()
-#' }
 lineage_example <- function() {
   # Create three tables with columns
   customers_table <- create_table_node(

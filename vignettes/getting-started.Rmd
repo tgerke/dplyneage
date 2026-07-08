@@ -22,65 +22,33 @@ knitr::opts_chunk$set(
 )
 ```
 
-This guide walks you through setting up and using `dplyneage` to visualize column lineage in your dplyr/dbplyr pipelines.
+dplyneage answers a simple question about your data pipelines: *where did each column come from?* You pipe a dplyr/dbplyr query (or pass raw SQL) into `extract_lineage()`, and render the answer as an interactive diagram with `lineage_flow()`.
+
+This vignette starts with the smallest possible example and works up to the cases where lineage gets genuinely hard: joins with ambiguous columns, CTEs, and columns computed from several sources at once.
 
 ## Installation
 
-```{r, eval=FALSE}
+```{r, eval = FALSE}
 pak::pak("tgerke/dplyneage")
 ```
 
-## Setup
+There is no Python setup step: dplyneage declares its one Python dependency (sqlglot) via `reticulate::py_require()`, and reticulate provisions it automatically the first time lineage extraction runs. See `vignette("python-integration")` if you manage your own Python environment.
 
-### Build React Flow Bundle (if needed)
+## Your first lineage diagram
 
-The React Flow bundle should be pre-built and included with the package. However, if visualization doesn't work, you may need to build it yourself:
-
-```{r, eval=FALSE}
-library(dplyneage)
-
-# Check if bundle exists
-has_bundle()
-```
-
-**For developers**: rebuild the bundle from the terminal in the package source directory:
-
-```bash
-./build_bundle.sh
-```
-
-### Python Dependencies
-
-There is nothing to install: dplyneage declares its Python dependency (sqlglot) via `reticulate::py_require()`, and reticulate provisions it automatically the first time lineage extraction runs. See `vignette("python-integration")` if you manage your own Python environment.
-
-### Verify Installation
-
-```{r}
-library(dplyneage)
-
-# Check that sqlglot is available
-has_sqlglot()
-#> [1] TRUE
-
-# Try the built-in example
-lineage_example()
-```
-
-## Quick Start: Your First Lineage Visualization
-
-### Simple Pipeline
+Let's create a small in-memory DuckDB database to work with:
 
 ```{r message=FALSE}
+library(dplyneage)
 library(dplyr)
 library(duckdb)
 
-# Create a DuckDB connection
 con <- dbConnect(duckdb(), ":memory:")
 
-# Create sample data
 customers <- tibble(
   id = 1:5,
-  name = c("Alice", "Bob", "Charlie", "Diana", "Eve")
+  name = c("Alice", "Bob", "Charlie", "Diana", "Eve"),
+  email = paste0(tolower(name), "@example.com")
 )
 
 orders <- tibble(
@@ -91,114 +59,143 @@ orders <- tibble(
 
 copy_to(con, customers, "customers", overwrite = TRUE)
 copy_to(con, orders, "orders", overwrite = TRUE)
+```
 
-# Build a dplyr pipeline and visualize lineage
+The simplest lineage there is — two columns selected from one table:
+
+```{r}
 tbl(con, "customers") |>
   select(id, name) |>
+  extract_lineage() |>
+  lineage_flow(height = "300px")
+```
+
+Each output column connects back to the source column it came from. Try dragging the tables around, zooming with the mouse wheel, and hovering a column to highlight its connections.
+
+## A realistic pipeline
+
+Lineage becomes useful once transformations pile up. Here is a join followed by an aggregation:
+
+```{r}
+tbl(con, "customers") |>
   left_join(tbl(con, "orders"), by = c("id" = "customer_id")) |>
   group_by(id, name) |>
-  summarise(total = sum(amount, na.rm = TRUE), .groups = "drop") |>
+  summarise(total_spent = sum(amount, na.rm = TRUE), .groups = "drop") |>
   extract_lineage() |>
-  lineage_flow(height = "600px")
+  lineage_flow(height = "400px")
 ```
 
-### Using Raw SQL
+Notice that `total_spent` traces back to `orders.amount` — not to `customers`, even though `amount` appears unqualified in the generated SQL. When you pass a dbplyr table, dplyneage reads each referenced table's columns from your database connection, so sqlglot can attribute every column to the table it actually lives in.
 
-You can also extract lineage from raw SQL:
+## Where lineage gets hard
+
+These are the cases that break naive lineage tools. dplyneage handles them because sqlglot's lineage engine resolves the full query structure rather than pattern-matching column names. Raw SQL works just like dbplyr input, so we'll use it here to keep the examples compact.
+
+### Tracing through CTEs
+
+Columns are traced *through* intermediate CTEs back to the base tables — `recent` is transparent, and `amount` correctly attributes to `orders`:
 
 ```{r}
-sql <- "
-SELECT 
-  c.customer_id,
-  c.name,
-  SUM(o.amount) as total_spent
-FROM customers c
-LEFT JOIN orders o ON c.customer_id = o.customer_id
-GROUP BY c.customer_id, c.name
-"
-
-extract_lineage(sql, dialect = "duckdb") |>
-  lineage_flow()
+extract_lineage("
+  WITH recent AS (
+    SELECT customer_id, amount FROM orders WHERE order_date > '2024-01-01'
+  )
+  SELECT customer_id, SUM(amount) AS total FROM recent GROUP BY customer_id
+") |>
+  lineage_flow(height = "300px")
 ```
 
-### Manual Lineage Creation
+### Columns with multiple sources
 
-For complete control, you can manually create lineage visualizations:
+A computed column can come from several tables at once. `COALESCE` over a full join gets an edge from *both* sources:
 
 ```{r}
-# Define tables with their columns
-source_table <- create_table_node(
-  table_name = "customers",
-  columns = c("id", "name", "email"),
-  x = 0,
-  y = 100,
-  table_type = "source"
+extract_lineage("
+  SELECT COALESCE(u.email, a.email) AS email
+  FROM users u FULL JOIN archive a ON u.id = a.id
+") |>
+  lineage_flow(height = "300px")
+```
+
+The same applies to arithmetic across tables (`o.amount * r.rate`), `CASE` expressions, and both branches of a `UNION`.
+
+### Expanding `SELECT *`
+
+With a schema available, `SELECT *` expands to real columns. For dbplyr input the schema comes from your connection automatically; for raw SQL, pass it yourself:
+
+```{r}
+extract_lineage(
+  "SELECT * FROM customers",
+  schema = list(customers = c("id", "name", "email"))
+) |>
+  lineage_flow(height = "300px")
+```
+
+## Raw SQL and schemas
+
+As the examples above show, `extract_lineage()` accepts a SQL string directly — useful for auditing queries you didn't write in R. Two things to know:
+
+- **Qualified columns** (`o.amount`) always resolve correctly, schema or not.
+- **Unqualified columns** need a schema to be attributed with certainty. Pass a named list mapping each table to its columns:
+
+```{r}
+extract_lineage(
+  "SELECT c.name, order_date
+   FROM customers c JOIN orders o ON c.id = o.customer_id",
+  schema = list(
+    customers = c("id", "name", "email"),
+    orders = c("order_id", "customer_id", "order_date", "amount")
+  )
+) |>
+  lineage_flow(height = "300px")
+```
+
+Without a schema, `SELECT *` cannot be expanded and produces a warning rather than a silently empty diagram.
+
+Queries in other SQL dialects work by setting `dialect`:
+
+```{r, eval = FALSE}
+extract_lineage(query, dialect = "postgres")
+extract_lineage(query, dialect = "snowflake")
+```
+
+## Building diagrams by hand
+
+For documentation or design sketches, skip extraction entirely and build the diagram yourself:
+
+```{r}
+nodes <- list(
+  create_table_node(
+    table_name = "customers",
+    columns = c("id", "name", "email"),
+    x = 0, y = 100,
+    table_type = "source"
+  ),
+  create_table_node(
+    table_name = "customer_summary",
+    columns = c("customer_id", "full_name", "contact"),
+    x = 500, y = 100,
+    table_type = "target"
+  )
 )
 
-target_table <- create_table_node(
-  table_name = "customer_summary",
-  columns = c("customer_id", "full_name", "contact"),
-  x = 500,
-  y = 100,
-  table_type = "target"
-)
-
-# Create column-to-column edges
 edges <- list(
   create_column_edge("customers", "id", "customer_summary", "customer_id"),
   create_column_edge("customers", "name", "customer_summary", "full_name"),
   create_column_edge("customers", "email", "customer_summary", "contact")
 )
 
-# Visualize
-lineage_flow(
-  nodes = list(source_table, target_table),
-  edges = edges
-)
+lineage_flow(nodes, edges, height = "300px")
 ```
 
-## Understanding the Workflow
+Nodes come in three types — `"source"` (blue), `"transform"` (orange), and `"target"` (green) — and edges accept a `label` (e.g. `"SUM()"`) and `animated = TRUE` for emphasis. `lineage_example()` renders a complete hand-built diagram you can use as a template.
 
-The package follows this pipeline:
-
-```
-dplyr Pipeline (R code)
-         ↓
-dbplyr (SQL generation)
-         ↓
-sqlglot (Python parsing & column lineage)
-         ↓
-dplyneage (Graph creation)
-         ↓
-React Flow (Visualization)
+```{r, include = FALSE}
+dbDisconnect(con)
 ```
 
-## Interactive Features
+## Next steps
 
-Once your lineage is displayed, you can:
-
-- **Drag nodes**: Click and drag tables to reposition them
-- **Zoom**: Use mouse wheel to zoom in/out
-- **Pan**: Click and drag the background to pan around
-- **Select**: Click nodes or edges to select them
-
-## Column Attribution
-
-Lineage is traced with sqlglot's dedicated lineage engine, which resolves aliases, traces through CTEs and subqueries, follows set operations (UNION), and keeps every source of computed columns (e.g. `COALESCE(a.email, b.email)` yields edges from both tables).
-
-To attribute *unqualified* columns to the right table, sqlglot needs to know each table's columns:
-
-- **dbplyr pipelines**: handled automatically — dplyneage reads the schema of each referenced table from your database connection.
-- **Raw SQL**: pass a `schema` for exact attribution:
-
-```{r, eval = FALSE}
-extract_lineage(
-  "SELECT c.name, order_date FROM customers c JOIN orders o ON c.id = o.customer_id",
-  schema = list(
-    customers = c("id", "name"),
-    orders = c("customer_id", "order_date")
-  )
-)
-```
-
-Without a schema, fully qualified columns (`o.amount`) still resolve correctly; `SELECT *` cannot be expanded and produces a warning.
+- `vignette("python-integration")` explains how the Python dependency is managed, and how to use your own environment
+- The [function reference](https://tgerke.github.io/dplyneage/reference/) documents every argument
+- Found a query that traces incorrectly? Please [open an issue](https://github.com/tgerke/dplyneage/issues) with the SQL

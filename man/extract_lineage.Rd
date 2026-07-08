@@ -2,70 +2,80 @@
 % Please edit documentation in R/sqlglot_utils.R
 \name{extract_lineage}
 \alias{extract_lineage}
-\title{Extract Column Lineage from SQL Query}
+\title{Extract column lineage from a dplyr pipeline or SQL query}
 \usage{
 extract_lineage(sql, dialect = "duckdb", schema = NULL, show_sql = FALSE)
 }
 \arguments{
-\item{sql}{A SQL query string or a dbplyr lazy table (tbl_lazy).
-When using in a pipe with dplyr/dbplyr, the query is automatically
-converted to SQL.}
+\item{sql}{A dbplyr lazy table (\code{tbl_lazy}) or a single SQL query string.
+Lazy tables are rendered to SQL with \code{\link[dbplyr:sql_render]{dbplyr::sql_render()}}, and their
+database connection is used to harvest table schemas automatically.}
 
-\item{dialect}{SQL dialect (e.g., "duckdb", "postgres", "mysql", "snowflake").
-Default: "duckdb"}
+\item{dialect}{SQL dialect the query is written in, e.g. \code{"duckdb"}
+(the default), \code{"postgres"}, \code{"mysql"}, \code{"snowflake"}, \code{"bigquery"}.
+Any dialect sqlglot understands works here.}
 
-\item{schema}{Optional table schema used to resolve unqualified columns and
-expand `*`: a named list mapping table names to character vectors of
-column names, e.g. `list(orders = c("order_id", "amount"))`. When `sql`
-is a dbplyr lazy table, the schema is harvested automatically from the
-database connection.}
+\item{schema}{Optional table schema used to attribute unqualified columns
+to the right table and to expand \verb{SELECT *}: a named list mapping table
+names to character vectors of column names, e.g.
+\code{list(orders = c("order_id", "amount"))}. When \code{sql} is a dbplyr lazy
+table this is harvested from the database connection, so you rarely
+need to supply it yourself.}
 
-\item{show_sql}{If TRUE, prints the SQL query being analyzed. Default: FALSE}
+\item{show_sql}{If \code{TRUE}, print the SQL being analyzed. Useful for
+seeing what dbplyr generated from your pipeline. Default: \code{FALSE}.}
 }
 \value{
-A list containing nodes and edges for lineage visualization
+A list with \code{nodes} and \code{edges} ready to pass to
+\code{\link[=lineage_flow]{lineage_flow()}}, plus \code{metadata} recording the analyzed SQL, the
+dialect, and node/edge counts.
 }
 \description{
-Uses sqlglot's lineage engine to parse SQL and extract column-level
-lineage information. Works seamlessly in a pipeline - just pipe your
-dplyr query directly to this function.
+\code{extract_lineage()} traces every output column of a query back to the
+source table columns it was computed from, using
+\href{https://github.com/tobymao/sqlglot}{sqlglot}'s lineage engine. Pipe a
+dbplyr lazy table straight into it, or pass a SQL string. Aliases, CTEs,
+subqueries, set operations like \code{UNION}, and multi-source expressions
+such as \code{COALESCE(a.x, b.x)} all resolve to their true source columns.
 }
 \examples{
-\dontrun{
-library(dplyr)
-library(dbplyr)
-library(duckdb)
+\dontshow{if (dplyneage::has_sqlglot()) withAutoprint(\{ # examplesIf}
+# Raw SQL: qualified columns resolve on their own
+extract_lineage("SELECT c.id, c.name FROM customers c") |>
+  lineage_flow()
 
-# Connect to DuckDB
-con <- dbConnect(duckdb::duckdb(), ":memory:")
-
-# Method 1: Pass a dplyr pipeline directly (cleanest!)
-tbl(con, "customers") |>
-  select(customer_id, name, email) |>
-  left_join(tbl(con, "orders"), by = "customer_id") |>
-  group_by(customer_id, name) |>
-  summarise(total_spent = sum(amount, na.rm = TRUE)) |>
-  extract_lineage() |>
-  lineage_flow(height = "600px")
-
-# Method 2: Store the query first
-query <- tbl(con, "customers") |>
-  select(customer_id, name, email) |>
-  left_join(tbl(con, "orders"), by = "customer_id")
-
-lineage <- extract_lineage(query)
-lineage_flow(lineage)
-
-# Method 3: Use raw SQL (supply a schema for best attribution)
-lineage <- extract_lineage(
-  "SELECT c.name, order_date FROM customers c JOIN orders o ON c.id = o.customer_id",
+# Supply a schema so unqualified columns attribute to the right table
+# and SELECT * expands
+extract_lineage(
+  "SELECT c.name, order_date FROM customers c
+   JOIN orders o ON c.id = o.customer_id",
   schema = list(
     customers = c("id", "name"),
     orders = c("customer_id", "order_date")
   )
 )
-lineage_flow(lineage)
+\dontshow{\}) # examplesIf}
+\dontshow{if (dplyneage::has_sqlglot() && requireNamespace("dplyr", quietly = TRUE) && requireNamespace("dbplyr", quietly = TRUE) && requireNamespace("duckdb", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+# dbplyr pipelines: pipe straight in; the schema is read from the
+# connection so attribution is exact
+library(dplyr)
 
-dbDisconnect(con)
+con <- DBI::dbConnect(duckdb::duckdb())
+DBI::dbWriteTable(con, "customers", data.frame(id = 1, name = "a"))
+DBI::dbWriteTable(con, "orders", data.frame(customer_id = 1, amount = 10))
+
+tbl(con, "customers") |>
+  left_join(tbl(con, "orders"), by = c("id" = "customer_id")) |>
+  group_by(id, name) |>
+  summarise(total_spent = sum(amount, na.rm = TRUE), .groups = "drop") |>
+  extract_lineage() |>
+  lineage_flow()
+
+DBI::dbDisconnect(con)
+\dontshow{\}) # examplesIf}
 }
+\seealso{
+\code{\link[=lineage_flow]{lineage_flow()}} to render the result;
+\code{vignette("getting-started")} for a tour from simple pipelines to
+CTEs and multi-source columns.
 }

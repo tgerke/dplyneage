@@ -1,33 +1,43 @@
-#' Create a Column Lineage Flow Diagram
+#' Render an interactive column lineage diagram
 #'
-#' Creates an interactive lineage visualization using React Flow.
-#' Can be used with the output from extract_lineage() directly in a pipe,
-#' or called with separate nodes and edges arguments.
+#' Draws a lineage graph with [React Flow](https://reactflow.dev/): tables
+#' as draggable nodes, column-to-column edges, and zoom/pan controls. Pass
+#' the result of [extract_lineage()] directly (it is detected
+#' automatically, so piping works), or build `nodes` and `edges` yourself
+#' with [create_table_node()] and [create_column_edge()].
 #'
-#' @param nodes A list of nodes, or the output from extract_lineage() 
-#'   (a list with $nodes and $edges). When piping from extract_lineage(),
-#'   this will be automatically detected.
-#' @param edges A list of edges (only needed if nodes is not from extract_lineage())
-#' @param width Width of the widget
-#' @param height Height of the widget
-#' @param elementId Element ID
-#' @return An htmlwidget object
+#' @param nodes The output of [extract_lineage()], or a list of nodes
+#'   created with [create_table_node()].
+#' @param edges A list of edges created with [create_column_edge()].
+#'   Ignored when `nodes` is an [extract_lineage()] result, which carries
+#'   its own edges.
+#' @param width,height CSS dimensions of the widget, e.g. `"100%"` or
+#'   `"600px"`. Default to full width and 600px tall.
+#' @param elementId Explicit HTML element id for the widget. Usually left
+#'   `NULL` so one is generated.
+#' @return An htmlwidget that prints in the RStudio viewer, R Markdown /
+#'   Quarto documents, and Shiny apps.
+#' @seealso [extract_lineage()] to compute lineage automatically;
+#'   [lineage_flowOutput()] and [renderLineageFlow()] for Shiny.
 #' @export
 #' @examples
-#' \dontrun{
-#' # Method 1: Direct pipe from extract_lineage() (recommended)
-#' tbl(con, "customers") |>
-#'   select(id, name) |>
-#'   extract_lineage() |>
+#' # Build a small diagram by hand
+#' nodes <- list(
+#'   create_table_node("orders", c("order_id", "amount"), x = 0, y = 0),
+#'   create_table_node("daily_totals", c("total"),
+#'     x = 400, y = 0, table_type = "target"
+#'   )
+#' )
+#' edges <- list(
+#'   create_column_edge("orders", "amount", "daily_totals", "total",
+#'     label = "SUM()", animated = TRUE
+#'   )
+#' )
+#' lineage_flow(nodes, edges)
+#' @examplesIf dplyneage::has_sqlglot()
+#' # Or pipe from extract_lineage()
+#' extract_lineage("SELECT id, name FROM customers") |>
 #'   lineage_flow()
-#'
-#' # Method 2: Manual nodes and edges
-#' lineage_flow(nodes = my_nodes, edges = my_edges)
-#'
-#' # Method 3: Extract lineage first, then visualize
-#' lineage <- extract_lineage(query)
-#' lineage_flow(lineage)
-#' }
 lineage_flow <- function(nodes = list(), edges = list(), width = NULL, height = NULL, elementId = NULL) {
   # Detect if 'nodes' is actually the output from extract_lineage()
   # (a list with both $nodes and $edges components)
@@ -91,6 +101,18 @@ lineage_flow <- function(nodes = list(), edges = list(), width = NULL, height = 
 #'
 #' @name lineage_flow-shiny
 #'
+#' @examples
+#' if (interactive() && requireNamespace("shiny", quietly = TRUE)) {
+#'   library(shiny)
+#'
+#'   ui <- fluidPage(
+#'     lineage_flowOutput("lineage", height = "600px")
+#'   )
+#'   server <- function(input, output, session) {
+#'     output$lineage <- renderLineageFlow(lineage_example())
+#'   }
+#'   shinyApp(ui, server)
+#' }
 #' @export
 lineage_flowOutput <- function(outputId, width = '100%', height = '400px'){
   htmlwidgets::shinyWidgetOutput(outputId, 'lineage_flow', width, height, package = 'dplyneage')

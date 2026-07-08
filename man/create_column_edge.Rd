@@ -2,7 +2,7 @@
 % Please edit documentation in R/column_lineage.R
 \name{create_column_edge}
 \alias{create_column_edge}
-\title{Create Column-Level Edge}
+\title{Connect two columns in a lineage diagram}
 \usage{
 create_column_edge(
   from_table,
@@ -14,21 +14,37 @@ create_column_edge(
 )
 }
 \arguments{
-\item{from_table}{Source table name}
+\item{from_table, from_column}{Table and column the data comes from.}
 
-\item{from_column}{Source column name}
+\item{to_table, to_column}{Table and column the data flows into.}
 
-\item{to_table}{Target table name}
+\item{label}{Optional label drawn on the edge, typically the
+transformation applied (e.g. \code{"SUM()"}).}
 
-\item{to_column}{Target column name}
-
-\item{label}{Optional edge label (e.g., transformation description)}
-
-\item{animated}{Whether to animate the edge}
+\item{animated}{If \code{TRUE}, the edge is drawn with a moving dash pattern.
+Useful for drawing attention to aggregations.}
 }
 \value{
-A list structure compatible with lineage_flow
+An edge list ready to pass to \code{\link[=lineage_flow]{lineage_flow()}}
 }
 \description{
-Create an edge connecting specific columns between tables
+Creates an edge from one table's column to another's, for diagrams built
+with \code{\link[=create_table_node]{create_table_node()}} and rendered by \code{\link[=lineage_flow]{lineage_flow()}}. Table and
+column names must match the \code{table_name} and \code{columns} used when
+creating the nodes.
 }
+\examples{
+# A direct column mapping
+create_column_edge("customers", "id", "customer_summary", "customer_id")
+
+# An aggregation, labeled and animated
+create_column_edge("orders", "amount", "customer_summary", "total_spent",
+  label = "SUM()", animated = TRUE
+)
+}
+\seealso{
+Other manual lineage builders:
+\code{\link[=create_table_node]{create_table_node()}},
+\code{\link[=lineage_example]{lineage_example()}}
+}
+\concept{manual lineage builders}

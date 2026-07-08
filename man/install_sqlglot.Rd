@@ -16,9 +16,9 @@ Invisibly returns TRUE
 }
 \description{
 Deprecated: Python dependencies are managed
-automatically via `reticulate::py_require()` when the package loads, so no
+automatically via \code{reticulate::py_require()} when the package loads, so no
 manual installation step is needed. If you manage your own Python
 environment (e.g. a project virtualenv), install sqlglot into it directly
-with `pip install sqlglot`.
+with \verb{pip install sqlglot}.
 }
 \keyword{internal}

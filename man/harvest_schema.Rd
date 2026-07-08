@@ -15,11 +15,11 @@ harvest_schema(con, sql, dialect = "duckdb")
 }
 \value{
 Named list mapping table names to character vectors of columns,
-  or NULL
+or NULL
 }
 \description{
 Lists the columns of each base table referenced by the query so sqlglot
-can resolve unqualified columns and expand `*`. Returns NULL if the
+can resolve unqualified columns and expand \code{*}. Returns NULL if the
 schema cannot be determined (lineage extraction still works, with
 reduced attribution accuracy).
 }

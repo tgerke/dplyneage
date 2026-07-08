@@ -2,13 +2,27 @@
 % Please edit documentation in R/zzz.R
 \name{has_sqlglot}
 \alias{has_sqlglot}
-\title{Check if Python Dependencies are Available}
+\title{Is the Python sqlglot dependency available?}
 \usage{
 has_sqlglot()
 }
 \value{
-Logical indicating whether sqlglot is available
+\code{TRUE} if sqlglot can be loaded, \code{FALSE} otherwise
 }
 \description{
-Check if Python Dependencies are Available
+dplyneage declares its sqlglot dependency via
+\code{\link[reticulate:py_require]{reticulate::py_require()}}, so it is provisioned automatically the first
+time lineage extraction runs — you should not need to install anything.
+Use this to check availability, or to gate code that calls
+\code{\link[=extract_lineage]{extract_lineage()}} (examples, vignette chunks, Shiny apps). Note that
+calling it may initialize Python.
+}
+\examples{
+\dontrun{
+has_sqlglot()
+}
+}
+\seealso{
+\code{vignette("python-integration")} for using your own Python
+environment
 }

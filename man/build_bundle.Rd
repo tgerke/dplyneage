@@ -14,9 +14,9 @@ Invisibly returns TRUE if successful, FALSE if failed
 }
 \description{
 Developer tool that rebuilds the React Flow JavaScript bundle from the
-`srcjs/` sources. The bundle ships pre-built with the package, so end
+\verb{srcjs/} sources. The bundle ships pre-built with the package, so end
 users never need this; it only works from a source checkout of the
-repository (see also `build_bundle.sh`).
+repository (see also \code{build_bundle.sh}).
 }
 \details{
 Requires Node.js (v18+) and npm.

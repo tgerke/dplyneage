@@ -40,10 +40,23 @@ install_sqlglot <- function(method = "auto", envname = "r-dplyneage") {
   invisible(TRUE)
 }
 
-#' Check if Python Dependencies are Available
+#' Is the Python sqlglot dependency available?
 #'
-#' @return Logical indicating whether sqlglot is available
+#' dplyneage declares its sqlglot dependency via
+#' [reticulate::py_require()], so it is provisioned automatically the first
+#' time lineage extraction runs — you should not need to install anything.
+#' Use this to check availability, or to gate code that calls
+#' [extract_lineage()] (examples, vignette chunks, Shiny apps). Note that
+#' calling it may initialize Python.
+#'
+#' @return `TRUE` if sqlglot can be loaded, `FALSE` otherwise
+#' @seealso `vignette("python-integration")` for using your own Python
+#'   environment
 #' @export
+#' @examples
+#' \dontrun{
+#' has_sqlglot()
+#' }
 has_sqlglot <- function() {
   reticulate::py_module_available("sqlglot")
 }
@@ -132,10 +145,18 @@ build_bundle <- function(force = FALSE) {
   invisible(TRUE)
 }
 
-#' Check if React Flow Bundle Exists
+#' Is the React Flow bundle available?
 #'
-#' @return Logical indicating whether the React Flow bundle is available
+#' The JavaScript bundle that powers [lineage_flow()] ships pre-built with
+#' the package, so this normally returns `TRUE`. If it returns `FALSE`,
+#' diagrams fall back to a static SVG rendering; see
+#' `vignette("building-reactflow")` for how to rebuild the bundle from
+#' source.
+#'
+#' @return `TRUE` if the pre-built React Flow bundle is present
 #' @export
+#' @examples
+#' has_bundle()
 has_bundle <- function() {
   bundle_path <- system.file("htmlwidgets/lib/reactflow/reactflow-bundle.min.js",
                              package = "dplyneage")

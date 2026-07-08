@@ -2,13 +2,20 @@
 % Please edit documentation in R/zzz.R
 \name{has_bundle}
 \alias{has_bundle}
-\title{Check if React Flow Bundle Exists}
+\title{Is the React Flow bundle available?}
 \usage{
 has_bundle()
 }
 \value{
-Logical indicating whether the React Flow bundle is available
+\code{TRUE} if the pre-built React Flow bundle is present
 }
 \description{
-Check if React Flow Bundle Exists
+The JavaScript bundle that powers \code{\link[=lineage_flow]{lineage_flow()}} ships pre-built with
+the package, so this normally returns \code{TRUE}. If it returns \code{FALSE},
+diagrams fall back to a static SVG rendering; see
+\code{vignette("building-reactflow")} for how to rebuild the bundle from
+source.
+}
+\examples{
+has_bundle()
 }
