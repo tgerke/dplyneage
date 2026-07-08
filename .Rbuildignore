@@ -11,7 +11,6 @@
 ^docs$
 ^pkgdown$
 ^README\.Rmd$
-^examples$
 ^srcjs$
 ^\.claude$
 ^\.github$
