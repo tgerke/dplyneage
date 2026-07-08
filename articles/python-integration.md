@@ -1,0 +1,190 @@
+# Python Integration
+
+The `dplyneage` package uses
+[sqlglot](https://github.com/tobymao/sqlglot) via the `reticulate`
+package to extract column-level lineage from SQL queries. This follows
+the current best practice from the [reticulate package
+documentation](https://rstudio.github.io/reticulate/articles/package.html):
+Python dependencies are declared with
+[`reticulate::py_require()`](https://rstudio.github.io/reticulate/reference/py_require.html)
+when the package loads, and reticulate provisions them automatically.
+
+## Installation: There Is No Step Two
+
+Python setup is automatic. The first time you call
+[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md),
+reticulate will:
+
+1.  Find a suitable Python (downloading a self-contained build via
+    [uv](https://docs.astral.sh/uv/) if none is configured)
+2.  Provision an ephemeral virtual environment containing `sqlglot`
+3.  Cache everything, so subsequent sessions start quickly
+
+``` r
+
+library(dplyneage)
+
+# This just works - no install step required
+extract_lineage("SELECT id, name FROM customers") |>
+  lineage_flow()
+```
+
+You can verify availability at any time:
+
+``` r
+
+has_sqlglot()
+#> [1] TRUE
+```
+
+Note:
+[`install_sqlglot()`](https://tgerke.github.io/dplyneage/reference/install_sqlglot.md)
+from earlier development versions is deprecated and does nothing — there
+is no manual installation step anymore.
+
+## Using Your Own Python Environment
+
+If you manage your own Python environment (a project virtualenv, conda
+env, or a system Python), reticulate will respect it as usual. Just make
+sure `sqlglot` is installed there:
+
+``` bash
+pip install 'sqlglot>=23.0.0'
+```
+
+``` r
+
+# Point reticulate at your environment before loading dplyneage
+Sys.setenv(RETICULATE_PYTHON = "/path/to/your/python")
+
+library(dplyneage)
+has_sqlglot()
+```
+
+See
+[`?reticulate::use_virtualenv`](https://rstudio.github.io/reticulate/reference/use_python.html)
+and the [reticulate Python version
+docs](https://rstudio.github.io/reticulate/articles/versions.html) for
+other ways to select an environment.
+
+## How It Works
+
+### Architecture
+
+    R (dplyr/dbplyr) → SQL (via dbplyr::sql_render)
+                            ↓
+              Python (sqlglot.lineage engine)
+                            ↓
+          Column Lineage Metadata (per output column)
+                            ↓
+                R (create nodes & edges)
+                            ↓
+            React Flow Visualization
+
+### Key Components
+
+1.  **R/zzz.R**: Package initialization
+    - `.onLoad()`: declares the sqlglot requirement via `py_require()`
+      and imports the bundled Python module with `delay_load` (Python
+      does not start until first use)
+    - [`has_sqlglot()`](https://tgerke.github.io/dplyneage/reference/has_sqlglot.md):
+      checks availability
+2.  **inst/python/dplyneage_lineage.py**: The lineage engine
+    - Built on `sqlglot.lineage.lineage()`, which handles scope
+      resolution, aliases, CTE trace-through, set operations, and star
+      expansion
+    - [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md):
+      traces each output column to its source columns
+    - `list_tables()`: enumerates base tables (used for schema
+      harvesting)
+3.  **R/sqlglot_utils.R**: R-side orchestration
+    - [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md):
+      main user-facing function
+    - [`harvest_schema()`](https://tgerke.github.io/dplyneage/reference/harvest_schema.md):
+      reads table schemas from your database connection so unqualified
+      columns are attributed to the right table
+    - [`convert_lineage_to_graph()`](https://tgerke.github.io/dplyneage/reference/convert_lineage_to_graph.md):
+      creates visualization nodes and edges
+
+## Schemas and Attribution Accuracy
+
+SQL alone does not always say which table an unqualified column belongs
+to. When you pass a dbplyr lazy table, dplyneage automatically lists the
+columns of each referenced table from the live connection and hands that
+schema to sqlglot, so attribution is exact.
+
+For raw SQL strings, you can pass a schema yourself:
+
+``` r
+
+extract_lineage(
+  "SELECT c.name, order_date FROM customers c JOIN orders o ON c.id = o.customer_id",
+  schema = list(
+    customers = c("id", "name"),
+    orders = c("customer_id", "order_date")
+  )
+)
+```
+
+Without a schema, fully qualified columns still resolve correctly;
+unqualified ones may not be traceable, and `SELECT *` cannot be expanded
+(you’ll get a warning).
+
+## SQL Dialects
+
+sqlglot supports many SQL dialects. Specify the dialect when extracting
+lineage:
+
+``` r
+
+extract_lineage(query, dialect = "duckdb")     # default
+extract_lineage(query, dialect = "postgres")
+extract_lineage(query, dialect = "snowflake")
+extract_lineage(query, dialect = "bigquery")
+extract_lineage(query, dialect = "mysql")
+```
+
+The dialect should match your database backend to ensure accurate
+parsing. See the [sqlglot documentation](https://sqlglot.com/) for the
+full list of dialects.
+
+## Performance
+
+- **First call**: may take a moment while the Python environment
+  initializes (and, on the very first run, provisions)
+- **Subsequent calls**: fast (\<100ms for typical queries)
+- **Complex queries**: sqlglot handles CTEs, subqueries, window
+  functions, complex joins, and set operations (UNION, INTERSECT, etc.)
+
+## Troubleshooting
+
+### Check Python configuration
+
+``` r
+
+# See which Python reticulate is using
+reticulate::py_config()
+
+# List installed packages
+reticulate::py_list_packages()
+```
+
+### sqlglot not found in a custom environment
+
+If
+[`has_sqlglot()`](https://tgerke.github.io/dplyneage/reference/has_sqlglot.md)
+returns `FALSE` and you have set `RETICULATE_PYTHON` (or activated an
+environment), sqlglot is missing from that environment — install it
+there with `pip install sqlglot`. If you have no custom configuration,
+reticulate should provision automatically; see
+[`?reticulate::py_require`](https://rstudio.github.io/reticulate/reference/py_require.html)
+for details.
+
+## References
+
+- [Reticulate Package
+  Documentation](https://rstudio.github.io/reticulate/)
+- [Embedding Python in R
+  Packages](https://rstudio.github.io/reticulate/articles/package.html)
+- [sqlglot Documentation](https://sqlglot.com/)
+- [sqlglot GitHub](https://github.com/tobymao/sqlglot)
