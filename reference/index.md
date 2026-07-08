@@ -25,8 +25,8 @@ Functions for manually creating lineage visualizations
 
 ## Python Integration
 
-Python dependencies are provisioned automatically; this helper checks
-availability
+Python (sqlglot) is only used for raw SQL input and is provisioned
+automatically; this helper checks availability
 
 - [`has_sqlglot()`](https://tgerke.github.io/dplyneage/reference/has_sqlglot.md)
   : Is the Python sqlglot dependency available?

@@ -1,9 +1,21 @@
 # Python Integration
 
-The `dplyneage` package uses
-[sqlglot](https://github.com/tobymao/sqlglot) via the `reticulate`
-package to extract column-level lineage from SQL queries. This follows
-the current best practice from the [reticulate package
+dplyneage has two lineage engines, and only one of them involves Python:
+
+- **dbplyr pipelines** are analyzed by a pure-R engine that walks the
+  pipeline’s lazy query tree. No Python is initialized, let alone
+  required.
+- **Raw SQL strings** — and the rare pipeline that embeds raw SQL via
+  [`dbplyr::sql()`](https://dbplyr.tidyverse.org/reference/sql.html) —
+  are analyzed by [sqlglot](https://github.com/tobymao/sqlglot)’s
+  lineage engine, called through the `reticulate` package.
+
+So if you only ever pipe dplyr/dbplyr queries into
+[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md),
+you can stop reading here: Python never enters the picture. The rest of
+this vignette covers how the sqlglot dependency is managed when you do
+analyze raw SQL. It follows the current best practice from the
+[reticulate package
 documentation](https://rstudio.github.io/reticulate/articles/package.html):
 Python dependencies are declared with
 [`reticulate::py_require()`](https://rstudio.github.io/reticulate/reference/py_require.html)
@@ -11,9 +23,8 @@ when the package loads, and reticulate provisions them automatically.
 
 ## Installation: There Is No Step Two
 
-Python setup is automatic. The first time you call
-[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md),
-reticulate will:
+Python setup is automatic. The first time lineage extraction needs
+sqlglot, reticulate will:
 
 1.  Find a suitable Python (downloading a self-contained build via
     [uv](https://docs.astral.sh/uv/) if none is configured)
@@ -71,25 +82,37 @@ other ways to select an environment.
 
 ### Architecture
 
-    R (dplyr/dbplyr) → SQL (via dbplyr::sql_render)
-                            ↓
-              Python (sqlglot.lineage engine)
-                            ↓
-          Column Lineage Metadata (per output column)
-                            ↓
-                R (create nodes & edges)
-                            ↓
-            React Flow Visualization
+    dbplyr pipeline ──→ pure-R walk of the lazy query tree
+                                      │
+    raw SQL string ──→ Python (sqlglot.lineage engine)
+                                      ↓
+                  Column Lineage Metadata (per output column)
+                                      ↓
+                        R (create nodes & edges)
+                                      ↓
+                     React Flow Visualization
+
+Both engines emit the same lineage metadata, so everything downstream is
+shared. Which one runs is controlled by the `engine` argument of
+[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md):
+`"auto"` (the default) picks the R engine for lazy tables and sqlglot
+for SQL strings, falling back to sqlglot if a pipeline uses something
+the R engine cannot trace. `metadata$engine` in the result records which
+one ran.
 
 ### Key Components
 
-1.  **R/zzz.R**: Package initialization
+1.  **R/lineage_r_engine.R**: The pure-R engine
+    - Walks dbplyr’s lazy query tree, reading exact column provenance
+      through selects, mutates, joins, and set operations — no SQL
+      parsing, no Python
+2.  **R/zzz.R**: Package initialization
     - `.onLoad()`: declares the sqlglot requirement via `py_require()`
       and imports the bundled Python module with `delay_load` (Python
       does not start until first use)
     - [`has_sqlglot()`](https://tgerke.github.io/dplyneage/reference/has_sqlglot.md):
       checks availability
-2.  **inst/python/dplyneage_lineage.py**: The lineage engine
+3.  **inst/python/dplyneage_lineage.py**: The sqlglot engine
     - Built on `sqlglot.lineage.lineage()`, which handles scope
       resolution, aliases, CTE trace-through, set operations, and star
       expansion
@@ -97,9 +120,9 @@ other ways to select an environment.
       traces each output column to its source columns
     - `list_tables()`: enumerates base tables (used for schema
       harvesting)
-3.  **R/sqlglot_utils.R**: R-side orchestration
+4.  **R/sqlglot_utils.R**: R-side orchestration
     - [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md):
-      main user-facing function
+      main user-facing function, dispatches to an engine
     - [`harvest_schema()`](https://tgerke.github.io/dplyneage/reference/harvest_schema.md):
       reads table schemas from your database connection so unqualified
       columns are attributed to the right table
@@ -109,9 +132,11 @@ other ways to select an environment.
 ## Schemas and Attribution Accuracy
 
 SQL alone does not always say which table an unqualified column belongs
-to. When you pass a dbplyr lazy table, dplyneage automatically lists the
-columns of each referenced table from the live connection and hands that
-schema to sqlglot, so attribution is exact.
+to. dbplyr lazy tables sidestep the problem entirely: the R engine reads
+provenance from the query tree, so no schema is ever needed. (When a
+lazy table falls back to sqlglot, dplyneage lists the columns of each
+referenced table from the live connection and hands that schema to
+sqlglot automatically.)
 
 For raw SQL strings, you can pass a schema yourself:
 
@@ -150,7 +175,9 @@ full list of dialects.
 
 ## Performance
 
-- **First call**: may take a moment while the Python environment
+- **dbplyr pipelines**: no Python startup cost at all — the R engine
+  runs immediately
+- **First raw-SQL call**: may take a moment while the Python environment
   initializes (and, on the very first run, provisions)
 - **Subsequent calls**: fast (\<100ms for typical queries)
 - **Complex queries**: sqlglot handles CTEs, subqueries, window

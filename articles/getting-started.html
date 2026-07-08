@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">dplyneage</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -54,7 +54,7 @@
 
 
 
-<script src="getting-started_files/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="getting-started_files/reactflow-bundle-1.0.0/reactflow-bundle.min.js"></script><script src="getting-started_files/lineage_flow-binding-0.1.0/lineage_flow.js"></script><div class="row">
+<script src="getting-started_files/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="getting-started_files/reactflow-bundle-1.0.0/reactflow-bundle.min.js"></script><script src="getting-started_files/lineage_flow-binding-0.1.0.9000/lineage_flow.js"></script><div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Getting Started with dplyneage</h1>
@@ -78,11 +78,13 @@ columns, CTEs, and columns computed from several sources at once.</p>
 </h2>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"tgerke/dplyneage"</span><span class="op">)</span></span></code></pre></div>
-<p>There is no Python setup step: dplyneage declares its one Python
-dependency (sqlglot) via <code><a href="https://rstudio.github.io/reticulate/reference/py_require.html" class="external-link">reticulate::py_require()</a></code>, and
-reticulate provisions it automatically the first time lineage extraction
-runs. See <code><a href="../articles/python-integration.html">vignette("python-integration")</a></code> if you manage your
-own Python environment.</p>
+<p>dplyr/dbplyr pipelines are analyzed entirely in R, so for those there
+is nothing else to install. Raw SQL strings are analyzed by sqlglot,
+dplyneage’s one Python dependency — declared via
+<code><a href="https://rstudio.github.io/reticulate/reference/py_require.html" class="external-link">reticulate::py_require()</a></code> and provisioned automatically the
+first time it’s needed, with no setup step. See
+<code><a href="../articles/python-integration.html">vignette("python-integration")</a></code> if you manage your own
+Python environment.</p>
 </div>
 <div class="section level2">
 <h2 id="your-first-lineage-diagram">Your first lineage diagram<a class="anchor" aria-label="anchor" href="#your-first-lineage-diagram"></a>
@@ -117,7 +119,7 @@ table:</p>
 <span>  <span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"300px"</span><span class="op">)</span></span></code></pre></div>
 <div id="htmlwidget-ac96cb3ee4656e2e9ec3" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
-<script type="application/json" data-for="htmlwidget-ac96cb3ee4656e2e9ec3">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","\"name\""],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.\"name\"_to_output.name","source":"customers","target":"output","sourceHandle":"\"name\"","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script><p>Each output column connects back to the source column it came from.
+<script type="application/json" data-for="htmlwidget-ac96cb3ee4656e2e9ec3">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script><p>Each output column connects back to the source column it came from.
 Try dragging the tables around, zooming with the mouse wheel, and
 hovering a column to highlight its connections.</p>
 </div>
@@ -137,17 +139,24 @@ followed by an aggregation:</p>
 <script type="application/json" data-for="htmlwidget-e5c8c404fe174e4c81bd">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"orders","type":"tableNode","data":{"label":"orders","columns":"amount","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":200},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name","total_spent"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_orders.amount_to_output.total_spent","source":"orders","target":"output","sourceHandle":"amount","targetHandle":"total_spent","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script><p>Notice that <code>total_spent</code> traces back to
 <code>orders.amount</code> — not to <code>customers</code>, even though
 <code>amount</code> appears unqualified in the generated SQL. When you
-pass a dbplyr table, dplyneage reads each referenced table’s columns
-from your database connection, so sqlglot can attribute every column to
-the table it actually lives in.</p>
+pass a dbplyr table, dplyneage doesn’t parse SQL at all: it walks the
+pipeline’s own query tree, which records exactly which table each column
+came from, so attribution is always right.</p>
+<p>If a pipeline embeds raw SQL with <code><a href="https://dbplyr.tidyverse.org/reference/sql.html" class="external-link">dbplyr::sql()</a></code>, the
+query tree can’t see inside that string, so
+<code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> hands the whole query to sqlglot instead
+(with a message). You can also force a specific engine with
+<code>engine = "r"</code> or <code>engine = "sqlglot"</code> — see
+<code><a href="../reference/extract_lineage.html">?extract_lineage</a></code>.</p>
 </div>
 <div class="section level2">
 <h2 id="where-lineage-gets-hard">Where lineage gets hard<a class="anchor" aria-label="anchor" href="#where-lineage-gets-hard"></a>
 </h2>
 <p>These are the cases that break naive lineage tools. dplyneage handles
-them because sqlglot’s lineage engine resolves the full query structure
-rather than pattern-matching column names. Raw SQL works just like
-dbplyr input, so we’ll use it here to keep the examples compact.</p>
+them because both engines resolve the full query structure rather than
+pattern-matching column names: dbplyr pipelines through their query
+tree, raw SQL through sqlglot’s lineage engine. We’ll use raw SQL here
+to keep the examples compact.</p>
 <div class="section level3">
 <h3 id="tracing-through-ctes">Tracing through CTEs<a class="anchor" aria-label="anchor" href="#tracing-through-ctes"></a>
 </h3>
@@ -178,16 +187,18 @@ sources:</p>
 <span><span class="st">"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"300px"</span><span class="op">)</span></span></code></pre></div>
 <div id="htmlwidget-febe03efa1a2d8d52a86" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
-<script type="application/json" data-for="htmlwidget-febe03efa1a2d8d52a86">{"x":{"nodes":[{"id":"archive","type":"tableNode","data":{"label":"archive","columns":"email","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"users","type":"tableNode","data":{"label":"users","columns":"email","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":200},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":"email","tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_archive.email_to_output.email","source":"archive","target":"output","sourceHandle":"email","targetHandle":"email","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_users.email_to_output.email","source":"users","target":"output","sourceHandle":"email","targetHandle":"email","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script><p>The same applies to arithmetic across tables
+<script type="application/json" data-for="htmlwidget-febe03efa1a2d8d52a86">{"x":{"nodes":[{"id":"users","type":"tableNode","data":{"label":"users","columns":"email","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"archive","type":"tableNode","data":{"label":"archive","columns":"email","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":200},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":"email","tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_users.email_to_output.email","source":"users","target":"output","sourceHandle":"email","targetHandle":"email","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_archive.email_to_output.email","source":"archive","target":"output","sourceHandle":"email","targetHandle":"email","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script><p>The same applies to arithmetic across tables
 (<code>o.amount * r.rate</code>), <code>CASE</code> expressions, and
-both branches of a <code>UNION</code>.</p>
+both branches of a <code>UNION</code>. dbplyr pipelines get the same
+treatment: a <code><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">full_join()</a></code> key column traces to both sides,
+and a <code><a href="https://dplyr.tidyverse.org/reference/setops.html" class="external-link">union_all()</a></code> column to every branch.</p>
 </div>
 <div class="section level3">
 <h3 id="expanding-select">Expanding <code>SELECT *</code><a class="anchor" aria-label="anchor" href="#expanding-select"></a>
 </h3>
 <p>With a schema available, <code>SELECT *</code> expands to real
-columns. For dbplyr input the schema comes from your connection
-automatically; for raw SQL, pass it yourself:</p>
+columns. dbplyr input never needs a schema — the pipeline itself knows
+its columns — but for raw SQL, pass one yourself:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span></span>
 <span>  <span class="st">"SELECT * FROM customers"</span>,</span>

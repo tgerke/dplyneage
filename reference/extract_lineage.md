@@ -1,16 +1,21 @@
 # Extract column lineage from a dplyr pipeline or SQL query
 
 `extract_lineage()` traces every output column of a query back to the
-source table columns it was computed from, using
-[sqlglot](https://github.com/tobymao/sqlglot)'s lineage engine. Pipe a
-dbplyr lazy table straight into it, or pass a SQL string. Aliases, CTEs,
-subqueries, set operations like `UNION`, and multi-source expressions
-such as `COALESCE(a.x, b.x)` all resolve to their true source columns.
+source table columns it was computed from. Pipe a dbplyr lazy table
+straight into it, or pass a SQL string. Aliases, CTEs, subqueries, set
+operations like `UNION`, and multi-source expressions such as
+`COALESCE(a.x, b.x)` all resolve to their true source columns.
 
 ## Usage
 
 ``` r
-extract_lineage(sql, dialect = "duckdb", schema = NULL, show_sql = FALSE)
+extract_lineage(
+  sql,
+  dialect = "duckdb",
+  schema = NULL,
+  show_sql = FALSE,
+  engine = c("auto", "sqlglot", "r")
+)
 ```
 
 ## Arguments
@@ -18,10 +23,11 @@ extract_lineage(sql, dialect = "duckdb", schema = NULL, show_sql = FALSE)
 - sql:
 
   A dbplyr lazy table (`tbl_lazy`) or a single SQL query string. Lazy
-  tables are rendered to SQL with
-  [`dbplyr::sql_render()`](https://dbplyr.tidyverse.org/reference/sql_build.html),
-  and their database connection is used to harvest table schemas
-  automatically.
+  tables are analyzed directly from their lazy query tree (the SQL
+  recorded in `metadata` still comes from
+  [`dbplyr::sql_render()`](https://dbplyr.tidyverse.org/reference/sql_build.html));
+  when one is handled by the sqlglot engine instead, its database
+  connection is used to harvest table schemas automatically.
 
 - dialect:
 
@@ -31,24 +37,50 @@ extract_lineage(sql, dialect = "duckdb", schema = NULL, show_sql = FALSE)
 
 - schema:
 
-  Optional table schema used to attribute unqualified columns to the
-  right table and to expand `SELECT *`: a named list mapping table names
-  to character vectors of column names, e.g.
-  `list(orders = c("order_id", "amount"))`. When `sql` is a dbplyr lazy
-  table this is harvested from the database connection, so you rarely
-  need to supply it yourself.
+  Optional table schema used by the sqlglot engine to attribute
+  unqualified columns to the right table and to expand `SELECT *`: a
+  named list mapping table names to character vectors of column names,
+  e.g. `list(orders = c("order_id", "amount"))`. Only relevant for SQL
+  strings — the R engine reads exact provenance from the lazy query
+  tree, and a lazy table that falls back to sqlglot harvests its schema
+  from the database connection automatically.
 
 - show_sql:
 
   If `TRUE`, print the SQL being analyzed. Useful for seeing what dbplyr
   generated from your pipeline. Default: `FALSE`.
 
+- engine:
+
+  Which lineage engine to use. `"auto"` (the default) uses the pure-R
+  engine for lazy tables when dbplyr (\>= 2.5.0) is installed, falling
+  back to sqlglot for SQL strings or unsupported constructs. `"r"`
+  forces the pure-R engine and errors on anything it cannot trace.
+  `"sqlglot"` always renders to SQL and analyzes with sqlglot.
+
 ## Value
 
 A list with `nodes` and `edges` ready to pass to
 [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md),
-plus `metadata` recording the analyzed SQL, the dialect, and node/edge
-counts.
+plus `metadata` recording the analyzed SQL, the dialect, the engine
+used, and node/edge counts.
+
+## Details
+
+Two engines are available. dbplyr lazy tables are analyzed by a pure-R
+fast path that walks the pipeline's lazy query tree directly — no Python
+required. SQL strings are analyzed by
+[sqlglot](https://github.com/tobymao/sqlglot)'s lineage engine via
+reticulate. If a pipeline uses a construct the R engine cannot trace
+(e.g. raw SQL injected with
+[`dbplyr::sql()`](https://dbplyr.tidyverse.org/reference/sql.html)), it
+falls back to sqlglot automatically.
+
+Both engines trace select-list lineage: columns used only in
+[`filter()`](https://dplyr.tidyverse.org/reference/filter.html), join
+conditions, or
+[`arrange()`](https://dplyr.tidyverse.org/reference/arrange.html) do not
+create lineage edges.
 
 ## See also
 
@@ -283,6 +315,9 @@ extract_lineage(
 #> $metadata$dialect
 #> [1] "duckdb"
 #> 
+#> $metadata$engine
+#> [1] "sqlglot"
+#> 
 #> $metadata$table_count
 #> [1] 3
 #> 
@@ -290,8 +325,8 @@ extract_lineage(
 #> [1] 2
 #> 
 #> 
-# dbplyr pipelines: pipe straight in; the schema is read from the
-# connection so attribution is exact
+# dbplyr pipelines: pipe straight in; the pure-R engine reads exact
+# provenance from the pipeline itself, no Python needed
 library(dplyr)
 #> 
 #> Attaching package: ‘dplyr’
