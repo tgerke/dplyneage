@@ -4,14 +4,21 @@
 \alias{extract_lineage}
 \title{Extract Column Lineage from SQL Query}
 \usage{
-extract_lineage(sql, dialect = "duckdb", show_sql = FALSE)
+extract_lineage(sql, dialect = "duckdb", schema = NULL, show_sql = FALSE)
 }
 \arguments{
-\item{sql}{A SQL query string or a dbplyr lazy table (tbl_lazy). 
-When using in a pipe with dplyr/dbplyr, the query is automatically converted to SQL.}
+\item{sql}{A SQL query string or a dbplyr lazy table (tbl_lazy).
+When using in a pipe with dplyr/dbplyr, the query is automatically
+converted to SQL.}
 
 \item{dialect}{SQL dialect (e.g., "duckdb", "postgres", "mysql", "snowflake").
 Default: "duckdb"}
+
+\item{schema}{Optional table schema used to resolve unqualified columns and
+expand `*`: a named list mapping table names to character vectors of
+column names, e.g. `list(orders = c("order_id", "amount"))`. When `sql`
+is a dbplyr lazy table, the schema is harvested automatically from the
+database connection.}
 
 \item{show_sql}{If TRUE, prints the SQL query being analyzed. Default: FALSE}
 }
@@ -19,8 +26,9 @@ Default: "duckdb"}
 A list containing nodes and edges for lineage visualization
 }
 \description{
-Uses sqlglot to parse SQL and extract column-level lineage information.
-Works seamlessly in a pipeline - just pipe your dplyr query directly to this function.
+Uses sqlglot's lineage engine to parse SQL and extract column-level
+lineage information. Works seamlessly in a pipeline - just pipe your
+dplyr query directly to this function.
 }
 \examples{
 \dontrun{
@@ -48,9 +56,14 @@ query <- tbl(con, "customers") |>
 lineage <- extract_lineage(query)
 lineage_flow(lineage)
 
-# Method 3: Use raw SQL
-sql <- "SELECT id, name FROM customers"
-lineage <- extract_lineage(sql)
+# Method 3: Use raw SQL (supply a schema for best attribution)
+lineage <- extract_lineage(
+  "SELECT c.name, order_date FROM customers c JOIN orders o ON c.id = o.customer_id",
+  schema = list(
+    customers = c("id", "name"),
+    orders = c("customer_id", "order_date")
+  )
+)
 lineage_flow(lineage)
 
 dbDisconnect(con)

@@ -30,24 +30,20 @@ This guide explains how to build the React Flow JavaScript bundle that powers th
 
 ## Build Steps
 
-### Option 1: Using R (Recommended for Users)
+### Option 1: Using R (from a source checkout)
+
+With your working directory at the root of the dplyneage repository:
 
 ```{r}
-library(dplyneage)
-
 # Check if bundle already exists
-has_bundle()
+dplyneage::has_bundle()
 
-# Build the bundle
-build_bundle()
-
-# Force rebuild if needed
-build_bundle(force = TRUE)
+# Build (or force-rebuild) the bundle - internal developer helper
+dplyneage:::build_bundle()
+dplyneage:::build_bundle(force = TRUE)
 ```
 
-This method works from anywhere and automatically finds the correct package directory.
-
-### Option 2: Using the build script (For Developers)
+### Option 2: Using the build script
 
 From the package source directory in a terminal:
 

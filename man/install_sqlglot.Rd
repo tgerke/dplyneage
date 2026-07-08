@@ -7,14 +7,18 @@
 install_sqlglot(method = "auto", envname = "r-dplyneage")
 }
 \arguments{
-\item{method}{Installation method: "auto", "virtualenv", or "conda". Default: "auto"}
+\item{method}{Ignored. Kept for backward compatibility.}
 
-\item{envname}{Name of Python environment to use. Default: "r-dplyneage"}
+\item{envname}{Ignored. Kept for backward compatibility.}
 }
 \value{
-Invisibly returns NULL
+Invisibly returns TRUE
 }
 \description{
-Installs the sqlglot Python package required for lineage extraction.
-Uses the requirements.txt file bundled with the package.
+Deprecated: Python dependencies are managed
+automatically via `reticulate::py_require()` when the package loads, so no
+manual installation step is needed. If you manage your own Python
+environment (e.g. a project virtualenv), install sqlglot into it directly
+with `pip install sqlglot`.
 }
+\keyword{internal}

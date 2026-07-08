@@ -8,10 +8,17 @@ vignette: >
 ---
 
 ```{r, include = FALSE}
+# Only evaluate chunks when the full stack (Python sqlglot + db packages)
+# is available, so the vignette builds anywhere
+can_eval <- requireNamespace("dplyr", quietly = TRUE) &&
+  requireNamespace("dbplyr", quietly = TRUE) &&
+  requireNamespace("duckdb", quietly = TRUE) &&
+  tryCatch(dplyneage::has_sqlglot(), error = function(e) FALSE)
+
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = TRUE
+  eval = can_eval
 )
 ```
 
@@ -34,30 +41,17 @@ library(dplyneage)
 
 # Check if bundle exists
 has_bundle()
-
-# Build if needed (requires Node.js v18+)
-build_bundle()
 ```
 
-**For developers**: You can also build from the terminal in the package source directory:
+**For developers**: rebuild the bundle from the terminal in the package source directory:
 
 ```bash
 ./build_bundle.sh
 ```
 
-### Install Python Dependencies
+### Python Dependencies
 
-```{r, eval=FALSE}
-install_sqlglot()
-```
-
-This will:
-
-- Create a Python virtual environment
-- Install sqlglot for SQL parsing and lineage extraction
-- Configure the package to use this environment
-
-**Important:** Restart R after installing Python dependencies.
+There is nothing to install: dplyneage declares its Python dependency (sqlglot) via `reticulate::py_require()`, and reticulate provisions it automatically the first time lineage extraction runs. See `vignette("python-integration")` if you manage your own Python environment.
 
 ### Verify Installation
 
@@ -190,21 +184,21 @@ Once your lineage is displayed, you can:
 
 ## Column Attribution
 
-The package uses smart heuristics to determine which table each column comes from:
+Lineage is traced with sqlglot's dedicated lineage engine, which resolves aliases, traces through CTEs and subqueries, follows set operations (UNION), and keeps every source of computed columns (e.g. `COALESCE(a.email, b.email)` yields edges from both tables).
 
-- Columns from `SELECT table.*` → attributed to `table`
-- Standalone columns in JOINs → attributed to joined table
-- Explicitly prefixed columns → attributed to specified table
+To attribute *unqualified* columns to the right table, sqlglot needs to know each table's columns:
 
-Example:
+- **dbplyr pipelines**: handled automatically — dplyneage reads the schema of each referenced table from your database connection.
+- **Raw SQL**: pass a `schema` for exact attribution:
 
-```sql
-SELECT customers.*, amount
-FROM customers
-LEFT JOIN orders ON (...)
+```{r, eval = FALSE}
+extract_lineage(
+  "SELECT c.name, order_date FROM customers c JOIN orders o ON c.id = o.customer_id",
+  schema = list(
+    customers = c("id", "name"),
+    orders = c("customer_id", "order_date")
+  )
+)
 ```
 
-Result:
-
-- **customers**: `id`, `name` (from `customers.*`)
-- **orders**: `amount` (standalone column from JOIN)
+Without a schema, fully qualified columns (`o.amount`) still resolve correctly; `SELECT *` cannot be expanded and produces a warning.

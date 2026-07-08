@@ -10,9 +10,6 @@
 #' @return A list structure compatible with lineage_flow
 #' @export
 create_table_node <- function(table_name, columns, x = 0, y = 0, table_type = "source") {
-  # Create unique IDs for each column
-  column_ids <- paste0(table_name, ".", columns)
-  
   # Color scheme based on industry standards (dbt, SQLMesh, OpenMetadata)
   colors <- list(
     source = list(bg = "#f0f7ff", border = "#3b82f6", header = "#1d4ed8"),

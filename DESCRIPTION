@@ -9,23 +9,25 @@ Authors@R: c(
       role = c("aut", "cre")
     )
   )
-Description: Implements column lineage visualizations using React Flow 
+Description: Implements column lineage visualizations using React Flow
     for dplyr and dbplyr pipelines. Provides a tidyverse-style interface
     for tracking data transformations through pipeline operations.
 License: MIT + file LICENSE
-URL: https://tgerke.github.io/dplyneage/
+URL: https://tgerke.github.io/dplyneage/, https://github.com/tgerke/dplyneage
+BugReports: https://github.com/tgerke/dplyneage/issues
 Encoding: UTF-8
-LazyData: true
 Imports:
     htmlwidgets,
     reticulate
 Suggests:
-    dplyr,
+    DBI,
     dbplyr,
+    dplyr,
     duckdb,
     knitr,
     rmarkdown,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    withr
 VignetteBuilder: knitr
-RoxygenNote: 7.3.3
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0

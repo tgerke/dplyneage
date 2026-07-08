@@ -13,18 +13,12 @@ build_bundle(force = FALSE)
 Invisibly returns TRUE if successful, FALSE if failed
 }
 \description{
-Builds the React Flow JavaScript bundle required for interactive visualizations.
-This function runs npm install and webpack build in the package's srcjs directory.
+Developer tool that rebuilds the React Flow JavaScript bundle from the
+`srcjs/` sources. The bundle ships pre-built with the package, so end
+users never need this; it only works from a source checkout of the
+repository (see also `build_bundle.sh`).
 }
 \details{
-Note: Requires Node.js (v18+) and npm to be installed on your system.
+Requires Node.js (v18+) and npm.
 }
-\examples{
-\dontrun{
-# Build the React Flow bundle
-build_bundle()
-
-# Force rebuild
-build_bundle(force = TRUE)
-}
-}
+\keyword{internal}

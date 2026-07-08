@@ -36,15 +36,14 @@ reference:
   
   - title: Python Integration
     desc: >
-      Functions for managing Python dependencies
+      Python dependencies are provisioned automatically; this helper checks
+      availability
     contents:
-    - install_sqlglot
     - has_sqlglot
-  
+
   - title: Bundle Management
     desc: >
-      Functions for building and checking the React Flow bundle
+      The React Flow bundle ships pre-built; this helper checks it exists
     contents:
-    - build_bundle
     - has_bundle
 

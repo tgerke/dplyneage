@@ -4,17 +4,21 @@
 \alias{extract_lineage_from_sql}
 \title{Extract Lineage from SQL using sqlglot}
 \usage{
-extract_lineage_from_sql(sql, dialect = "duckdb")
+extract_lineage_from_sql(sql, dialect = "duckdb", schema = NULL)
 }
 \arguments{
 \item{sql}{SQL query string}
 
 \item{dialect}{SQL dialect}
+
+\item{schema}{Optional named list mapping table names to column vectors}
 }
 \value{
-List containing raw lineage data from sqlglot
+List containing tables, columns, sql, and dialect
 }
 \description{
-Internal function that calls Python sqlglot to parse SQL and extract lineage
+Internal function that calls the bundled Python module (built on
+sqlglot.lineage) to parse SQL and trace each output column to its
+source columns.
 }
 \keyword{internal}

@@ -13,6 +13,6 @@ get_sql_from_dplyr(query)
 Character string containing SQL query
 }
 \description{
-Converts a dbplyr lazy table to SQL string using show_query
+Converts a dbplyr lazy table to SQL string using sql_render
 }
 \keyword{internal}

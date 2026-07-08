@@ -6,8 +6,6 @@
 ^srcjs/package-lock\.json$
 ^build_bundle\.sh$
 ^BUILD\.md$
-^test.*\.R$
-^examples\.R$
 ^LICENSE\.md$
 ^_pkgdown\.yml$
 ^docs$
@@ -15,3 +13,5 @@
 ^README\.Rmd$
 ^examples$
 ^srcjs$
+^\.claude$
+^inst/python/__pycache__$

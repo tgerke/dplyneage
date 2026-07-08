@@ -36,9 +36,10 @@ function renderReactFlow(el, x, width, height) {
   
   el.style.width = '100%';
   el.style.height = height || '600px';
-  el.innerHTML = '<div id="reactflow-container" style="width: 100%; height: 100%;"></div>';
-  
-  var container = el.querySelector('#reactflow-container');
+  // Class rather than id: multiple widgets can render on one page
+  el.innerHTML = '<div class="lineage-flow-container" style="width: 100%; height: 100%;"></div>';
+
+  var container = el.querySelector('.lineage-flow-container');
   
   // Define custom node types
   var nodeTypes = {
