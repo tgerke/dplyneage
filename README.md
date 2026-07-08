@@ -127,7 +127,7 @@ edges <- list(
 )
 
 lineage_flow(nodes, edges, height = "600px")
-#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpvZgp4P/file8032ddf1b44/widget803127724e3.html screenshot completed
+#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/Rtmp016n2b/file27bf59f90138/widget27bf6abf31ad.html screenshot completed
 ```
 
 <img src="man/figures/README-unnamed-chunk-4-1.png" alt="Hand-built lineage diagram showing the customers and orders source tables in blue connected to a customer_summary target table in green, with a SUM() label on the total_spent edge"  />
@@ -157,6 +157,83 @@ get_ducklake_table("orders") |>
   lineage_flow()
 ```
 
+## Exporting lineage
+
+Diagrams are for people; the same lineage is also useful as plain data.
+`lineage_json()` gives you a small, stable document you can query with
+jq, feed to a data catalog, or commit next to your pipeline code — then
+a CI diff flags any change to column provenance before it ships:
+
+``` r
+lineage <- tbl(con, "orders") |>
+  left_join(tbl(con, "customers"), by = "customer_id") |>
+  group_by(customer_id, first_name) |>
+  summarise(total_spent = sum(amount, na.rm = TRUE), .groups = "drop") |>
+  extract_lineage()
+
+lineage_json(lineage)
+#> {
+#>   "metadata": {
+#>     "sql": "SELECT customer_id, first_name, SUM(amount) AS total_spent\nFROM (\n  SELECT orders.*, first_name, last_name, email\n  FROM orders\n  LEFT JOIN customers\n    ON (orders.customer_id = customers.customer_id)\n) AS q01\nGROUP BY customer_id, first_name",
+#>     "dialect": "duckdb",
+#>     "engine": "r",
+#>     "table_count": 3,
+#>     "edge_count": 3
+#>   },
+#>   "nodes": [
+#>     {
+#>       "id": "orders",
+#>       "type": "source",
+#>       "columns": ["customer_id", "amount"]
+#>     },
+#>     {
+#>       "id": "customers",
+#>       "type": "source",
+#>       "columns": ["first_name"]
+#>     },
+#>     {
+#>       "id": "output",
+#>       "type": "target",
+#>       "columns": ["customer_id", "first_name", "total_spent"]
+#>     }
+#>   ],
+#>   "edges": [
+#>     {
+#>       "source": "orders",
+#>       "source_column": "customer_id",
+#>       "target": "output",
+#>       "target_column": "customer_id"
+#>     },
+#>     {
+#>       "source": "customers",
+#>       "source_column": "first_name",
+#>       "target": "output",
+#>       "target_column": "first_name"
+#>     },
+#>     {
+#>       "source": "orders",
+#>       "source_column": "amount",
+#>       "target": "output",
+#>       "target_column": "total_spent"
+#>     }
+#>   ]
+#> }
+```
+
+`lineage_graphml()` writes GraphML, which opens directly in graph tools
+like Gephi, yEd, and igraph. Each column is a node, so impact analysis —
+“which source columns feed `total_spent`?” — is one call:
+
+``` r
+path <- tempfile(fileext = ".graphml")
+lineage_graphml(lineage, path)
+
+g <- igraph::read_graph(path, format = "graphml")
+igraph::subcomponent(g, "output.total_spent", mode = "in")
+#> + 2/6 vertices, named, from 483ca35:
+#> [1] output.total_spent orders.amount
+```
+
 ## Learn more
 
 - `vignette("getting-started")` walks from a first diagram through CTEs,
@@ -165,9 +242,3 @@ get_ducklake_table("orders") |>
   managed
 - Full function reference at
   [tgerke.github.io/dplyneage](https://tgerke.github.io/dplyneage/)
-
-## Roadmap
-
-- ✅ Pure-R lineage fast path for dplyr-only pipelines (no Python), via
-  dbplyr’s lazy query tree
-- 🚧 Export lineage to common formats (JSON, GraphML)

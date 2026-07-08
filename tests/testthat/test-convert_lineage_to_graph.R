@@ -1,28 +1,5 @@
-# convert_lineage_to_graph() consumes the shape produced by the Python
-# lineage module: columns with output_name/expression/sources
-
-fixture_lineage <- function() {
-  list(
-    tables = list(
-      list(name = "customers", alias = NULL, qualified_name = "customers"),
-      list(name = "orders", alias = NULL, qualified_name = "orders")
-    ),
-    columns = list(
-      list(
-        output_name = "customer_id",
-        expression = "customer_id",
-        sources = list(list(table = "customers", column_name = "customer_id"))
-      ),
-      list(
-        output_name = "total_spent",
-        expression = "SUM(amount)",
-        sources = list(list(table = "orders", column_name = "amount"))
-      )
-    ),
-    sql = "SELECT ...",
-    dialect = "duckdb"
-  )
-}
+# fixture_lineage() lives in helper-lineage.R and is shared with
+# test-export.R
 
 test_that("graph conversion groups columns into source and output nodes", {
   graph <- convert_lineage_to_graph(fixture_lineage())

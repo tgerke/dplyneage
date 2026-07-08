@@ -33,7 +33,15 @@ reference:
     contents:
     - create_table_node
     - create_column_edge
-  
+
+  - title: Export
+    desc: >
+      Serialize lineage to interchange formats for graph tools, CI, and
+      data catalogs
+    contents:
+    - lineage_json
+    - lineage_graphml
+
   - title: Python Integration
     desc: >
       Python (sqlglot) is only used for raw SQL input and is provisioned

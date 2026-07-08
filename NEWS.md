@@ -1,5 +1,11 @@
 # dplyneage (development version)
 
+* New `lineage_json()` and `lineage_graphml()` export `extract_lineage()`
+  results (or hand-built node/edge lists) to interchange formats: a clean
+  JSON schema for scripting, CI diffs, and data catalogs, and column-level
+  GraphML that loads directly into igraph, Gephi, or yEd for impact
+  analysis.
+
 * `extract_lineage()` now analyzes dbplyr lazy tables with a pure-R engine
   that walks the pipeline's lazy query tree — no Python required. Column
   provenance is read directly from the tree, so joins (including suffix

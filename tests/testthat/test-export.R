@@ -1,0 +1,234 @@
+# Exporters run engine-free: graphs come from convert_lineage_to_graph()
+# on the shared fixture, or from the manual builders
+
+fixture_graph <- function() {
+  convert_lineage_to_graph(fixture_lineage())
+}
+
+manual_graph <- function() {
+  list(
+    nodes = list(
+      create_table_node("orders", c("order_id", "amount")),
+      create_table_node("daily_totals", "total", table_type = "target")
+    ),
+    edges = list(
+      create_column_edge("orders", "amount", "daily_totals", "total")
+    )
+  )
+}
+
+# JSON -------------------------------------------------------------------
+
+test_that("lineage_json emits the semantic schema", {
+  parsed <- jsonlite::fromJSON(
+    lineage_json(fixture_graph()),
+    simplifyVector = FALSE
+  )
+
+  expect_named(parsed, c("metadata", "nodes", "edges"))
+
+  ids <- vapply(parsed$nodes, function(n) n$id, character(1))
+  types <- vapply(parsed$nodes, function(n) n$type, character(1))
+  expect_identical(sort(ids), c("customers", "orders", "output"))
+  expect_identical(types[ids == "output"], "target")
+
+  output_cols <- parsed$nodes[[which(ids == "output")]]$columns
+  expect_identical(
+    sort(unlist(output_cols)),
+    c("customer_id", "total_spent")
+  )
+
+  expect_length(parsed$edges, 2L)
+  expect_named(
+    parsed$edges[[1]],
+    c("source", "source_column", "target", "target_column")
+  )
+  amount_edge <- Filter(function(e) e$source_column == "amount", parsed$edges)
+  expect_identical(amount_edge[[1]]$source, "orders")
+  expect_identical(amount_edge[[1]]$target, "output")
+  expect_identical(amount_edge[[1]]$target_column, "total_spent")
+})
+
+test_that("lineage_json passes metadata through", {
+  parsed <- jsonlite::fromJSON(
+    lineage_json(fixture_graph()),
+    simplifyVector = FALSE
+  )
+
+  expect_identical(parsed$metadata$sql, "SELECT ...")
+  expect_identical(parsed$metadata$dialect, "duckdb")
+  expect_identical(parsed$metadata$engine, "sqlglot")
+  expect_identical(parsed$metadata$edge_count, 2L)
+})
+
+test_that("single-column nodes serialize columns as a JSON array", {
+  parsed <- jsonlite::fromJSON(
+    lineage_json(fixture_graph()),
+    simplifyVector = FALSE
+  )
+
+  ids <- vapply(parsed$nodes, function(n) n$id, character(1))
+  customers_cols <- parsed$nodes[[which(ids == "customers")]]$columns
+  # with simplifyVector = FALSE a JSON array parses to a list; a bare
+  # string (the auto_unbox collapse this guards against) would not
+  expect_type(customers_cols, "list")
+  expect_identical(customers_cols[[1]], "customer_id")
+})
+
+test_that("pretty = FALSE produces a single line", {
+  out <- lineage_json(fixture_graph(), pretty = FALSE)
+  expect_length(out, 1L)
+  expect_false(grepl("\n", out))
+})
+
+test_that("lineage_json writes to path and returns invisibly", {
+  path <- withr::local_tempfile(fileext = ".json")
+
+  expect_invisible(lineage_json(fixture_graph(), path = path))
+  written <- paste(readLines(path), collapse = "\n")
+  expect_identical(written, as.character(lineage_json(fixture_graph())))
+})
+
+test_that("manual node/edge lists export without a metadata key", {
+  parsed <- jsonlite::fromJSON(
+    lineage_json(manual_graph()),
+    simplifyVector = FALSE
+  )
+
+  expect_named(parsed, c("nodes", "edges"))
+  expect_identical(parsed$edges[[1]]$source, "orders")
+  expect_identical(parsed$edges[[1]]$target_column, "total")
+})
+
+test_that("edge-free lineage still exports", {
+  lineage <- fixture_lineage()
+  lineage$columns[[1]]$sources <- list()
+  lineage$columns[[2]]$sources <- list()
+  graph <- convert_lineage_to_graph(lineage)
+
+  parsed <- jsonlite::fromJSON(lineage_json(graph), simplifyVector = FALSE)
+  expect_length(parsed$edges, 0L)
+  expect_identical(parsed$nodes[[1]]$id, "output")
+})
+
+test_that("exporters reject objects without nodes and edges", {
+  expect_snapshot(error = TRUE, lineage_json(list()))
+  expect_snapshot(error = TRUE, lineage_graphml(mtcars))
+})
+
+# GraphML ----------------------------------------------------------------
+
+test_that("lineage_graphml emits valid column-level GraphML", {
+  skip_if_not_installed("xml2")
+
+  graph <- fixture_graph()
+  doc <- xml2::read_xml(lineage_graphml(graph))
+
+  ns <- unlist(xml2::xml_ns(doc))
+  expect_identical(
+    unname(ns["d1"]),
+    "http://graphml.graphdrawing.org/xmlns"
+  )
+
+  xml2::xml_ns_strip(doc)
+  keys <- xml2::xml_attr(xml2::xml_find_all(doc, "//key"), "attr.name")
+  expect_identical(keys, c("name", "table", "column", "node_type"))
+
+  expect_identical(
+    xml2::xml_attr(xml2::xml_find_first(doc, "//graph"), "edgedefault"),
+    "directed"
+  )
+
+  # one GraphML node per (table, column) pair
+  total_columns <- sum(vapply(
+    graph$nodes,
+    function(n) length(unlist(n$data$columns)),
+    integer(1)
+  ))
+  nodes <- xml2::xml_find_all(doc, "//node")
+  expect_length(nodes, total_columns)
+  expect_length(xml2::xml_find_all(doc, "//edge"), length(graph$edges))
+
+  ids <- xml2::xml_attr(nodes, "id")
+  expect_in(
+    c("customers.customer_id", "orders.amount", "output.total_spent"),
+    ids
+  )
+
+  amount_edge <- xml2::xml_find_first(
+    doc,
+    "//edge[@source='orders.amount']"
+  )
+  expect_identical(xml2::xml_attr(amount_edge, "target"), "output.total_spent")
+
+  amount_node <- xml2::xml_find_first(doc, "//node[@id='orders.amount']")
+  data_vals <- xml2::xml_text(xml2::xml_find_all(amount_node, "./data"))
+  expect_identical(data_vals, c("orders.amount", "orders", "amount", "source"))
+})
+
+test_that("special characters in names are escaped", {
+  skip_if_not_installed("xml2")
+
+  hostile_table <- "a<b>&\"c'"
+  hostile_column <- "x&y"
+  lineage <- list(
+    nodes = list(
+      create_table_node(hostile_table, hostile_column),
+      create_table_node("out", "z", table_type = "target")
+    ),
+    edges = list(
+      create_column_edge(hostile_table, hostile_column, "out", "z")
+    )
+  )
+
+  doc <- xml2::read_xml(lineage_graphml(lineage))
+  xml2::xml_ns_strip(doc)
+
+  node <- xml2::xml_find_first(doc, "//node")
+  expect_identical(
+    xml2::xml_attr(node, "id"),
+    paste0(hostile_table, ".", hostile_column)
+  )
+  expect_identical(
+    xml2::xml_text(xml2::xml_find_all(node, "./data")),
+    c(
+      paste0(hostile_table, ".", hostile_column),
+      hostile_table, hostile_column, "source"
+    )
+  )
+  edge <- xml2::xml_find_first(doc, "//edge")
+  expect_identical(
+    xml2::xml_attr(edge, "source"),
+    paste0(hostile_table, ".", hostile_column)
+  )
+})
+
+test_that("lineage_graphml writes to path and returns invisibly", {
+  skip_if_not_installed("xml2")
+  path <- withr::local_tempfile(fileext = ".graphml")
+
+  expect_invisible(lineage_graphml(fixture_graph(), path = path))
+  doc <- xml2::read_xml(path)
+  xml2::xml_ns_strip(doc)
+  expect_length(xml2::xml_find_all(doc, "//edge"), 2L)
+})
+
+test_that("GraphML round-trips through igraph with usable names", {
+  skip_if_not_installed("igraph")
+  path <- withr::local_tempfile(fileext = ".graphml")
+  lineage_graphml(fixture_graph(), path = path)
+
+  g <- igraph::read_graph(path, format = "graphml")
+
+  expect_equal(igraph::vcount(g), 4)
+  expect_equal(igraph::ecount(g), 2)
+  expect_in(
+    c("name", "table", "column", "node_type"),
+    igraph::vertex_attr_names(g)
+  )
+
+  # the payoff: ancestry of an output column in one call
+  upstream <- igraph::subcomponent(g, "output.total_spent", mode = "in")
+  expect_in("orders.amount", names(upstream))
+  expect_false("customers.customer_id" %in% names(upstream))
+})

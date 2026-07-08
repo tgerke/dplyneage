@@ -141,13 +141,32 @@ get_ducklake_table("orders") |>
   lineage_flow()
 ```
 
+## Exporting lineage
+
+Diagrams are for people; the same lineage is also useful as plain data. `lineage_json()` gives you a small, stable document you can query with jq, feed to a data catalog, or commit next to your pipeline code — then a CI diff flags any change to column provenance before it ships:
+
+```{r}
+lineage <- tbl(con, "orders") |>
+  left_join(tbl(con, "customers"), by = "customer_id") |>
+  group_by(customer_id, first_name) |>
+  summarise(total_spent = sum(amount, na.rm = TRUE), .groups = "drop") |>
+  extract_lineage()
+
+lineage_json(lineage)
+```
+
+`lineage_graphml()` writes GraphML, which opens directly in graph tools like Gephi, yEd, and igraph. Each column is a node, so impact analysis — "which source columns feed `total_spent`?" — is one call:
+
+```{r}
+path <- tempfile(fileext = ".graphml")
+lineage_graphml(lineage, path)
+
+g <- igraph::read_graph(path, format = "graphml")
+igraph::subcomponent(g, "output.total_spent", mode = "in")
+```
+
 ## Learn more
 
 - `vignette("getting-started")` walks from a first diagram through CTEs, multi-source columns, and schemas
 - `vignette("python-integration")` covers how the Python dependency is managed
 - Full function reference at [tgerke.github.io/dplyneage](https://tgerke.github.io/dplyneage/)
-
-## Roadmap
-
-- ✅ Pure-R lineage fast path for dplyr-only pipelines (no Python), via dbplyr's lazy query tree
-- 🚧 Export lineage to common formats (JSON, GraphML)

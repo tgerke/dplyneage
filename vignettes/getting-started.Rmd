@@ -192,6 +192,39 @@ lineage_flow(nodes, edges, height = "300px")
 
 Nodes come in three types — `"source"` (blue), `"transform"` (orange), and `"target"` (green) — and edges accept a `label` (e.g. `"SUM()"`) and `animated = TRUE` for emphasis. `lineage_example()` renders a complete hand-built diagram you can use as a template.
 
+## Exporting lineage
+
+Diagrams answer questions interactively; sometimes you need the same lineage as plain data. Two exporters cover the common cases.
+
+`lineage_json()` serializes the nodes, edges, and metadata to a small, stable JSON document. Because the output is deterministic, you can commit it alongside your pipeline code and let CI diff it: if a refactor silently changes where a column comes from, the diff shows it before it ships. It is also the natural handoff format for data catalogs or anything scriptable with jq.
+
+```{r}
+lineage <- tbl(con, "customers") |>
+  left_join(tbl(con, "orders"), by = c("id" = "customer_id")) |>
+  group_by(id, name) |>
+  summarise(total_spent = sum(amount, na.rm = TRUE), .groups = "drop") |>
+  extract_lineage()
+
+lineage_json(lineage)
+```
+
+`lineage_graphml()` writes GraphML, the XML format that graph tools speak: igraph, Gephi, and yEd all open it directly. Every column becomes its own node, which is what makes real graph queries possible. The classic one is impact analysis — "if `orders.amount` changes, which outputs are affected?" — or its reverse, tracing an output back to every source column that feeds it:
+
+```{r, eval = can_eval && requireNamespace("igraph", quietly = TRUE)}
+path <- tempfile(fileext = ".graphml")
+lineage_graphml(lineage, path)
+
+g <- igraph::read_graph(path, format = "graphml")
+
+# Everything upstream of total_spent
+igraph::subcomponent(g, "output.total_spent", mode = "in")
+
+# Everything downstream of orders.amount
+igraph::subcomponent(g, "orders.amount", mode = "out")
+```
+
+Both functions return the serialized string when called without `path`, so they compose in pipes and tests.
+
 ```{r, include = FALSE}
 dbDisconnect(con)
 ```
