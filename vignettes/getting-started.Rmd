@@ -8,8 +8,8 @@ vignette: >
 ---
 
 ```{r, include = FALSE}
-# Only evaluate chunks when the full stack (Python sqlglot + db packages)
-# is available, so the vignette builds anywhere
+# The raw-SQL examples need Python sqlglot, so only evaluate chunks when
+# the full stack is available and the vignette builds anywhere
 can_eval <- requireNamespace("dplyr", quietly = TRUE) &&
   requireNamespace("dbplyr", quietly = TRUE) &&
   requireNamespace("duckdb", quietly = TRUE) &&
@@ -32,7 +32,7 @@ This vignette starts with the smallest possible example and works up to the case
 pak::pak("tgerke/dplyneage")
 ```
 
-There is no Python setup step: dplyneage declares its one Python dependency (sqlglot) via `reticulate::py_require()`, and reticulate provisions it automatically the first time lineage extraction runs. See `vignette("python-integration")` if you manage your own Python environment.
+dplyr/dbplyr pipelines are analyzed entirely in R, so for those there is nothing else to install. Raw SQL strings are analyzed by sqlglot, dplyneage's one Python dependency — declared via `reticulate::py_require()` and provisioned automatically the first time it's needed, with no setup step. See `vignette("python-integration")` if you manage your own Python environment.
 
 ## Your first lineage diagram
 
@@ -85,11 +85,13 @@ tbl(con, "customers") |>
   lineage_flow(height = "400px")
 ```
 
-Notice that `total_spent` traces back to `orders.amount` — not to `customers`, even though `amount` appears unqualified in the generated SQL. When you pass a dbplyr table, dplyneage reads each referenced table's columns from your database connection, so sqlglot can attribute every column to the table it actually lives in.
+Notice that `total_spent` traces back to `orders.amount` — not to `customers`, even though `amount` appears unqualified in the generated SQL. When you pass a dbplyr table, dplyneage doesn't parse SQL at all: it walks the pipeline's own query tree, which records exactly which table each column came from, so attribution is always right.
+
+If a pipeline embeds raw SQL with `dbplyr::sql()`, the query tree can't see inside that string, so `extract_lineage()` hands the whole query to sqlglot instead (with a message). You can also force a specific engine with `engine = "r"` or `engine = "sqlglot"` — see `?extract_lineage`.
 
 ## Where lineage gets hard
 
-These are the cases that break naive lineage tools. dplyneage handles them because sqlglot's lineage engine resolves the full query structure rather than pattern-matching column names. Raw SQL works just like dbplyr input, so we'll use it here to keep the examples compact.
+These are the cases that break naive lineage tools. dplyneage handles them because both engines resolve the full query structure rather than pattern-matching column names: dbplyr pipelines through their query tree, raw SQL through sqlglot's lineage engine. We'll use raw SQL here to keep the examples compact.
 
 ### Tracing through CTEs
 
@@ -117,11 +119,11 @@ extract_lineage("
   lineage_flow(height = "300px")
 ```
 
-The same applies to arithmetic across tables (`o.amount * r.rate`), `CASE` expressions, and both branches of a `UNION`.
+The same applies to arithmetic across tables (`o.amount * r.rate`), `CASE` expressions, and both branches of a `UNION`. dbplyr pipelines get the same treatment: a `full_join()` key column traces to both sides, and a `union_all()` column to every branch.
 
 ### Expanding `SELECT *`
 
-With a schema available, `SELECT *` expands to real columns. For dbplyr input the schema comes from your connection automatically; for raw SQL, pass it yourself:
+With a schema available, `SELECT *` expands to real columns. dbplyr input never needs a schema — the pipeline itself knows its columns — but for raw SQL, pass one yourself:
 
 ```{r}
 extract_lineage(

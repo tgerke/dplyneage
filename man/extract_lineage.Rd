@@ -14,20 +14,22 @@ extract_lineage(
 }
 \arguments{
 \item{sql}{A dbplyr lazy table (\code{tbl_lazy}) or a single SQL query string.
-Lazy tables are rendered to SQL with \code{\link[dbplyr:sql_render]{dbplyr::sql_render()}}, and their
-database connection is used to harvest table schemas automatically.}
+Lazy tables are analyzed directly from their lazy query tree (the SQL
+recorded in \code{metadata} still comes from \code{\link[dbplyr:sql_render]{dbplyr::sql_render()}}); when
+one is handled by the sqlglot engine instead, its database connection
+is used to harvest table schemas automatically.}
 
 \item{dialect}{SQL dialect the query is written in, e.g. \code{"duckdb"}
 (the default), \code{"postgres"}, \code{"mysql"}, \code{"snowflake"}, \code{"bigquery"}.
 Any dialect sqlglot understands works here.}
 
-\item{schema}{Optional table schema used to attribute unqualified columns
-to the right table and to expand \verb{SELECT *}: a named list mapping table
-names to character vectors of column names, e.g.
-\code{list(orders = c("order_id", "amount"))}. When \code{sql} is a dbplyr lazy
-table this is harvested from the database connection, so you rarely
-need to supply it yourself. Only the sqlglot engine uses this; the R
-engine reads exact provenance from the lazy query tree.}
+\item{schema}{Optional table schema used by the sqlglot engine to
+attribute unqualified columns to the right table and to expand
+\verb{SELECT *}: a named list mapping table names to character vectors of
+column names, e.g. \code{list(orders = c("order_id", "amount"))}. Only
+relevant for SQL strings — the R engine reads exact provenance from
+the lazy query tree, and a lazy table that falls back to sqlglot
+harvests its schema from the database connection automatically.}
 
 \item{show_sql}{If \code{TRUE}, print the SQL being analyzed. Useful for
 seeing what dbplyr generated from your pipeline. Default: \code{FALSE}.}
@@ -79,9 +81,9 @@ extract_lineage(
   )
 )
 \dontshow{\}) # examplesIf}
-\dontshow{if (dplyneage::has_sqlglot() && requireNamespace("dplyr", quietly = TRUE) && requireNamespace("dbplyr", quietly = TRUE) && requireNamespace("duckdb", quietly = TRUE)) withAutoprint(\{ # examplesIf}
-# dbplyr pipelines: pipe straight in; the schema is read from the
-# connection so attribution is exact
+\dontshow{if (requireNamespace("dplyr", quietly = TRUE) && requireNamespace("dbplyr", quietly = TRUE) && requireNamespace("duckdb", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+# dbplyr pipelines: pipe straight in; the pure-R engine reads exact
+# provenance from the pipeline itself, no Python needed
 library(dplyr)
 
 con <- DBI::dbConnect(duckdb::duckdb())

@@ -42,12 +42,14 @@ install_sqlglot <- function(method = "auto", envname = "r-dplyneage") {
 
 #' Is the Python sqlglot dependency available?
 #'
-#' dplyneage declares its sqlglot dependency via
-#' [reticulate::py_require()], so it is provisioned automatically the first
-#' time lineage extraction runs — you should not need to install anything.
-#' Use this to check availability, or to gate code that calls
-#' [extract_lineage()] (examples, vignette chunks, Shiny apps). Note that
-#' calling it may initialize Python.
+#' Python is only involved when [extract_lineage()] analyzes raw SQL
+#' strings (or falls back to sqlglot for a pipeline it cannot trace in R);
+#' dbplyr pipelines are analyzed by a pure-R engine. dplyneage declares its
+#' sqlglot dependency via [reticulate::py_require()], so it is provisioned
+#' automatically the first time it is needed — you should not need to
+#' install anything. Use this to check availability, or to gate code that
+#' extracts lineage from raw SQL (examples, vignette chunks, Shiny apps).
+#' Note that calling it may initialize Python.
 #'
 #' @return `TRUE` if sqlglot can be loaded, `FALSE` otherwise
 #' @seealso `vignette("python-integration")` for using your own Python

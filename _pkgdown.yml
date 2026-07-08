@@ -36,8 +36,8 @@ reference:
   
   - title: Python Integration
     desc: >
-      Python dependencies are provisioned automatically; this helper checks
-      availability
+      Python (sqlglot) is only used for raw SQL input and is provisioned
+      automatically; this helper checks availability
     contents:
     - has_sqlglot
 
