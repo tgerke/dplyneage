@@ -116,6 +116,18 @@ test_that("group_by + summarise traces aggregates and group keys", {
   ))
 })
 
+test_that("n() yields a column with no incoming edges", {
+  skip_if_no_r_engine()
+
+  lineage <- orders_lf() |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(n_orders = dplyr::n()) |>
+    extract_lineage(engine = "r")
+
+  expect_edges(lineage, "orders.customer_id -> customer_id")
+  expect_identical(node_columns(lineage, "output"), c("customer_id", "n_orders"))
+})
+
 test_that("grouped (window) mutates trace like any other expression", {
   skip_if_no_r_engine()
 
