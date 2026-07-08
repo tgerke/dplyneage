@@ -38,7 +38,7 @@ dbplyr pipelines need no Python at all. For raw SQL input, the Python dependency
 
 Build a dplyr pipeline against a database as usual, then pipe it into `extract_lineage()` and `lineage_flow()`:
 
-```{r message=FALSE}
+```{r message=FALSE, fig.alt="Column-level lineage diagram with the customers and orders tables on the left and the summarised output table on the right, with edges tracing each output column back to its source columns"}
 library(dplyneage)
 library(dplyr)
 library(dbplyr)
@@ -86,7 +86,7 @@ The resulting diagram is fully interactive: drag tables to rearrange, zoom and p
 
 For documentation or design work, you can construct lineage diagrams directly with `create_table_node()` and `create_column_edge()`:
 
-```{r}
+```{r fig.alt="Hand-built lineage diagram showing the customers and orders source tables in blue connected to a customer_summary target table in green, with a SUM() label on the total_spent edge"}
 nodes <- list(
   create_table_node(
     table_name = "customers",

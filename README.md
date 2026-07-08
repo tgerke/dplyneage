@@ -77,7 +77,7 @@ tbl(con, "customers") |>
   lineage_flow(height = "600px")
 ```
 
-![](man/figures/README-unnamed-chunk-3-1.png)<!-- -->
+<img src="man/figures/README-unnamed-chunk-3-1.png" alt="Column-level lineage diagram with the customers and orders tables on the left and the summarised output table on the right, with edges tracing each output column back to its source columns"  />
 
 Behind that one pipe, `extract_lineage()`:
 
@@ -127,10 +127,10 @@ edges <- list(
 )
 
 lineage_flow(nodes, edges, height = "600px")
-#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpmG3oXW/file1253eb256af/widget1253e3c58fb84.html screenshot completed
+#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpvZgp4P/file8032ddf1b44/widget803127724e3.html screenshot completed
 ```
 
-![](man/figures/README-unnamed-chunk-4-1.png)<!-- -->
+<img src="man/figures/README-unnamed-chunk-4-1.png" alt="Hand-built lineage diagram showing the customers and orders source tables in blue connected to a customer_summary target table in green, with a SUM() label on the total_spent edge"  />
 
 Table types follow the color conventions used by dbt and SQLMesh:
 
