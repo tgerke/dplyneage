@@ -23,6 +23,16 @@ Functions for manually creating lineage visualizations
 - [`create_column_edge()`](https://tgerke.github.io/dplyneage/reference/create_column_edge.md)
   : Connect two columns in a lineage diagram
 
+## Export
+
+Serialize lineage to interchange formats for graph tools, CI, and data
+catalogs
+
+- [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+  : Export lineage as JSON
+- [`lineage_graphml()`](https://tgerke.github.io/dplyneage/reference/lineage_graphml.md)
+  : Export lineage as GraphML
+
 ## Python Integration
 
 Python (sqlglot) is only used for raw SQL input and is provisioned

@@ -233,6 +233,105 @@ and `"target"` (green) — and edges accept a `label` (e.g. `"SUM()"`) and
 [`lineage_example()`](https://tgerke.github.io/dplyneage/reference/lineage_example.md)
 renders a complete hand-built diagram you can use as a template.
 
+## Exporting lineage
+
+Diagrams answer questions interactively; sometimes you need the same
+lineage as plain data. Two exporters cover the common cases.
+
+[`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+serializes the nodes, edges, and metadata to a small, stable JSON
+document. Because the output is deterministic, you can commit it
+alongside your pipeline code and let CI diff it: if a refactor silently
+changes where a column comes from, the diff shows it before it ships. It
+is also the natural handoff format for data catalogs or anything
+scriptable with jq.
+
+``` r
+
+lineage <- tbl(con, "customers") |>
+  left_join(tbl(con, "orders"), by = c("id" = "customer_id")) |>
+  group_by(id, name) |>
+  summarise(total_spent = sum(amount, na.rm = TRUE), .groups = "drop") |>
+  extract_lineage()
+
+lineage_json(lineage)
+#> {
+#>   "metadata": {
+#>     "sql": "SELECT id, \"name\", SUM(amount) AS total_spent\nFROM (\n  SELECT customers.*, order_id, amount\n  FROM customers\n  LEFT JOIN orders\n    ON (customers.id = orders.customer_id)\n) AS q01\nGROUP BY id, \"name\"",
+#>     "dialect": "duckdb",
+#>     "engine": "r",
+#>     "table_count": 3,
+#>     "edge_count": 3
+#>   },
+#>   "nodes": [
+#>     {
+#>       "id": "customers",
+#>       "type": "source",
+#>       "columns": ["id", "name"]
+#>     },
+#>     {
+#>       "id": "orders",
+#>       "type": "source",
+#>       "columns": ["amount"]
+#>     },
+#>     {
+#>       "id": "output",
+#>       "type": "target",
+#>       "columns": ["id", "name", "total_spent"]
+#>     }
+#>   ],
+#>   "edges": [
+#>     {
+#>       "source": "customers",
+#>       "source_column": "id",
+#>       "target": "output",
+#>       "target_column": "id"
+#>     },
+#>     {
+#>       "source": "customers",
+#>       "source_column": "name",
+#>       "target": "output",
+#>       "target_column": "name"
+#>     },
+#>     {
+#>       "source": "orders",
+#>       "source_column": "amount",
+#>       "target": "output",
+#>       "target_column": "total_spent"
+#>     }
+#>   ]
+#> }
+```
+
+[`lineage_graphml()`](https://tgerke.github.io/dplyneage/reference/lineage_graphml.md)
+writes GraphML, the XML format that graph tools speak: igraph, Gephi,
+and yEd all open it directly. Every column becomes its own node, which
+is what makes real graph queries possible. The classic one is impact
+analysis — “if `orders.amount` changes, which outputs are affected?” —
+or its reverse, tracing an output back to every source column that feeds
+it:
+
+``` r
+
+path <- tempfile(fileext = ".graphml")
+lineage_graphml(lineage, path)
+
+g <- igraph::read_graph(path, format = "graphml")
+
+# Everything upstream of total_spent
+igraph::subcomponent(g, "output.total_spent", mode = "in")
+#> + 2/6 vertices, named, from 9c01206:
+#> [1] output.total_spent orders.amount
+
+# Everything downstream of orders.amount
+igraph::subcomponent(g, "orders.amount", mode = "out")
+#> + 2/6 vertices, named, from 9c01206:
+#> [1] orders.amount      output.total_spent
+```
+
+Both functions return the serialized string when called without `path`,
+so they compose in pipes and tests.
+
 ## Next steps
 
 - [`vignette("python-integration")`](https://tgerke.github.io/dplyneage/articles/python-integration.md)

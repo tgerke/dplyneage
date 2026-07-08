@@ -149,7 +149,7 @@
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span><span class="va">nodes</span>, <span class="va">edges</span>, height <span class="op">=</span> <span class="st">"600px"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpvZgp4P/file8032ddf1b44/widget803127724e3.html screenshot completed</span></span></code></pre></div>
+<span><span class="co">#&gt; file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpRr8BR4/file36121c0b9ae9/widget36123de74561.html screenshot completed</span></span></code></pre></div>
 <p><img src="reference/figures/README-unnamed-chunk-4-1.png" alt="Hand-built lineage diagram showing the customers and orders source tables in blue connected to a customer_summary target table in green, with a SUM() label on the total_spent edge"></p>
 <p>Table types follow the color conventions used by dbt and SQLMesh:</p>
 <table class="table">
@@ -192,6 +192,80 @@
 <span>  <span class="fu"><a href="reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="exporting-lineage">Exporting lineage<a class="anchor" aria-label="anchor" href="#exporting-lineage"></a>
+</h2>
+<p>Diagrams are for people; the same lineage is also useful as plain data. <code><a href="reference/lineage_json.html">lineage_json()</a></code> gives you a small, stable document you can query with jq, feed to a data catalog, or commit next to your pipeline code — then a CI diff flags any change to column provenance before it ships:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">lineage</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"orders"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"customers"</span><span class="op">)</span>, by <span class="op">=</span> <span class="st">"customer_id"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">customer_id</span>, <span class="va">first_name</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/summarise.html" class="external-link">summarise</a></span><span class="op">(</span>total_spent <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">amount</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, .groups <span class="op">=</span> <span class="st">"drop"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="reference/lineage_json.html">lineage_json</a></span><span class="op">(</span><span class="va">lineage</span><span class="op">)</span></span>
+<span><span class="co">#&gt; {</span></span>
+<span><span class="co">#&gt;   "metadata": {</span></span>
+<span><span class="co">#&gt;     "sql": "SELECT customer_id, first_name, SUM(amount) AS total_spent\nFROM (\n  SELECT orders.*, first_name, last_name, email\n  FROM orders\n  LEFT JOIN customers\n    ON (orders.customer_id = customers.customer_id)\n) AS q01\nGROUP BY customer_id, first_name",</span></span>
+<span><span class="co">#&gt;     "dialect": "duckdb",</span></span>
+<span><span class="co">#&gt;     "engine": "r",</span></span>
+<span><span class="co">#&gt;     "table_count": 3,</span></span>
+<span><span class="co">#&gt;     "edge_count": 3</span></span>
+<span><span class="co">#&gt;   },</span></span>
+<span><span class="co">#&gt;   "nodes": [</span></span>
+<span><span class="co">#&gt;     {</span></span>
+<span><span class="co">#&gt;       "id": "orders",</span></span>
+<span><span class="co">#&gt;       "type": "source",</span></span>
+<span><span class="co">#&gt;       "columns": ["customer_id", "amount"]</span></span>
+<span><span class="co">#&gt;     },</span></span>
+<span><span class="co">#&gt;     {</span></span>
+<span><span class="co">#&gt;       "id": "customers",</span></span>
+<span><span class="co">#&gt;       "type": "source",</span></span>
+<span><span class="co">#&gt;       "columns": ["first_name"]</span></span>
+<span><span class="co">#&gt;     },</span></span>
+<span><span class="co">#&gt;     {</span></span>
+<span><span class="co">#&gt;       "id": "output",</span></span>
+<span><span class="co">#&gt;       "type": "target",</span></span>
+<span><span class="co">#&gt;       "columns": ["customer_id", "first_name", "total_spent"]</span></span>
+<span><span class="co">#&gt;     }</span></span>
+<span><span class="co">#&gt;   ],</span></span>
+<span><span class="co">#&gt;   "edges": [</span></span>
+<span><span class="co">#&gt;     {</span></span>
+<span><span class="co">#&gt;       "source": "orders",</span></span>
+<span><span class="co">#&gt;       "source_column": "customer_id",</span></span>
+<span><span class="co">#&gt;       "target": "output",</span></span>
+<span><span class="co">#&gt;       "target_column": "customer_id"</span></span>
+<span><span class="co">#&gt;     },</span></span>
+<span><span class="co">#&gt;     {</span></span>
+<span><span class="co">#&gt;       "source": "customers",</span></span>
+<span><span class="co">#&gt;       "source_column": "first_name",</span></span>
+<span><span class="co">#&gt;       "target": "output",</span></span>
+<span><span class="co">#&gt;       "target_column": "first_name"</span></span>
+<span><span class="co">#&gt;     },</span></span>
+<span><span class="co">#&gt;     {</span></span>
+<span><span class="co">#&gt;       "source": "orders",</span></span>
+<span><span class="co">#&gt;       "source_column": "amount",</span></span>
+<span><span class="co">#&gt;       "target": "output",</span></span>
+<span><span class="co">#&gt;       "target_column": "total_spent"</span></span>
+<span><span class="co">#&gt;     }</span></span>
+<span><span class="co">#&gt;   ]</span></span>
+<span><span class="co">#&gt; }</span></span></code></pre></div>
+<p>Written to a file, that document is scriptable from outside R entirely — here’s jq answering “which source columns feed <code>total_spent</code>?”:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="reference/lineage_json.html">lineage_json</a></span><span class="op">(</span><span class="va">lineage</span>, <span class="st">"lineage.json"</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="ex">jq</span> <span class="at">-r</span> <span class="st">'.edges[] | select(.target_column == "total_spent")</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="st">       | "\(.source).\(.source_column)"'</span> lineage.json</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt; orders.amount</span></span></code></pre></div>
+<p><code><a href="reference/lineage_graphml.html">lineage_graphml()</a></code> writes GraphML, which opens directly in graph tools like Gephi, yEd, and igraph. The same question works as a graph query — and scales to transitive ancestry when pipelines chain:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".graphml"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="reference/lineage_graphml.html">lineage_graphml</a></span><span class="op">(</span><span class="va">lineage</span>, <span class="va">path</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/read_graph.html" class="external-link">read_graph</a></span><span class="op">(</span><span class="va">path</span>, format <span class="op">=</span> <span class="st">"graphml"</span><span class="op">)</span></span>
+<span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"output.total_spent"</span>, mode <span class="op">=</span> <span class="st">"in"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; + 2/6 vertices, named, from 2e62c52:</span></span>
+<span><span class="co">#&gt; [1] output.total_spent orders.amount</span></span></code></pre></div>
+</div>
+<div class="section level2">
 <h2 id="learn-more">Learn more<a class="anchor" aria-label="anchor" href="#learn-more"></a>
 </h2>
 <ul>
@@ -201,14 +275,6 @@
 <code><a href="articles/python-integration.html">vignette("python-integration")</a></code> covers how the Python dependency is managed</li>
 <li>Full function reference at <a href="https://tgerke.github.io/dplyneage/">tgerke.github.io/dplyneage</a>
 </li>
-</ul>
-</div>
-<div class="section level2">
-<h2 id="roadmap">Roadmap<a class="anchor" aria-label="anchor" href="#roadmap"></a>
-</h2>
-<ul>
-<li>✅ Pure-R lineage fast path for dplyr-only pipelines (no Python), via dbplyr’s lazy query tree</li>
-<li>🚧 Export lineage to common formats (JSON, GraphML)</li>
 </ul>
 </div>
 </div>

@@ -187,7 +187,7 @@ sources:</p>
 <span><span class="st">"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"300px"</span><span class="op">)</span></span></code></pre></div>
 <div id="htmlwidget-febe03efa1a2d8d52a86" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
-<script type="application/json" data-for="htmlwidget-febe03efa1a2d8d52a86">{"x":{"nodes":[{"id":"users","type":"tableNode","data":{"label":"users","columns":"email","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"archive","type":"tableNode","data":{"label":"archive","columns":"email","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":200},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":"email","tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_users.email_to_output.email","source":"users","target":"output","sourceHandle":"email","targetHandle":"email","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_archive.email_to_output.email","source":"archive","target":"output","sourceHandle":"email","targetHandle":"email","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script><p>The same applies to arithmetic across tables
+<script type="application/json" data-for="htmlwidget-febe03efa1a2d8d52a86">{"x":{"nodes":[{"id":"archive","type":"tableNode","data":{"label":"archive","columns":"email","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"users","type":"tableNode","data":{"label":"users","columns":"email","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":200},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":"email","tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_archive.email_to_output.email","source":"archive","target":"output","sourceHandle":"email","targetHandle":"email","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_users.email_to_output.email","source":"users","target":"output","sourceHandle":"email","targetHandle":"email","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script><p>The same applies to arithmetic across tables
 (<code>o.amount * r.rate</code>), <code>CASE</code> expressions, and
 both branches of a <code>UNION</code>. dbplyr pipelines get the same
 treatment: a <code><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">full_join()</a></code> key column traces to both sides,
@@ -278,6 +278,96 @@ and edges accept a <code>label</code> (e.g. <code>"SUM()"</code>) and
 <code>animated = TRUE</code> for emphasis.
 <code><a href="../reference/lineage_example.html">lineage_example()</a></code> renders a complete hand-built diagram you
 can use as a template.</p>
+</div>
+<div class="section level2">
+<h2 id="exporting-lineage">Exporting lineage<a class="anchor" aria-label="anchor" href="#exporting-lineage"></a>
+</h2>
+<p>Diagrams answer questions interactively; sometimes you need the same
+lineage as plain data. Two exporters cover the common cases.</p>
+<p><code><a href="../reference/lineage_json.html">lineage_json()</a></code> serializes the nodes, edges, and metadata
+to a small, stable JSON document. Because the output is deterministic,
+you can commit it alongside your pipeline code and let CI diff it: if a
+refactor silently changes where a column comes from, the diff shows it
+before it ships. It is also the natural handoff format for data catalogs
+or anything scriptable with jq.</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">lineage</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"customers"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"orders"</span><span class="op">)</span>, by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"id"</span> <span class="op">=</span> <span class="st">"customer_id"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">id</span>, <span class="va">name</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/summarise.html" class="external-link">summarise</a></span><span class="op">(</span>total_spent <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">amount</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, .groups <span class="op">=</span> <span class="st">"drop"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="../reference/lineage_json.html">lineage_json</a></span><span class="op">(</span><span class="va">lineage</span><span class="op">)</span></span>
+<span><span class="co">#&gt; {</span></span>
+<span><span class="co">#&gt;   "metadata": {</span></span>
+<span><span class="co">#&gt;     "sql": "SELECT id, \"name\", SUM(amount) AS total_spent\nFROM (\n  SELECT customers.*, order_id, amount\n  FROM customers\n  LEFT JOIN orders\n    ON (customers.id = orders.customer_id)\n) AS q01\nGROUP BY id, \"name\"",</span></span>
+<span><span class="co">#&gt;     "dialect": "duckdb",</span></span>
+<span><span class="co">#&gt;     "engine": "r",</span></span>
+<span><span class="co">#&gt;     "table_count": 3,</span></span>
+<span><span class="co">#&gt;     "edge_count": 3</span></span>
+<span><span class="co">#&gt;   },</span></span>
+<span><span class="co">#&gt;   "nodes": [</span></span>
+<span><span class="co">#&gt;     {</span></span>
+<span><span class="co">#&gt;       "id": "customers",</span></span>
+<span><span class="co">#&gt;       "type": "source",</span></span>
+<span><span class="co">#&gt;       "columns": ["id", "name"]</span></span>
+<span><span class="co">#&gt;     },</span></span>
+<span><span class="co">#&gt;     {</span></span>
+<span><span class="co">#&gt;       "id": "orders",</span></span>
+<span><span class="co">#&gt;       "type": "source",</span></span>
+<span><span class="co">#&gt;       "columns": ["amount"]</span></span>
+<span><span class="co">#&gt;     },</span></span>
+<span><span class="co">#&gt;     {</span></span>
+<span><span class="co">#&gt;       "id": "output",</span></span>
+<span><span class="co">#&gt;       "type": "target",</span></span>
+<span><span class="co">#&gt;       "columns": ["id", "name", "total_spent"]</span></span>
+<span><span class="co">#&gt;     }</span></span>
+<span><span class="co">#&gt;   ],</span></span>
+<span><span class="co">#&gt;   "edges": [</span></span>
+<span><span class="co">#&gt;     {</span></span>
+<span><span class="co">#&gt;       "source": "customers",</span></span>
+<span><span class="co">#&gt;       "source_column": "id",</span></span>
+<span><span class="co">#&gt;       "target": "output",</span></span>
+<span><span class="co">#&gt;       "target_column": "id"</span></span>
+<span><span class="co">#&gt;     },</span></span>
+<span><span class="co">#&gt;     {</span></span>
+<span><span class="co">#&gt;       "source": "customers",</span></span>
+<span><span class="co">#&gt;       "source_column": "name",</span></span>
+<span><span class="co">#&gt;       "target": "output",</span></span>
+<span><span class="co">#&gt;       "target_column": "name"</span></span>
+<span><span class="co">#&gt;     },</span></span>
+<span><span class="co">#&gt;     {</span></span>
+<span><span class="co">#&gt;       "source": "orders",</span></span>
+<span><span class="co">#&gt;       "source_column": "amount",</span></span>
+<span><span class="co">#&gt;       "target": "output",</span></span>
+<span><span class="co">#&gt;       "target_column": "total_spent"</span></span>
+<span><span class="co">#&gt;     }</span></span>
+<span><span class="co">#&gt;   ]</span></span>
+<span><span class="co">#&gt; }</span></span></code></pre></div>
+<p><code><a href="../reference/lineage_graphml.html">lineage_graphml()</a></code> writes GraphML, the XML format that
+graph tools speak: igraph, Gephi, and yEd all open it directly. Every
+column becomes its own node, which is what makes real graph queries
+possible. The classic one is impact analysis — “if
+<code>orders.amount</code> changes, which outputs are affected?” — or
+its reverse, tracing an output back to every source column that feeds
+it:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".graphml"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/lineage_graphml.html">lineage_graphml</a></span><span class="op">(</span><span class="va">lineage</span>, <span class="va">path</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/read_graph.html" class="external-link">read_graph</a></span><span class="op">(</span><span class="va">path</span>, format <span class="op">=</span> <span class="st">"graphml"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Everything upstream of total_spent</span></span>
+<span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"output.total_spent"</span>, mode <span class="op">=</span> <span class="st">"in"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; + 2/6 vertices, named, from 9c01206:</span></span>
+<span><span class="co">#&gt; [1] output.total_spent orders.amount</span></span>
+<span></span>
+<span><span class="co"># Everything downstream of orders.amount</span></span>
+<span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"orders.amount"</span>, mode <span class="op">=</span> <span class="st">"out"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; + 2/6 vertices, named, from 9c01206:</span></span>
+<span><span class="co">#&gt; [1] orders.amount      output.total_spent</span></span></code></pre></div>
+<p>Both functions return the serialized string when called without
+<code>path</code>, so they compose in pipes and tests.</p>
 </div>
 <div class="section level2">
 <h2 id="next-steps">Next steps<a class="anchor" aria-label="anchor" href="#next-steps"></a>

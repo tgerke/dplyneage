@@ -40,11 +40,10 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="dplyneage-development-version">dplyneage (development version)<a class="anchor" aria-label="anchor" href="#dplyneage-development-version"></a></h2>
-<ul><li>
-<code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> now analyzes dbplyr lazy tables with a pure-R engine that walks the pipeline’s lazy query tree — no Python required. Column provenance is read directly from the tree, so joins (including suffix conflicts and coalesced full-join keys), aggregates, window expressions, and set operations resolve exactly.</li>
-<li>New <code>engine</code> argument for <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code>: <code>"auto"</code> (the default) uses the R engine for lazy tables and falls back to sqlglot for SQL strings or constructs the R engine cannot trace, such as raw SQL injected with <code><a href="https://dbplyr.tidyverse.org/reference/sql.html" class="external-link">dbplyr::sql()</a></code>; <code>"r"</code> and <code>"sqlglot"</code> force a specific engine. Requires dbplyr &gt;= 2.5.0 for the R engine.</li>
-<li>
-<code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> results now record which engine ran in <code>metadata$engine</code>.</li>
+<ul><li><p>New <code><a href="../reference/lineage_json.html">lineage_json()</a></code> and <code><a href="../reference/lineage_graphml.html">lineage_graphml()</a></code> export <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> results (or hand-built node/edge lists) to interchange formats: a clean JSON schema for scripting, CI diffs, and data catalogs, and column-level GraphML that loads directly into igraph, Gephi, or yEd for impact analysis.</p></li>
+<li><p><code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> now analyzes dbplyr lazy tables with a pure-R engine that walks the pipeline’s lazy query tree — no Python required. Column provenance is read directly from the tree, so joins (including suffix conflicts and coalesced full-join keys), aggregates, window expressions, and set operations resolve exactly.</p></li>
+<li><p>New <code>engine</code> argument for <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code>: <code>"auto"</code> (the default) uses the R engine for lazy tables and falls back to sqlglot for SQL strings or constructs the R engine cannot trace, such as raw SQL injected with <code><a href="https://dbplyr.tidyverse.org/reference/sql.html" class="external-link">dbplyr::sql()</a></code>; <code>"r"</code> and <code>"sqlglot"</code> force a specific engine. Requires dbplyr &gt;= 2.5.0 for the R engine.</p></li>
+<li><p><code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> results now record which engine ran in <code>metadata$engine</code>.</p></li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="dplyneage-010">dplyneage 0.1.0<a class="anchor" aria-label="anchor" href="#dplyneage-010"></a></h2>
