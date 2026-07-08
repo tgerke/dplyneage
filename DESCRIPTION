@@ -1,7 +1,7 @@
 Package: dplyneage
 Type: Package
 Title: Column Lineage Visualization for dplyr Pipelines
-Version: 0.1.0
+Version: 0.1.0.9000
 Authors@R: c(
     person(
       "Travis", "Gerke",

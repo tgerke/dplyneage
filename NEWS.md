@@ -1,3 +1,18 @@
+# dplyneage (development version)
+
+* `extract_lineage()` now analyzes dbplyr lazy tables with a pure-R engine
+  that walks the pipeline's lazy query tree — no Python required. Column
+  provenance is read directly from the tree, so joins (including suffix
+  conflicts and coalesced full-join keys), aggregates, window expressions,
+  and set operations resolve exactly.
+* New `engine` argument for `extract_lineage()`: `"auto"` (the default)
+  uses the R engine for lazy tables and falls back to sqlglot for SQL
+  strings or constructs the R engine cannot trace, such as raw SQL injected
+  with `dbplyr::sql()`; `"r"` and `"sqlglot"` force a specific engine.
+  Requires dbplyr >= 2.5.0 for the R engine.
+* `extract_lineage()` results now record which engine ran in
+  `metadata$engine`.
+
 # dplyneage 0.1.0
 
 First public release.

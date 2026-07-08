@@ -85,6 +85,72 @@ test_that("an explicit schema overrides harvesting", {
   expect_edges(lineage, "customers.customer_id -> customer_id")
 })
 
+test_that("the R and sqlglot engines agree on real pipelines", {
+  skip_if_no_db_stack()
+  con <- local_duckdb()
+
+  queries <- list(
+    joined_summarised = dplyr::tbl(con, "customers") |>
+      dplyr::left_join(dplyr::tbl(con, "orders"), by = "customer_id") |>
+      dplyr::group_by(customer_id, first_name) |>
+      dplyr::summarise(
+        total_spent = sum(amount, na.rm = TRUE),
+        first_order = min(order_date, na.rm = TRUE),
+        .groups = "drop"
+      ),
+    renamed = dplyr::tbl(con, "customers") |>
+      dplyr::select(id = customer_id, contact = email),
+    chained_mutate = dplyr::tbl(con, "orders") |>
+      dplyr::transmute(subtotal = amount + order_id) |>
+      dplyr::mutate(total = subtotal * 2),
+    unioned = dplyr::union_all(
+      dplyr::transmute(dplyr::tbl(con, "customers"), id = customer_id),
+      dplyr::transmute(dplyr::tbl(con, "orders"), id = order_id)
+    )
+  )
+
+  for (nm in names(queries)) {
+    r_lineage <- extract_lineage(queries[[nm]], engine = "r")
+    sqlglot_lineage <- extract_lineage(queries[[nm]], engine = "sqlglot")
+    expect_identical(edge_set(r_lineage), edge_set(sqlglot_lineage), label = nm)
+    expect_identical(node_ids(r_lineage), node_ids(sqlglot_lineage), label = nm)
+  }
+})
+
+test_that("engine = 'auto' takes the R fast path for lazy tables", {
+  testthat::skip_if_not_installed("dplyr")
+  testthat::skip_if_not_installed("dbplyr", "2.5.0")
+  testthat::skip_if_not_installed("duckdb")
+  testthat::skip_if_not_installed("DBI")
+  testthat::skip_if_not_installed("withr")
+  con <- local_duckdb()
+
+  lineage <- dplyr::tbl(con, "customers") |>
+    dplyr::select(customer_id) |>
+    extract_lineage()
+
+  expect_identical(lineage$metadata$engine, "r")
+  expect_edges(lineage, "customers.customer_id -> customer_id")
+})
+
+test_that("unsupported constructs fall back to sqlglot with a message", {
+  skip_if_no_db_stack()
+  con <- local_duckdb()
+
+  query <- dplyr::tbl(con, "orders") |>
+    dplyr::transmute(order_id, bumped = dbplyr::sql("amount + 1"))
+
+  expect_message(
+    lineage <- extract_lineage(query),
+    "Falling back to the sqlglot engine"
+  )
+  expect_identical(lineage$metadata$engine, "sqlglot")
+  expect_edges(lineage, c(
+    "orders.order_id -> order_id",
+    "orders.amount -> bumped"
+  ))
+})
+
 test_that("extract_lineage output pipes into lineage_flow", {
   skip_if_no_db_stack()
   con <- local_duckdb()

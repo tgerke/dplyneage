@@ -4,7 +4,13 @@
 \alias{extract_lineage}
 \title{Extract column lineage from a dplyr pipeline or SQL query}
 \usage{
-extract_lineage(sql, dialect = "duckdb", schema = NULL, show_sql = FALSE)
+extract_lineage(
+  sql,
+  dialect = "duckdb",
+  schema = NULL,
+  show_sql = FALSE,
+  engine = c("auto", "sqlglot", "r")
+)
 }
 \arguments{
 \item{sql}{A dbplyr lazy table (\code{tbl_lazy}) or a single SQL query string.
@@ -20,23 +26,41 @@ to the right table and to expand \verb{SELECT *}: a named list mapping table
 names to character vectors of column names, e.g.
 \code{list(orders = c("order_id", "amount"))}. When \code{sql} is a dbplyr lazy
 table this is harvested from the database connection, so you rarely
-need to supply it yourself.}
+need to supply it yourself. Only the sqlglot engine uses this; the R
+engine reads exact provenance from the lazy query tree.}
 
 \item{show_sql}{If \code{TRUE}, print the SQL being analyzed. Useful for
 seeing what dbplyr generated from your pipeline. Default: \code{FALSE}.}
+
+\item{engine}{Which lineage engine to use. \code{"auto"} (the default) uses
+the pure-R engine for lazy tables when dbplyr (>= 2.5.0) is installed,
+falling back to sqlglot for SQL strings or unsupported constructs.
+\code{"r"} forces the pure-R engine and errors on anything it cannot trace.
+\code{"sqlglot"} always renders to SQL and analyzes with sqlglot.}
 }
 \value{
 A list with \code{nodes} and \code{edges} ready to pass to
 \code{\link[=lineage_flow]{lineage_flow()}}, plus \code{metadata} recording the analyzed SQL, the
-dialect, and node/edge counts.
+dialect, the engine used, and node/edge counts.
 }
 \description{
 \code{extract_lineage()} traces every output column of a query back to the
-source table columns it was computed from, using
-\href{https://github.com/tobymao/sqlglot}{sqlglot}'s lineage engine. Pipe a
-dbplyr lazy table straight into it, or pass a SQL string. Aliases, CTEs,
-subqueries, set operations like \code{UNION}, and multi-source expressions
-such as \code{COALESCE(a.x, b.x)} all resolve to their true source columns.
+source table columns it was computed from. Pipe a dbplyr lazy table
+straight into it, or pass a SQL string. Aliases, CTEs, subqueries, set
+operations like \code{UNION}, and multi-source expressions such as
+\code{COALESCE(a.x, b.x)} all resolve to their true source columns.
+}
+\details{
+Two engines are available. dbplyr lazy tables are analyzed by a pure-R
+fast path that walks the pipeline's lazy query tree directly — no Python
+required. SQL strings are analyzed by
+\href{https://github.com/tobymao/sqlglot}{sqlglot}'s lineage engine via
+reticulate. If a pipeline uses a construct the R engine cannot trace
+(e.g. raw SQL injected with \code{dbplyr::sql()}), it falls back to sqlglot
+automatically.
+
+Both engines trace select-list lineage: columns used only in \code{filter()},
+join conditions, or \code{arrange()} do not create lineage edges.
 }
 \examples{
 \dontshow{if (dplyneage::has_sqlglot()) withAutoprint(\{ # examplesIf}

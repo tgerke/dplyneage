@@ -1,11 +1,21 @@
 #' Extract column lineage from a dplyr pipeline or SQL query
 #'
 #' `extract_lineage()` traces every output column of a query back to the
-#' source table columns it was computed from, using
-#' [sqlglot](https://github.com/tobymao/sqlglot)'s lineage engine. Pipe a
-#' dbplyr lazy table straight into it, or pass a SQL string. Aliases, CTEs,
-#' subqueries, set operations like `UNION`, and multi-source expressions
-#' such as `COALESCE(a.x, b.x)` all resolve to their true source columns.
+#' source table columns it was computed from. Pipe a dbplyr lazy table
+#' straight into it, or pass a SQL string. Aliases, CTEs, subqueries, set
+#' operations like `UNION`, and multi-source expressions such as
+#' `COALESCE(a.x, b.x)` all resolve to their true source columns.
+#'
+#' Two engines are available. dbplyr lazy tables are analyzed by a pure-R
+#' fast path that walks the pipeline's lazy query tree directly — no Python
+#' required. SQL strings are analyzed by
+#' [sqlglot](https://github.com/tobymao/sqlglot)'s lineage engine via
+#' reticulate. If a pipeline uses a construct the R engine cannot trace
+#' (e.g. raw SQL injected with `dbplyr::sql()`), it falls back to sqlglot
+#' automatically.
+#'
+#' Both engines trace select-list lineage: columns used only in `filter()`,
+#' join conditions, or `arrange()` do not create lineage edges.
 #'
 #' @param sql A dbplyr lazy table (`tbl_lazy`) or a single SQL query string.
 #'   Lazy tables are rendered to SQL with [dbplyr::sql_render()], and their
@@ -18,12 +28,18 @@
 #'   names to character vectors of column names, e.g.
 #'   `list(orders = c("order_id", "amount"))`. When `sql` is a dbplyr lazy
 #'   table this is harvested from the database connection, so you rarely
-#'   need to supply it yourself.
+#'   need to supply it yourself. Only the sqlglot engine uses this; the R
+#'   engine reads exact provenance from the lazy query tree.
 #' @param show_sql If `TRUE`, print the SQL being analyzed. Useful for
 #'   seeing what dbplyr generated from your pipeline. Default: `FALSE`.
+#' @param engine Which lineage engine to use. `"auto"` (the default) uses
+#'   the pure-R engine for lazy tables when dbplyr (>= 2.5.0) is installed,
+#'   falling back to sqlglot for SQL strings or unsupported constructs.
+#'   `"r"` forces the pure-R engine and errors on anything it cannot trace.
+#'   `"sqlglot"` always renders to SQL and analyzes with sqlglot.
 #' @return A list with `nodes` and `edges` ready to pass to
 #'   [lineage_flow()], plus `metadata` recording the analyzed SQL, the
-#'   dialect, and node/edge counts.
+#'   dialect, the engine used, and node/edge counts.
 #' @seealso [lineage_flow()] to render the result;
 #'   `vignette("getting-started")` for a tour from simple pipelines to
 #'   CTEs and multi-source columns.
@@ -60,8 +76,59 @@
 #'   lineage_flow()
 #'
 #' DBI::dbDisconnect(con)
-extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = FALSE) {
-  # Ensure sqlglot is available
+extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = FALSE,
+                            engine = c("auto", "sqlglot", "r")) {
+  engine <- match.arg(engine)
+  is_lazy <- inherits(sql, "tbl_lazy")
+
+  if (engine == "r") {
+    if (!is_lazy) {
+      stop(
+        "engine = \"r\" only works with dbplyr lazy tables; ",
+        "SQL strings need the sqlglot engine.",
+        call. = FALSE
+      )
+    }
+    if (!r_engine_available()) {
+      stop(
+        "The pure-R lineage engine requires dbplyr (>= 2.5.0).",
+        call. = FALSE
+      )
+    }
+    lineage_data <- extract_lineage_from_tbl(sql, dialect)
+    if (show_sql) {
+      show_analyzed_sql(lineage_data$sql)
+    }
+    return(convert_lineage_to_graph(lineage_data))
+  }
+
+  # Fast path: walk the lazy query tree in R, no Python needed. Falls
+  # through to sqlglot if the query uses a construct the walker can't trace.
+  if (engine == "auto" && is_lazy && r_engine_available()) {
+    lineage_data <- tryCatch(
+      extract_lineage_from_tbl(sql, dialect),
+      dplyneage_unsupported_lineage = function(cnd) {
+        if (!has_sqlglot()) {
+          stop(
+            conditionMessage(cnd),
+            " The sqlglot engine can trace this query, but Python sqlglot ",
+            "is not available.",
+            call. = FALSE
+          )
+        }
+        message("Falling back to the sqlglot engine: ", conditionMessage(cnd))
+        NULL
+      }
+    )
+    if (!is.null(lineage_data)) {
+      if (show_sql) {
+        show_analyzed_sql(lineage_data$sql)
+      }
+      return(convert_lineage_to_graph(lineage_data))
+    }
+  }
+
+  # sqlglot engine
   if (!has_sqlglot()) {
     stop(
       "Python package 'sqlglot' is required for lineage extraction.\n",
@@ -75,7 +142,7 @@ extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = F
   # Convert dbplyr query to SQL if needed, keeping the connection so we can
   # harvest the table schemas for accurate column attribution
   con <- NULL
-  if (inherits(sql, "tbl_lazy")) {
+  if (is_lazy) {
     con <- dbplyr::remote_con(sql)
     sql <- get_sql_from_dplyr(sql)
   }
@@ -85,10 +152,8 @@ extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = F
     stop("sql must be a character string or a dbplyr lazy table", call. = FALSE)
   }
 
-  # Optionally show the SQL being analyzed
   if (show_sql) {
-    cat("Analyzing SQL:\n")
-    cat(sql, "\n\n")
+    show_analyzed_sql(sql)
   }
 
   if (is.null(schema) && !is.null(con)) {
@@ -100,6 +165,13 @@ extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = F
 
   # Convert to nodes and edges format
   convert_lineage_to_graph(lineage_data)
+}
+
+#' Print the SQL being analyzed (the `show_sql = TRUE` output)
+#' @noRd
+show_analyzed_sql <- function(sql) {
+  cat("Analyzing SQL:\n")
+  cat(sql, "\n\n")
 }
 
 #' Get SQL String from dplyr Query
@@ -316,6 +388,7 @@ convert_lineage_to_graph <- function(lineage_data) {
     metadata = list(
       sql = lineage_data$sql,
       dialect = lineage_data$dialect,
+      engine = if (is.null(lineage_data$engine)) "sqlglot" else lineage_data$engine,
       table_count = length(nodes),
       edge_count = length(edges)
     )

@@ -17,10 +17,11 @@ joins, aggregations, CTEs, unions, and computed expressions — then
 renders the result as a draggable, zoomable [React
 Flow](https://reactflow.dev/) diagram with `lineage_flow()`.
 
-Under the hood, lineage is computed by
-[sqlglot](https://github.com/tobymao/sqlglot)’s dedicated lineage
-engine, so raw SQL in many dialects (DuckDB, PostgreSQL, Snowflake,
-BigQuery, …) works too.
+dbplyr pipelines are analyzed in pure R by walking their lazy query
+tree, so no Python is involved. Raw SQL goes through
+[sqlglot](https://github.com/tobymao/sqlglot)’s dedicated lineage engine
+instead, which means many dialects (DuckDB, PostgreSQL, Snowflake,
+BigQuery, …) work too.
 
 ## Installation
 
@@ -28,10 +29,11 @@ BigQuery, …) works too.
 pak::pak("tgerke/dplyneage")
 ```
 
-The Python dependency (sqlglot) is provisioned automatically the first
-time lineage extraction runs, via `reticulate::py_require()` — there is
-no setup step. See `vignette("python-integration")` if you manage your
-own Python environment.
+dbplyr pipelines need no Python at all. For raw SQL input, the Python
+dependency (sqlglot) is provisioned automatically the first time it’s
+needed, via `reticulate::py_require()` — there is no setup step. See
+`vignette("python-integration")` if you manage your own Python
+environment.
 
 ## Usage
 
@@ -79,13 +81,13 @@ tbl(con, "customers") |>
 
 Behind that one pipe, `extract_lineage()`:
 
-- converts your pipeline to SQL with `dbplyr::sql_render()`
-- traces every output column to its source columns with sqlglot’s
-  lineage engine (aliases, CTEs, subqueries, unions, and multi-source
-  computed columns all resolve correctly)
-- reads table schemas from your database connection so unqualified
-  columns are attributed to the right table (pass `schema` manually for
-  raw SQL)
+- walks the pipeline’s lazy query tree in pure R, tracing every output
+  column to its source columns (joins, aggregations, unions, and
+  multi-source computed columns all resolve exactly)
+- falls back to sqlglot’s lineage engine when the pipeline injects raw
+  SQL with `dbplyr::sql()`, or when you pass a SQL string directly (that
+  path handles aliases, CTEs, and subqueries, and reads table schemas
+  from your connection so unqualified columns attribute correctly)
 
 The resulting diagram is fully interactive: drag tables to rearrange,
 zoom and pan, and hover columns to highlight their connections.
@@ -125,7 +127,7 @@ edges <- list(
 )
 
 lineage_flow(nodes, edges, height = "600px")
-#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpLmDEK6/filebd3e26dfe48b/widgetbd3e3515759d.html screenshot completed
+#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpmG3oXW/file1253eb256af/widget1253e3c58fb84.html screenshot completed
 ```
 
 ![](man/figures/README-unnamed-chunk-4-1.png)<!-- -->
@@ -166,6 +168,6 @@ get_ducklake_table("orders") |>
 
 ## Roadmap
 
-- 🚧 Pure-R lineage fast path for dplyr-only pipelines (no Python), via
+- ✅ Pure-R lineage fast path for dplyr-only pipelines (no Python), via
   dbplyr’s lazy query tree
 - 🚧 Export lineage to common formats (JSON, GraphML)
