@@ -155,7 +155,22 @@ lineage <- tbl(con, "orders") |>
 lineage_json(lineage)
 ```
 
-`lineage_graphml()` writes GraphML, which opens directly in graph tools like Gephi, yEd, and igraph. Each column is a node, so impact analysis — "which source columns feed `total_spent`?" — is one call:
+Written to a file, that document is scriptable from outside R entirely — here's jq answering "which source columns feed `total_spent`?":
+
+```{r}
+lineage_json(lineage, "lineage.json")
+```
+
+```{bash}
+jq -r '.edges[] | select(.target_column == "total_spent")
+       | "\(.source).\(.source_column)"' lineage.json
+```
+
+```{r, include = FALSE}
+unlink("lineage.json")
+```
+
+`lineage_graphml()` writes GraphML, which opens directly in graph tools like Gephi, yEd, and igraph. The same question works as a graph query — and scales to transitive ancestry when pipelines chain:
 
 ```{r}
 path <- tempfile(fileext = ".graphml")

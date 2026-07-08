@@ -127,7 +127,7 @@ edges <- list(
 )
 
 lineage_flow(nodes, edges, height = "600px")
-#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/Rtmp016n2b/file27bf59f90138/widget27bf6abf31ad.html screenshot completed
+#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpRr8BR4/file36121c0b9ae9/widget36123de74561.html screenshot completed
 ```
 
 <img src="man/figures/README-unnamed-chunk-4-1.png" alt="Hand-built lineage diagram showing the customers and orders source tables in blue connected to a customer_summary target table in green, with a SUM() label on the total_spent edge"  />
@@ -220,9 +220,22 @@ lineage_json(lineage)
 #> }
 ```
 
+Written to a file, that document is scriptable from outside R entirely —
+here’s jq answering “which source columns feed `total_spent`?”:
+
+``` r
+lineage_json(lineage, "lineage.json")
+```
+
+``` bash
+jq -r '.edges[] | select(.target_column == "total_spent")
+       | "\(.source).\(.source_column)"' lineage.json
+#> orders.amount
+```
+
 `lineage_graphml()` writes GraphML, which opens directly in graph tools
-like Gephi, yEd, and igraph. Each column is a node, so impact analysis —
-“which source columns feed `total_spent`?” — is one call:
+like Gephi, yEd, and igraph. The same question works as a graph query —
+and scales to transitive ancestry when pipelines chain:
 
 ``` r
 path <- tempfile(fileext = ".graphml")
@@ -230,7 +243,7 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from 483ca35:
+#> + 2/6 vertices, named, from 2e62c52:
 #> [1] output.total_spent orders.amount
 ```
 
