@@ -40,7 +40,8 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="dplyneage-development-version">dplyneage (development version)<a class="anchor" aria-label="anchor" href="#dplyneage-development-version"></a></h2>
-<ul><li><p>New vignette <code><a href="../articles/ducklake-lineage.html">vignette("ducklake-lineage")</a></code> shows dplyneage working with <a href="https://github.com/tgerke/ducklake-r" class="external-link">ducklake</a>: lineage for lake pipelines, per-layer diagrams, and time-travel queries (<a href="https://github.com/tgerke/dplyneage/issues/1" class="external-link">#1</a>).</p></li>
+<ul><li><p><code><a href="../reference/lineage_flow.html">lineage_flow()</a></code> now routes each target column’s edges through its own vertical lane instead of bending every edge at the same midpoint, so parallel edges no longer draw on top of each other. Edges fanning into the same target column still merge into one lane on purpose. Lanes are fractions of the source-to-target span, so they hold up when nodes are dragged.</p></li>
+<li><p>New vignette <code><a href="../articles/ducklake-lineage.html">vignette("ducklake-lineage")</a></code> shows dplyneage working with <a href="https://github.com/tgerke/ducklake-r" class="external-link">ducklake</a>: lineage for lake pipelines, per-layer diagrams, and time-travel queries (<a href="https://github.com/tgerke/dplyneage/issues/1" class="external-link">#1</a>).</p></li>
 <li><p>New <code><a href="../reference/lineage_json.html">lineage_json()</a></code> and <code><a href="../reference/lineage_graphml.html">lineage_graphml()</a></code> export <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> results (or hand-built node/edge lists) to interchange formats: a clean JSON schema for scripting, CI diffs, and data catalogs, and column-level GraphML that loads directly into igraph, Gephi, or yEd for impact analysis.</p></li>
 <li><p><code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> now analyzes dbplyr lazy tables with a pure-R engine that walks the pipeline’s lazy query tree — no Python required. Column provenance is read directly from the tree, so joins (including suffix conflicts and coalesced full-join keys), aggregates, window expressions, and set operations resolve exactly.</p></li>
 <li><p>New <code>engine</code> argument for <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code>: <code>"auto"</code> (the default) uses the R engine for lazy tables and falls back to sqlglot for SQL strings or constructs the R engine cannot trace, such as raw SQL injected with <code><a href="https://dbplyr.tidyverse.org/reference/sql.html" class="external-link">dbplyr::sql()</a></code>; <code>"r"</code> and <code>"sqlglot"</code> force a specific engine. Requires dbplyr &gt;= 2.5.0 for the R engine.</p></li>
@@ -77,7 +78,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

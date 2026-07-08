@@ -23,6 +23,55 @@ HTMLWidgets.widget({
   }
 });
 
+// Assign each target column its own vertical "lane" (a fraction of the
+// horizontal span between source and target) so parallel smoothstep edges
+// don't draw on top of each other. Edges fanning into the same target
+// column share a lane deliberately, so they read as a merge.
+function computeLaneFractions(nodes, edges) {
+  var columnOrder = {};
+  nodes.forEach(function(node) {
+    var cols = (node.data && node.data.columns) || [];
+    if (!Array.isArray(cols)) {
+      cols = [cols];
+    }
+    var lookup = {};
+    cols.forEach(function(col, i) { lookup[col] = i; });
+    columnOrder[node.id] = lookup;
+  });
+
+  // Distinct target columns per target node
+  var groups = {};
+  edges.forEach(function(edge) {
+    if (!groups[edge.target]) {
+      groups[edge.target] = [];
+    }
+    if (groups[edge.target].indexOf(edge.targetHandle) === -1) {
+      groups[edge.target].push(edge.targetHandle);
+    }
+  });
+
+  var fractions = {};
+  Object.keys(groups).forEach(function(target) {
+    var handles = groups[target];
+    var order = columnOrder[target] || {};
+    handles.sort(function(a, b) {
+      var ia = order[a] !== undefined ? order[a] : Infinity;
+      var ib = order[b] !== undefined ? order[b] : Infinity;
+      return ia - ib;
+    });
+    var n = handles.length;
+    handles.forEach(function(handle, idx) {
+      // Top target rows take the lanes nearest the target so elbows nest
+      // instead of crossing when sources and targets share row order
+      var i = n - 1 - idx;
+      // Spread across the middle of the corridor; a single lane sits at
+      // 0.5, matching a plain smoothstep edge
+      fractions[target + '\u0000' + handle] = 0.2 + 0.6 * (i + 1) / (n + 1);
+    });
+  });
+  return fractions;
+}
+
 function renderReactFlow(el, x, width, height) {
   var React = window.ReactFlowBundle.React;
   var ReactDOM = window.ReactFlowBundle.ReactDOM;
@@ -33,7 +82,10 @@ function renderReactFlow(el, x, width, height) {
   var applyEdgeChanges = window.ReactFlowBundle.applyEdgeChanges;
   var addEdge = window.ReactFlowBundle.addEdge;
   var TableNode = window.ReactFlowBundle.TableNode;
-  
+  var LineageEdge = window.ReactFlowBundle.LineageEdge;
+  // Older cached bundles don't export LineageEdge; fall back to smoothstep
+  var defaultEdgeType = LineageEdge ? 'lineage' : 'smoothstep';
+
   el.style.width = '100%';
   el.style.height = height || '600px';
   // Class rather than id: multiple widgets can render on one page
@@ -45,7 +97,9 @@ function renderReactFlow(el, x, width, height) {
   var nodeTypes = {
     tableNode: TableNode
   };
-  
+
+  var edgeTypes = LineageEdge ? { lineage: LineageEdge } : {};
+
   // Ensure nodes are connectable with default styling
   var initialNodes = (x.nodes || []).map(function(node) {
     return Object.assign({}, node, {
@@ -53,11 +107,21 @@ function renderReactFlow(el, x, width, height) {
       draggable: true
     });
   });
-  
+
+  var laneFractions = computeLaneFractions(x.nodes || [], x.edges || []);
+
   var initialEdges = (x.edges || []).map(function(edge) {
+    var data = Object.assign({}, edge.data);
+    if (typeof data.laneFraction !== 'number') {
+      var lane = laneFractions[edge.target + '\u0000' + edge.targetHandle];
+      if (lane !== undefined) {
+        data.laneFraction = lane;
+      }
+    }
     return Object.assign({}, edge, {
-      type: edge.type || 'smoothstep',
-      animated: edge.animated || false
+      type: edge.type || defaultEdgeType,
+      animated: edge.animated || false,
+      data: data
     });
   });
   
@@ -157,6 +221,7 @@ function renderReactFlow(el, x, width, height) {
           onEdgesChange: onEdgesChange,
           onConnect: onConnect,
           nodeTypes: nodeTypes,
+          edgeTypes: edgeTypes,
           fitView: true,
           fitViewOptions: { padding: 0.2 },
           minZoom: 0.1,
@@ -167,8 +232,8 @@ function renderReactFlow(el, x, width, height) {
           snapToGrid: true,
           snapGrid: [15, 15],
           connectionLineStyle: { stroke: '#64748b', strokeWidth: 2 },
-          defaultEdgeOptions: { 
-            type: 'smoothstep',
+          defaultEdgeOptions: {
+            type: defaultEdgeType,
             animated: false,
             style: { stroke: '#64748b', strokeWidth: 2 }
           }

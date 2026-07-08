@@ -135,7 +135,7 @@ edges <- list(
 )
 
 lineage_flow(nodes, edges, height = "600px")
-#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpRr8BR4/file36121c0b9ae9/widget36123de74561.html screenshot completed
+#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/Rtmpq1Cdu2/file4ca93fdc7236/widget4ca921ce57fb.html screenshot completed
 ```
 
 ![Hand-built lineage diagram showing the customers and orders source
@@ -268,7 +268,7 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from 2e62c52:
+#> + 2/6 vertices, named, from 3465a27:
 #> [1] output.total_spent orders.amount
 ```
 
