@@ -1,14 +1,16 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { 
-  ReactFlow, 
-  Background, 
+import {
+  ReactFlow,
+  Background,
   Controls,
   Handle,
   Position,
   applyNodeChanges,
   applyEdgeChanges,
-  addEdge
+  addEdge,
+  BaseEdge,
+  getSmoothStepPath
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -118,6 +120,42 @@ const TableNode = ({ data, isConnectable, id }) => {
   );
 };
 
+// Smoothstep edge with a per-edge vertical "lane": data.laneFraction (0-1,
+// default 0.5) sets where between source and target the vertical segment
+// sits, so parallel edges don't draw on top of each other. The fraction is
+// relative to the live handle positions, so lanes survive node dragging.
+const LineageEdge = (props) => {
+  const laneFraction =
+    props.data && typeof props.data.laneFraction === 'number'
+      ? props.data.laneFraction
+      : 0.5;
+  const [path, labelX, labelY] = getSmoothStepPath({
+    sourceX: props.sourceX,
+    sourceY: props.sourceY,
+    sourcePosition: props.sourcePosition,
+    targetX: props.targetX,
+    targetY: props.targetY,
+    targetPosition: props.targetPosition,
+    borderRadius: 5,
+    stepPosition: laneFraction
+  });
+
+  return (
+    <BaseEdge
+      id={props.id}
+      path={path}
+      style={props.style}
+      markerEnd={props.markerEnd}
+      label={props.label}
+      labelX={labelX}
+      labelY={labelY}
+      labelStyle={props.labelStyle}
+      labelShowBg={true}
+      labelBgStyle={props.labelBgStyle}
+    />
+  );
+};
+
 // Export everything that the R htmlwidget will need
 export {
   React,
@@ -130,7 +168,8 @@ export {
   applyNodeChanges,
   applyEdgeChanges,
   addEdge,
-  TableNode
+  TableNode,
+  LineageEdge
 };
 
 // Also make available on window for htmlwidgets
@@ -146,6 +185,7 @@ if (typeof window !== 'undefined') {
     applyNodeChanges,
     applyEdgeChanges,
     addEdge,
-    TableNode
+    TableNode,
+    LineageEdge
   };
 }

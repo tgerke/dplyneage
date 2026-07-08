@@ -1,5 +1,12 @@
 # dplyneage (development version)
 
+* `lineage_flow()` now routes each target column's edges through its own
+  vertical lane instead of bending every edge at the same midpoint, so
+  parallel edges no longer draw on top of each other. Edges fanning into
+  the same target column still merge into one lane on purpose. Lanes are
+  fractions of the source-to-target span, so they hold up when nodes are
+  dragged.
+
 * New vignette `vignette("ducklake-lineage")` shows dplyneage working with
   [ducklake](https://github.com/tgerke/ducklake-r): lineage for lake
   pipelines, per-layer diagrams, and time-travel queries (#1).
