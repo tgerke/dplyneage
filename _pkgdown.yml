@@ -54,6 +54,7 @@ reference:
     - lineage_json
     - lineage_graphml
     - lineage_mermaid
+    - lineage_openlineage
 
   - title: Python Integration
     desc: >

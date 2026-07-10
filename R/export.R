@@ -92,6 +92,195 @@ lineage_graphml <- function(lineage, path = NULL) {
   write_export(out, path)
 }
 
+#' Export lineage as an OpenLineage run event
+#'
+#' Serializes a lineage object to an
+#' [OpenLineage](https://openlineage.io/) `RunEvent` JSON document with a
+#' `ColumnLineage` facet on each output dataset — the interchange format
+#' that data catalogs and lineage backends (Marquez, DataHub,
+#' OpenMetadata, ...) ingest. POST the document to an OpenLineage endpoint
+#' and dplyneage-extracted lineage appears alongside lineage from dbt,
+#' Airflow, or Spark.
+#'
+#' Source tables become the event's `inputs` (with a schema facet listing
+#' their referenced columns); transform and target tables become
+#' `outputs`, each carrying a `columnLineage` facet that maps every output
+#' column to its input fields. Edge classifications translate to
+#' OpenLineage transformation types: `identity`/`transformation`/
+#' `aggregation` edges become `DIRECT` transformations with the matching
+#' subtype, and indirect edges (from
+#' `extract_lineage(include_indirect = TRUE)`) become `INDIRECT` with
+#' subtype `FILTER`, `JOIN`, `GROUP_BY`, or `SORT`. A direct edge's
+#' defining expression is carried in the transformation's `description`.
+#'
+#' @inheritParams lineage_json
+#' @param path Optional file to write the JSON to. When supplied, the
+#'   string is returned invisibly.
+#' @param namespace Dataset and job namespace recorded in the event.
+#'   OpenLineage uses namespaces to group datasets by system; the default
+#'   `"dplyneage"` is fine for standalone use, but match your catalog's
+#'   namespace when integrating.
+#' @param job_name Name recorded for the job that produced this lineage.
+#' @param run_id UUID identifying the run. Generated when `NULL` (the
+#'   default); pass a fixed UUID for reproducible output.
+#' @param event_time Event timestamp in ISO-8601 format. The current UTC
+#'   time when `NULL` (the default); pass a fixed timestamp for
+#'   reproducible output.
+#' @return A JSON string containing one OpenLineage `RunEvent` of type
+#'   `COMPLETE`.
+#' @family lineage exporters
+#' @seealso [extract_lineage()] to compute lineage automatically
+#' @export
+#' @examples
+#' lineage <- list(
+#'   nodes = list(
+#'     create_table_node("orders", c("order_id", "amount")),
+#'     create_table_node("daily_totals", "total", table_type = "target")
+#'   ),
+#'   edges = list(
+#'     create_column_edge("orders", "amount", "daily_totals", "total")
+#'   )
+#' )
+#' lineage_openlineage(
+#'   lineage,
+#'   run_id = "00000000-0000-4000-8000-000000000000",
+#'   event_time = "2026-01-01T00:00:00.000Z"
+#' )
+lineage_openlineage <- function(lineage, path = NULL,
+                                namespace = "dplyneage",
+                                job_name = "extract_lineage",
+                                run_id = NULL,
+                                event_time = NULL,
+                                pretty = TRUE) {
+  event <- build_openlineage(
+    lineage_semantics(lineage),
+    namespace = namespace,
+    job_name = job_name,
+    run_id = run_id %||% ol_uuid(),
+    event_time = event_time %||%
+      format(Sys.time(), "%Y-%m-%dT%H:%M:%OS3Z", tz = "UTC")
+  )
+  out <- jsonlite::toJSON(event, auto_unbox = TRUE, pretty = pretty)
+  write_export(out, path)
+}
+
+#' @noRd
+ol_producer <- "https://github.com/tgerke/dplyneage"
+
+#' @noRd
+build_openlineage <- function(semantics, namespace, job_name, run_id,
+                              event_time) {
+  types <- vapply(
+    semantics$nodes,
+    function(n) n$type %||% NA_character_,
+    character(1)
+  )
+  is_output <- !is.na(types) & types %in% c("transform", "target")
+
+  schema_facet <- function(columns) {
+    list(
+      `_producer` = ol_producer,
+      `_schemaURL` = "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json",
+      fields = lapply(as.character(columns), function(col) list(name = col))
+    )
+  }
+
+  inputs <- lapply(semantics$nodes[!is_output], function(n) {
+    list(
+      namespace = namespace,
+      name = n$id,
+      facets = list(schema = schema_facet(n$columns))
+    )
+  })
+
+  outputs <- lapply(semantics$nodes[is_output], function(n) {
+    facets <- list(schema = schema_facet(n$columns))
+    fields <- ol_column_lineage_fields(semantics$edges, n$id, namespace)
+    if (length(fields) > 0) {
+      facets$columnLineage <- list(
+        `_producer` = ol_producer,
+        `_schemaURL` = "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json",
+        fields = fields
+      )
+    }
+    list(namespace = namespace, name = n$id, facets = facets)
+  })
+
+  list(
+    eventType = "COMPLETE",
+    eventTime = event_time,
+    run = list(runId = run_id),
+    job = list(namespace = namespace, name = job_name),
+    inputs = inputs,
+    outputs = outputs,
+    producer = ol_producer,
+    schemaURL = "https://openlineage.io/spec/2-0-2/OpenLineage.json#/definitions/RunEvent"
+  )
+}
+
+#' Build the columnLineage facet's fields object for one output dataset
+#' @noRd
+ol_column_lineage_fields <- function(edges, dataset, namespace) {
+  fields <- list()
+  for (e in edges) {
+    if (!identical(e$target, dataset)) next
+    input <- list(
+      namespace = namespace,
+      name = e$source,
+      field = e$source_column
+    )
+    transformation <- ol_transformation(e$transformation, e$expression)
+    if (!is.null(transformation)) {
+      input$transformations <- list(transformation)
+    }
+    fields[[e$target_column]] <- list(
+      inputFields = c(
+        fields[[e$target_column]]$inputFields %||% list(),
+        list(input)
+      )
+    )
+  }
+  fields
+}
+
+# dplyneage's edge classifications map onto OpenLineage's transformation
+# type/subtype taxonomy; hand-built edges (no classification) map to NULL
+#' @noRd
+ol_transformation <- function(transformation, expression = NULL) {
+  map <- list(
+    identity = list(type = "DIRECT", subtype = "IDENTITY"),
+    transformation = list(type = "DIRECT", subtype = "TRANSFORMATION"),
+    aggregation = list(type = "DIRECT", subtype = "AGGREGATION"),
+    filter = list(type = "INDIRECT", subtype = "FILTER"),
+    join = list(type = "INDIRECT", subtype = "JOIN"),
+    group_by = list(type = "INDIRECT", subtype = "GROUP_BY"),
+    sort = list(type = "INDIRECT", subtype = "SORT")
+  )
+  if (is.null(transformation)) {
+    return(NULL)
+  }
+  out <- map[[transformation]]
+  if (is.null(out)) {
+    return(NULL)
+  }
+  if (!is.null(expression)) {
+    out$description <- expression
+  }
+  out
+}
+
+#' RFC 4122 version-4 UUID from R's RNG (no dependency needed)
+#' @noRd
+ol_uuid <- function() {
+  hex <- function(n) {
+    paste(sample(c(0:9, letters[1:6]), n, replace = TRUE), collapse = "")
+  }
+  paste0(
+    hex(8), "-", hex(4), "-4", hex(3), "-",
+    sample(c("8", "9", "a", "b"), 1), hex(3), "-", hex(12)
+  )
+}
+
 #' Export lineage as a Mermaid flowchart
 #'
 #' Serializes a lineage object to [Mermaid](https://mermaid.js.org/)

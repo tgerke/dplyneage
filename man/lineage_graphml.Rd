@@ -53,6 +53,7 @@ igraph::subcomponent(g, "daily_totals.total", mode = "in")
 
 Other lineage exporters:
 \code{\link[=lineage_json]{lineage_json()}},
-\code{\link[=lineage_mermaid]{lineage_mermaid()}}
+\code{\link[=lineage_mermaid]{lineage_mermaid()}},
+\code{\link[=lineage_openlineage]{lineage_openlineage()}}
 }
 \concept{lineage exporters}

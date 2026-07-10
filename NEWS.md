@@ -1,5 +1,12 @@
 # dplyneage (development version)
 
+* New `lineage_openlineage()` exports lineage as an OpenLineage `RunEvent`
+  with `ColumnLineage` facets — the interchange format Marquez, DataHub,
+  and OpenMetadata ingest, so dplyneage-extracted lineage can sit
+  alongside lineage from dbt, Airflow, or Spark. Edge classifications map
+  to OpenLineage transformation types, including `INDIRECT` subtypes for
+  `include_indirect` edges.
+
 * New `lineage_mermaid()` exports lineage as a Mermaid flowchart — paste
   it into a ` ```mermaid ` fence and it renders natively on GitHub, in
   Quarto, and in most documentation tools, with no htmlwidget involved.

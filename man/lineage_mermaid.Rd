@@ -51,6 +51,7 @@ cat("```mermaid\n", lineage_mermaid(lineage), "```\n", sep = "")
 
 Other lineage exporters:
 \code{\link[=lineage_graphml]{lineage_graphml()}},
-\code{\link[=lineage_json]{lineage_json()}}
+\code{\link[=lineage_json]{lineage_json()}},
+\code{\link[=lineage_openlineage]{lineage_openlineage()}}
 }
 \concept{lineage exporters}

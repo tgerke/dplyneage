@@ -347,3 +347,129 @@ test_that("lineage_mermaid writes to a file and returns invisibly", {
   expect_invisible(lineage_mermaid(lineage, path = path))
   expect_match(readLines(path)[[1]], "flowchart LR", fixed = TRUE)
 })
+
+# lineage_openlineage ----------------------------------------------------
+
+test_that("lineage_openlineage emits a complete RunEvent", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  lineage <- dbplyr::lazy_frame(customer_id = 1L, amount = 1, .name = "orders") |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total = sum(amount, na.rm = TRUE)) |>
+    extract_lineage(engine = "r")
+
+  json <- lineage_openlineage(
+    lineage,
+    run_id = "00000000-0000-4000-8000-000000000000",
+    event_time = "2026-01-01T00:00:00.000Z"
+  )
+  event <- jsonlite::fromJSON(json, simplifyVector = FALSE)
+
+  expect_identical(event$eventType, "COMPLETE")
+  expect_identical(event$run$runId, "00000000-0000-4000-8000-000000000000")
+  expect_identical(event$eventTime, "2026-01-01T00:00:00.000Z")
+  expect_identical(event$inputs[[1]]$name, "orders")
+  expect_identical(event$outputs[[1]]$name, "output")
+
+  cl <- event$outputs[[1]]$facets$columnLineage$fields
+  total <- cl$total$inputFields[[1]]
+  expect_identical(total$name, "orders")
+  expect_identical(total$field, "amount")
+  expect_identical(total$transformations[[1]]$type, "DIRECT")
+  expect_identical(total$transformations[[1]]$subtype, "AGGREGATION")
+  expect_identical(
+    total$transformations[[1]]$description,
+    "sum(amount, na.rm = TRUE)"
+  )
+})
+
+test_that("indirect edges map to INDIRECT transformation subtypes", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  lineage <- dbplyr::lazy_frame(a = 1, b = 2, .name = "t1") |>
+    dplyr::filter(b > 0) |>
+    dplyr::select(a) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(lineage, run_id = "x", event_time = "t"),
+    simplifyVector = FALSE
+  )
+  inputs <- event$outputs[[1]]$facets$columnLineage$fields$a$inputFields
+  filter_input <- Filter(function(f) f$field == "b", inputs)[[1]]
+  expect_identical(filter_input$transformations[[1]]$type, "INDIRECT")
+  expect_identical(filter_input$transformations[[1]]$subtype, "FILTER")
+  expect_null(filter_input$transformations[[1]]$description)
+})
+
+test_that("multi-model pipelines put transforms in outputs", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  silver <- dbplyr::lazy_frame(customer_id = 1L, amount = 1, .name = "orders") |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total_spent = sum(amount, na.rm = TRUE))
+  gold <- dbplyr::lazy_frame(customer_id = 1L, total_spent = 1, .name = "silver") |>
+    dplyr::mutate(big = total_spent > 100)
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(
+      extract_lineage(list(silver = silver, gold = gold)),
+      run_id = "x", event_time = "t"
+    ),
+    simplifyVector = FALSE
+  )
+
+  input_names <- vapply(event$inputs, function(d) d$name, character(1))
+  output_names <- vapply(event$outputs, function(d) d$name, character(1))
+  expect_identical(input_names, "orders")
+  expect_identical(sort(output_names), c("gold", "silver"))
+
+  gold_cl <- Filter(function(d) d$name == "gold", event$outputs)[[1]]
+  big <- gold_cl$facets$columnLineage$fields$big$inputFields[[1]]
+  expect_identical(big$name, "silver")
+  expect_identical(big$field, "total_spent")
+})
+
+test_that("hand-built edges carry no transformations and defaults are valid", {
+  lineage <- list(
+    nodes = list(
+      create_table_node("orders", "amount"),
+      create_table_node("totals", "total", table_type = "target"),
+      create_table_node("island", "x", table_type = "target")
+    ),
+    edges = list(create_column_edge("orders", "amount", "totals", "total"))
+  )
+
+  event <- jsonlite::fromJSON(lineage_openlineage(lineage), simplifyVector = FALSE)
+
+  expect_match(
+    event$run$runId,
+    "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+  )
+  expect_match(event$eventTime, "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}")
+
+  totals <- Filter(function(d) d$name == "totals", event$outputs)[[1]]
+  expect_null(totals$facets$columnLineage$fields$total$inputFields[[1]]$transformations)
+
+  # An output with no incoming edges gets a schema facet but no (invalid,
+  # empty) columnLineage facet
+  island <- Filter(function(d) d$name == "island", event$outputs)[[1]]
+  expect_null(island$facets$columnLineage)
+  expect_identical(island$facets$schema$fields[[1]]$name, "x")
+})
+
+test_that("lineage_openlineage writes to a file and returns invisibly", {
+  lineage <- list(
+    nodes = list(create_table_node("orders", "amount")),
+    edges = list()
+  )
+  path <- withr::local_tempfile(fileext = ".json")
+  expect_invisible(lineage_openlineage(lineage, path = path))
+  expect_identical(
+    jsonlite::fromJSON(path, simplifyVector = FALSE)$eventType,
+    "COMPLETE"
+  )
+})
