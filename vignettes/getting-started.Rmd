@@ -161,6 +161,30 @@ extract_lineage(query, dialect = "postgres")
 extract_lineage(query, dialect = "snowflake")
 ```
 
+## Local data frames
+
+`extract_lineage()` reads lineage from a *lazy* query — the tree dbplyr builds up before anything touches the database. A pipeline on a plain tibble has no such tree: dplyr executes each verb immediately, so by the time you could ask about lineage, only the result is left.
+
+The workaround is one line. `dbplyr::memdb_frame()` puts the data in a throwaway in-memory SQLite database (install the RSQLite package once) and hands back a lazy table, so the identical pipeline becomes traceable:
+
+```{r, eval = can_eval && requireNamespace("RSQLite", quietly = TRUE)}
+sales <- dbplyr::memdb_frame(
+  customer_id = c(1, 1, 2),
+  amount = c(100, 250, 40),
+  .name = "sales"
+)
+
+sales |>
+  group_by(customer_id) |>
+  summarise(total = sum(amount, na.rm = TRUE)) |>
+  extract_lineage() |>
+  lineage_flow(height = "300px")
+```
+
+For a data frame you already have, `copy_to(dbplyr::memdb(), df, name = "df")` does the same copy. Lineage depends only on the pipeline's structure, never on the data, so for large frames copying a slice is enough — `copy_to(dbplyr::memdb(), head(df), name = "df")` yields the same diagram as copying every row.
+
+The duckdb connection from earlier in this vignette works just as well (`copy_to(con, df)`); `memdb_frame()` is simply the fastest route when no connection exists yet.
+
 ## Building diagrams by hand
 
 For documentation or design sketches, skip extraction entirely and build the diagram yourself:

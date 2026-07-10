@@ -29,6 +29,7 @@ Suggests:
     knitr,
     reticulate,
     rmarkdown,
+    RSQLite,
     shiny,
     testthat (>= 3.2.0),
     withr,

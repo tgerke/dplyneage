@@ -13,6 +13,11 @@
   Tables draw as colored subgraphs, non-identity edges carry their
   expression, and indirect edges draw dashed.
 
+* The getting-started vignette now covers local data frames: plain-dplyr
+  pipelines have no lazy query tree to trace, and
+  `dbplyr::memdb_frame()` (or any `copy_to()`) is the one-line workaround
+  that makes the identical pipeline traceable.
+
 * New `include_indirect` argument for `extract_lineage()`: columns used in
   `filter()`/`WHERE`, join conditions, `group_by()`, and
   `arrange()`/`ORDER BY` — which shape the result without appearing in
