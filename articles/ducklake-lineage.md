@@ -122,15 +122,51 @@ lineage diagram documents just that hop:
 
 ``` r
 
-get_ducklake_table("region_sales") |>
-  filter(total_sales > 300) |>
+top_regions <- get_ducklake_table("region_sales") |>
+  filter(total_sales > 300)
+
+top_regions |>
   extract_lineage() |>
   lineage_flow(height = "300px")
 ```
 
-Chain the per-hop diagrams together and you have column-level
-documentation of the whole lake, each piece generated from the code that
-built it.
+## The whole lake in one diagram
+
+Per-hop diagrams are useful at the moment you build a layer; a named
+list stitches them into the full picture. Pass each layer’s build
+pipeline under the name it was materialized as, and
+[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
+connects the hops: any source table matching a model name becomes an
+intermediate transform node.
+
+``` r
+
+lake_lineage <- extract_lineage(list(
+  region_sales = region_sales,
+  top_regions = top_regions
+))
+
+lineage_flow(lake_lineage, height = "450px")
+```
+
+Now `orders` and `customers` (blue) feed `region_sales` (orange), which
+feeds `top_regions` (green) — the whole lake, bronze to gold, with every
+column edge preserved. Aggregation edges carry their defining expression
+as a label, so `total_sales` reads as `sum(amount, na.rm = TRUE)` right
+on the diagram.
+
+The stitched graph is also where impact analysis pays off.
+[`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
+walks the hops transitively:
+
+``` r
+
+lineage_upstream(lake_lineage, "top_regions.total_sales")
+#> [1] "orders.amount"            "region_sales.total_sales"
+```
+
+So a rename of `orders.amount` touches every layer of this lake — worth
+knowing before you commit it.
 
 ## Time travel and lineage
 

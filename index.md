@@ -22,11 +22,10 @@ BigQuery, …) work too.
 pak::pak("tgerke/dplyneage")
 ```
 
-dbplyr pipelines need no Python at all. For raw SQL input, the Python
-dependency (sqlglot) is provisioned automatically the first time it’s
-needed, via
-[`reticulate::py_require()`](https://rstudio.github.io/reticulate/reference/py_require.html)
-— there is no setup step. See
+dbplyr pipelines need no Python at all — not even reticulate. For raw
+SQL input, install the reticulate package once; the Python dependency
+(sqlglot) is then provisioned automatically the first time it’s needed.
+See
 [`vignette("python-integration")`](https://tgerke.github.io/dplyneage/articles/python-integration.md)
 if you manage your own Python environment.
 
@@ -94,7 +93,48 @@ Behind that one pipe,
   unqualified columns attribute correctly)
 
 The resulting diagram is fully interactive: drag tables to rearrange,
-zoom and pan, and hover columns to highlight their connections.
+zoom and pan, and hover columns to highlight their connections. Computed
+columns carry their defining expression as an edge label, and
+aggregation edges animate.
+
+## Multi-model pipelines
+
+Real pipelines materialize layers — bronze tables feed a silver summary,
+silver feeds gold. Pass
+[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
+a named list, one element per layer, and it stitches them into a single
+DAG: any source table whose name matches another element’s name links to
+that model’s node.
+
+``` r
+
+silver <- tbl(con, "orders") |>
+  group_by(customer_id) |>
+  summarise(total_spent = sum(amount, na.rm = TRUE), .groups = "drop")
+invisible(compute(silver, name = "silver", temporary = TRUE))
+
+gold <- tbl(con, "silver") |>
+  mutate(big_spender = total_spent > 400)
+
+extract_lineage(list(silver = silver, gold = gold)) |>
+  lineage_flow(height = "450px")
+#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpfA4gSE/file137e47b9f0f1f/widget137e4799fba1.html screenshot completed
+```
+
+![Three-layer lineage diagram: the orders source table in blue feeds the
+silver transform table in orange, which feeds the gold target table in
+green, with column-level edges through all three
+layers](reference/figures/README-unnamed-chunk-4-1.png)
+
+Intermediate models render as orange transform nodes, terminal models as
+green targets, and impact questions now span the whole pipeline:
+
+``` r
+
+extract_lineage(list(silver = silver, gold = gold)) |>
+  lineage_upstream("gold.big_spender")
+#> [1] "orders.amount"      "silver.total_spent"
+```
 
 ## Building diagrams by hand
 
@@ -135,13 +175,13 @@ edges <- list(
 )
 
 lineage_flow(nodes, edges, height = "600px")
-#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmppTmRFr/file65ce6b613dea/widget65ce3d2804b9.html screenshot completed
+#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpfA4gSE/file137e41403c709/widget137e44002a23.html screenshot completed
 ```
 
 ![Hand-built lineage diagram showing the customers and orders source
 tables in blue connected to a customer_summary target table in green,
 with a SUM() label on the total_spent
-edge](reference/figures/README-unnamed-chunk-4-1.png)
+edge](reference/figures/README-unnamed-chunk-6-1.png)
 
 Table types follow the color conventions used by dbt and SQLMesh:
 
@@ -177,13 +217,15 @@ works through a full example: building a small lake, diagramming each
 layer of a bronze/silver/gold pipeline, and extracting lineage from
 time-travel queries.
 
-## Exporting lineage
+## Lineage as data
 
 Diagrams are for people; the same lineage is also useful as plain data.
-[`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
-gives you a small, stable document you can query with jq, feed to a data
-catalog, or commit next to your pipeline code — then a CI diff flags any
-change to column provenance before it ships:
+[`lineage_edges()`](https://tgerke.github.io/dplyneage/reference/lineage_edges.md)
+flattens it to one classified row per column edge, and
+[`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
+/
+[`lineage_downstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
+answer impact questions directly:
 
 ``` r
 
@@ -193,13 +235,36 @@ lineage <- tbl(con, "orders") |>
   summarise(total_spent = sum(amount, na.rm = TRUE), .groups = "drop") |>
   extract_lineage()
 
+lineage_edges(lineage)
+#>   source_table source_column target_table target_column transformation
+#> 1       orders   customer_id       output   customer_id       identity
+#> 2    customers    first_name       output    first_name       identity
+#> 3       orders        amount       output   total_spent    aggregation
+#>                  expression
+#> 1               customer_id
+#> 2                first_name
+#> 3 sum(amount, na.rm = TRUE)
+
+lineage_upstream(lineage, "output.total_spent")
+#> [1] "orders.amount"
+```
+
+[`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
+compares two extractions — run it across branches in CI and provenance
+changes surface before they ship. For interchange,
+[`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+gives you a small, stable document you can query with jq, feed to a data
+catalog, or commit next to your pipeline code:
+
+``` r
+
 lineage_json(lineage)
 #> {
 #>   "metadata": {
 #>     "sql": "SELECT customer_id, first_name, SUM(amount) AS total_spent\nFROM (\n  SELECT orders.*, first_name, last_name, email\n  FROM orders\n  LEFT JOIN customers\n    ON (orders.customer_id = customers.customer_id)\n) AS q01\nGROUP BY customer_id, first_name",
 #>     "dialect": "duckdb",
 #>     "engine": "r",
-#>     "table_count": 3,
+#>     "node_count": 3,
 #>     "edge_count": 3
 #>   },
 #>   "nodes": [
@@ -224,19 +289,25 @@ lineage_json(lineage)
 #>       "source": "orders",
 #>       "source_column": "customer_id",
 #>       "target": "output",
-#>       "target_column": "customer_id"
+#>       "target_column": "customer_id",
+#>       "transformation": "identity",
+#>       "expression": "customer_id"
 #>     },
 #>     {
 #>       "source": "customers",
 #>       "source_column": "first_name",
 #>       "target": "output",
-#>       "target_column": "first_name"
+#>       "target_column": "first_name",
+#>       "transformation": "identity",
+#>       "expression": "first_name"
 #>     },
 #>     {
 #>       "source": "orders",
 #>       "source_column": "amount",
 #>       "target": "output",
-#>       "target_column": "total_spent"
+#>       "target_column": "total_spent",
+#>       "transformation": "aggregation",
+#>       "expression": "sum(amount, na.rm = TRUE)"
 #>     }
 #>   ]
 #> }
@@ -268,7 +339,7 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from a53d4b6:
+#> + 2/6 vertices, named, from ef74e0f:
 #> [1] output.total_spent orders.amount
 ```
 

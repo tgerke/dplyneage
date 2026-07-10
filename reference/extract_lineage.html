@@ -62,7 +62,8 @@ operations like <code>UNION</code>, and multi-source expressions such as
 <span>  dialect <span class="op">=</span> <span class="st">"duckdb"</span>,</span>
 <span>  schema <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  show_sql <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  engine <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"sqlglot"</span>, <span class="st">"r"</span><span class="op">)</span></span>
+<span>  engine <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"sqlglot"</span>, <span class="st">"r"</span><span class="op">)</span>,</span>
+<span>  include_indirect <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -71,11 +72,13 @@ operations like <code>UNION</code>, and multi-source expressions such as
 
 
 <dl><dt id="arg-sql">sql<a class="anchor" aria-label="anchor" href="#arg-sql"></a></dt>
-<dd><p>A dbplyr lazy table (<code>tbl_lazy</code>) or a single SQL query string.
-Lazy tables are analyzed directly from their lazy query tree (the SQL
-recorded in <code>metadata</code> still comes from <code><a href="https://dbplyr.tidyverse.org/reference/sql_build.html" class="external-link">dbplyr::sql_render()</a></code>); when
-one is handled by the sqlglot engine instead, its database connection
-is used to harvest table schemas automatically.</p></dd>
+<dd><p>A dbplyr lazy table (<code>tbl_lazy</code>), a single SQL query string,
+or a named list of these (one element per pipeline model; see
+Details). Lazy tables are analyzed directly from their lazy query
+tree (the SQL recorded in <code>metadata</code> still comes from
+<code><a href="https://dbplyr.tidyverse.org/reference/sql_build.html" class="external-link">dbplyr::sql_render()</a></code>); when one is handled by the sqlglot engine
+instead, its database connection is used to harvest table schemas
+automatically.</p></dd>
 
 
 <dt id="arg-dialect">dialect<a class="anchor" aria-label="anchor" href="#arg-dialect"></a></dt>
@@ -106,6 +109,13 @@ falling back to sqlglot for SQL strings or unsupported constructs.
 <code>"r"</code> forces the pure-R engine and errors on anything it cannot trace.
 <code>"sqlglot"</code> always renders to SQL and analyzes with sqlglot.</p></dd>
 
+
+<dt id="arg-include-indirect">include_indirect<a class="anchor" aria-label="anchor" href="#arg-include-indirect"></a></dt>
+<dd><p>If <code>TRUE</code>, columns used in <code><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter()</a></code>/<code>WHERE</code>,
+join conditions, <code><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by()</a></code>, and <code><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange()</a></code>/<code>ORDER BY</code> also appear
+in the diagram, connected by dashed edges (see Details). Default:
+<code>FALSE</code>, matching most lineage tools.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -119,11 +129,25 @@ dialect, the engine used, and node/edge counts.</p>
 fast path that walks the pipeline's lazy query tree directly — no Python
 required. SQL strings are analyzed by
 <a href="https://github.com/tobymao/sqlglot" class="external-link">sqlglot</a>'s lineage engine via
-reticulate. If a pipeline uses a construct the R engine cannot trace
-(e.g. raw SQL injected with <code><a href="https://dbplyr.tidyverse.org/reference/sql.html" class="external-link">dbplyr::sql()</a></code>), it falls back to sqlglot
-automatically.</p>
-<p>Both engines trace select-list lineage: columns used only in <code><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter()</a></code>,
-join conditions, or <code><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange()</a></code> do not create lineage edges.</p>
+reticulate (a Suggests dependency: install reticulate to enable this
+engine; sqlglot itself is provisioned automatically). If a pipeline uses
+a construct the R engine cannot trace (e.g. raw SQL injected with
+<code><a href="https://dbplyr.tidyverse.org/reference/sql.html" class="external-link">dbplyr::sql()</a></code>), it falls back to sqlglot automatically.</p>
+<p>Both engines trace select-list lineage by default: columns used only in
+<code><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter()</a></code>, join conditions, or <code><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange()</a></code> do not create lineage
+edges. Set <code>include_indirect = TRUE</code> to add them as dashed edges — a
+column that only filters the result still breaks the pipeline if it is
+dropped, so impact analysis usually wants them. Indirect edges connect
+each filter/join/group/sort column to every output column, since these
+conditions shape the whole result, and are classified by how the column
+is used (<code>"filter"</code>, <code>"join"</code>, <code>"group_by"</code>, <code>"sort"</code>).</p>
+<p>A named list stitches a multi-model pipeline into one graph. Each
+element (lazy table or SQL string) is analyzed on its own, and any
+source table whose name matches another element's name connects to that
+model's node — so a bronze/silver/gold flow where each layer is
+materialized under its model's name renders as a single multi-hop DAG,
+with intermediate models drawn as orange transform nodes and terminal
+models as green targets.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
@@ -138,7 +162,7 @@ CTEs and multi-source columns.</p></div>
 <span class="r-in"><span><span class="fu">extract_lineage</span><span class="op">(</span><span class="st">"SELECT c.id, c.name FROM customers c"</span><span class="op">)</span> <span class="op">|&gt;</span></span></span>
 <span class="r-in"><span>  <span class="fu"><a href="lineage_flow.html">lineage_flow</a></span><span class="op">(</span><span class="op">)</span></span></span>
 <div class="lineage_flow html-widget html-fill-item" id="htmlwidget-ac96cb3ee4656e2e9ec3" style="width:100%;height:600px;"></div>
-<script type="application/json" data-for="htmlwidget-ac96cb3ee4656e2e9ec3">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script><span class="r-in"><span></span></span>
+<script type="application/json" data-for="htmlwidget-ac96cb3ee4656e2e9ec3">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"c.id","transformation":"identity"}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"c.name","transformation":"identity"}}]},"evals":[],"jsHooks":[]}</script><span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Supply a schema so unqualified columns attribute to the right table</span></span></span>
 <span class="r-in"><span><span class="co"># and SELECT * expands</span></span></span>
 <span class="r-in"><span><span class="fu">extract_lineage</span><span class="op">(</span></span></span>
@@ -149,224 +173,11 @@ CTEs and multi-source columns.</p></div>
 <span class="r-in"><span>    orders <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"customer_id"</span>, <span class="st">"order_date"</span><span class="op">)</span></span></span>
 <span class="r-in"><span>  <span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]$id</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "customers"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]$type</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "tableNode"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]$data</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]$data$label</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "customers"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]$data$columns</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "name"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]$data$tableType</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "source"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]$data$colors</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]$data$colors$bg</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "#f0f7ff"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]$data$colors$border</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "#3b82f6"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]$data$colors$header</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "#1d4ed8"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]$position</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]$position$x</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]$position$y</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]$draggable</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] TRUE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]$sourcePosition</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "right"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[1]]$targetPosition</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "left"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]$id</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "orders"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]$type</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "tableNode"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]$data</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]$data$label</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "orders"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]$data$columns</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "order_date"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]$data$tableType</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "source"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]$data$colors</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]$data$colors$bg</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "#f0f7ff"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]$data$colors$border</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "#3b82f6"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]$data$colors$header</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "#1d4ed8"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]$position</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]$position$x</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]$position$y</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 200</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]$draggable</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] TRUE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]$sourcePosition</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "right"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[2]]$targetPosition</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "left"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]$id</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "output"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]$type</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "tableNode"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]$data</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]$data$label</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "output"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]$data$columns</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "name"       "order_date"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]$data$tableType</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "target"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]$data$colors</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]$data$colors$bg</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "#f0fdf4"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]$data$colors$border</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "#10b981"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]$data$colors$header</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "#059669"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]$position</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]$position$x</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 400</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]$position$y</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 100</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]$draggable</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] TRUE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]$sourcePosition</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "right"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $nodes[[3]]$targetPosition</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "left"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[1]]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[1]]$id</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "e_customers.name_to_output.name"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[1]]$source</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "customers"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[1]]$target</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "output"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[1]]$sourceHandle</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "name"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[1]]$targetHandle</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "name"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[1]]$animated</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[1]]$style</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[1]]$style$stroke</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "#64748b"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[1]]$style$strokeWidth</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[2]]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[2]]$id</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "e_orders.order_date_to_output.order_date"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[2]]$source</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "orders"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[2]]$target</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "output"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[2]]$sourceHandle</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "order_date"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[2]]$targetHandle</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "order_date"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[2]]$animated</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[2]]$style</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[2]]$style$stroke</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "#64748b"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $edges[[2]]$style$strokeWidth</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $metadata</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $metadata$sql</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "SELECT c.name, order_date FROM customers c\n   JOIN orders o ON c.id = o.customer_id"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $metadata$dialect</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "duckdb"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $metadata$engine</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "sqlglot"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $metadata$table_count</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 3</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> $metadata$edge_count</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;dplyneage lineage&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   engine: sqlglot (dialect: duckdb)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   sources: customers, orders</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   output: name, order_date</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   2 column edges</span>
 <span class="r-in"><span><span class="co"># dbplyr pipelines: pipe straight in; the pure-R engine reads exact</span></span></span>
 <span class="r-in"><span><span class="co"># provenance from the pipeline itself, no Python needed</span></span></span>
 <span class="r-in"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://dplyr.tidyverse.org" class="external-link">dplyr</a></span><span class="op">)</span></span></span>
@@ -390,7 +201,20 @@ CTEs and multi-source columns.</p></div>
 <span class="r-in"><span>  <span class="fu">extract_lineage</span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span></span>
 <span class="r-in"><span>  <span class="fu"><a href="lineage_flow.html">lineage_flow</a></span><span class="op">(</span><span class="op">)</span></span></span>
 <div class="lineage_flow html-widget html-fill-item" id="htmlwidget-e5c8c404fe174e4c81bd" style="width:100%;height:600px;"></div>
-<script type="application/json" data-for="htmlwidget-e5c8c404fe174e4c81bd">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"orders","type":"tableNode","data":{"label":"orders","columns":"amount","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":200},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name","total_spent"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_orders.amount_to_output.total_spent","source":"orders","target":"output","sourceHandle":"amount","targetHandle":"total_spent","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script><span class="r-in"><span></span></span>
+<script type="application/json" data-for="htmlwidget-e5c8c404fe174e4c81bd">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"orders","type":"tableNode","data":{"label":"orders","columns":"amount","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":170},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name","total_spent"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":52},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"id","transformation":"identity"}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"name","transformation":"identity"}},{"id":"e_orders.amount_to_output.total_spent","source":"orders","target":"output","sourceHandle":"amount","targetHandle":"total_spent","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"sum(amount, na.rm = TRUE)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"sum(amount, na.rm = TRUE)","transformation":"aggregation"}}]},"evals":[],"jsHooks":[]}</script><span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Multi-model pipelines: name each step and pass a named list; source</span></span></span>
+<span class="r-in"><span><span class="co"># tables matching a model name stitch the layers into one DAG</span></span></span>
+<span class="r-in"><span><span class="va">silver</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"orders"</span><span class="op">)</span> <span class="op">|&gt;</span></span></span>
+<span class="r-in"><span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">customer_id</span><span class="op">)</span> <span class="op">|&gt;</span></span></span>
+<span class="r-in"><span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/summarise.html" class="external-link">summarise</a></span><span class="op">(</span>total_spent <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">amount</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, .groups <span class="op">=</span> <span class="st">"drop"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/compute.html" class="external-link">compute</a></span><span class="op">(</span><span class="va">silver</span>, name <span class="op">=</span> <span class="st">"silver"</span>, temporary <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">gold</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"silver"</span><span class="op">)</span> <span class="op">|&gt;</span></span></span>
+<span class="r-in"><span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>big_spender <span class="op">=</span> <span class="va">total_spent</span> <span class="op">&gt;</span> <span class="fl">100</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="fu">extract_lineage</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>silver <span class="op">=</span> <span class="va">silver</span>, gold <span class="op">=</span> <span class="va">gold</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span></span>
+<span class="r-in"><span>  <span class="fu"><a href="lineage_flow.html">lineage_flow</a></span><span class="op">(</span><span class="op">)</span></span></span>
+<div class="lineage_flow html-widget html-fill-item" id="htmlwidget-36aa3d2a04d42bbc2145" style="width:100%;height:600px;"></div>
+<script type="application/json" data-for="htmlwidget-36aa3d2a04d42bbc2145">{"x":{"nodes":[{"id":"orders","type":"tableNode","data":{"label":"orders","columns":["customer_id","amount"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":16.5},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"silver","type":"tableNode","data":{"label":"silver","columns":["customer_id","total_spent"],"tableType":"transform","colors":{"bg":"#fef3f2","border":"#f59e0b","header":"#d97706"}},"position":{"x":400,"y":16.5},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"gold","type":"tableNode","data":{"label":"gold","columns":["customer_id","total_spent","big_spender"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":800,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_orders.customer_id_to_silver.customer_id","source":"orders","target":"silver","sourceHandle":"customer_id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"customer_id","transformation":"identity"}},{"id":"e_orders.amount_to_silver.total_spent","source":"orders","target":"silver","sourceHandle":"amount","targetHandle":"total_spent","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"sum(amount, na.rm = TRUE)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"sum(amount, na.rm = TRUE)","transformation":"aggregation"}},{"id":"e_silver.customer_id_to_gold.customer_id","source":"silver","target":"gold","sourceHandle":"customer_id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"customer_id","transformation":"identity"}},{"id":"e_silver.total_spent_to_gold.total_spent","source":"silver","target":"gold","sourceHandle":"total_spent","targetHandle":"total_spent","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"total_spent","transformation":"identity"}},{"id":"e_silver.total_spent_to_gold.big_spender","source":"silver","target":"gold","sourceHandle":"total_spent","targetHandle":"big_spender","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"label":"total_spent > 100","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"total_spent > 100","transformation":"transformation"}}]},"evals":[],"jsHooks":[]}</script><span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbDisconnect.html" class="external-link">dbDisconnect</a></span><span class="op">(</span><span class="va">con</span><span class="op">)</span></span></span>
 </code></pre></div>
     </div>

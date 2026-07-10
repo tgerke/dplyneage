@@ -88,13 +88,16 @@ readability. Use <code>FALSE</code> for a single-line document.</p></dd>
     <p>A JSON string. With <code>metadata</code> (present on <code><a href="extract_lineage.html">extract_lineage()</a></code>
 results), <code>nodes</code> (objects with <code>id</code>, <code>type</code>, and <code>columns</code>), and
 <code>edges</code> (objects with <code>source</code>, <code>source_column</code>, <code>target</code>, and
-<code>target_column</code>).</p>
+<code>target_column</code>; edges produced by <code><a href="extract_lineage.html">extract_lineage()</a></code> also carry
+<code>transformation</code> and <code>expression</code>).</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="extract_lineage.html">extract_lineage()</a></code> to compute lineage automatically</p>
 <p>Other lineage exporters:
-<code><a href="lineage_graphml.html">lineage_graphml()</a></code></p></div>
+<code><a href="lineage_graphml.html">lineage_graphml()</a></code>,
+<code><a href="lineage_mermaid.html">lineage_mermaid()</a></code>,
+<code><a href="lineage_openlineage.html">lineage_openlineage()</a></code></p></div>
     </div>
 
     <div class="section level2">
@@ -143,7 +146,7 @@ results), <code>nodes</code> (objects with <code>id</code>, <code>type</code>, a
 <span class="r-out co"><span class="r-pr">#&gt;</span>     "sql": "SELECT customer_id, SUM(amount) AS total\n                 FROM orders GROUP BY customer_id",</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     "dialect": "duckdb",</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     "engine": "sqlglot",</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     "table_count": 2,</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     "node_count": 2,</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     "edge_count": 2</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   },</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   "nodes": [</span>
@@ -163,13 +166,17 @@ results), <code>nodes</code> (objects with <code>id</code>, <code>type</code>, a
 <span class="r-out co"><span class="r-pr">#&gt;</span>       "source": "orders",</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       "source_column": "customer_id",</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       "target": "output",</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>       "target_column": "customer_id"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       "target_column": "customer_id",</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       "transformation": "identity",</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       "expression": "customer_id"</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     },</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     {</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       "source": "orders",</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       "source_column": "amount",</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       "target": "output",</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>       "target_column": "total"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       "target_column": "total",</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       "transformation": "aggregation",</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       "expression": "SUM(amount)"</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     }</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   ]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> } </span>

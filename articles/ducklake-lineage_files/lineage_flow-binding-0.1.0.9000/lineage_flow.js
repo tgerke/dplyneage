@@ -177,15 +177,17 @@ function renderReactFlow(el, x, width, height) {
             (edge.target === hoveredHandle.nodeId && edge.targetHandle === hoveredHandle.handleId)
           );
           
+          // Merge over the edge's own style so per-edge patterns
+          // (e.g. the dashes on indirect edges) survive highlighting
           if (isConnected) {
             return Object.assign({}, edge, {
               animated: true,
-              style: { stroke: '#f59e0b', strokeWidth: 3 }
+              style: Object.assign({}, edge.style, { stroke: '#f59e0b', strokeWidth: 3 })
             });
           } else {
             return Object.assign({}, edge, {
               animated: false,
-              style: { stroke: '#d1d5db', strokeWidth: 2, opacity: 0.3 }
+              style: Object.assign({}, edge.style, { stroke: '#d1d5db', strokeWidth: 2, opacity: 0.3 })
             });
           }
         });
@@ -263,6 +265,16 @@ function renderReactFlow(el, x, width, height) {
 // Removed manual helper functions - now using from bundle
 
 
+// The SVG fallback builds markup via innerHTML, so labels must be escaped
+// (the React path is safe: React escapes text content itself)
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function renderSVG(el, x, width, height) {
   var nodes = x.nodes || [];
   var edges = x.edges || [];
@@ -301,7 +313,7 @@ function renderSVG(el, x, width, height) {
     
     html += '<text x="' + (x + 75) + '" y="' + (y + 35) + '" ';
     html += 'text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" ';
-    html += 'font-size="14" font-weight="500" fill="#1a192b">' + label + '</text>';
+    html += 'font-size="14" font-weight="500" fill="#1a192b">' + escapeHtml(label) + '</text>';
   });
   
   html += '</svg>';

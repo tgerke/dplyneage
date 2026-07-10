@@ -7,7 +7,12 @@ columns.
 ## Usage
 
 ``` r
-extract_lineage_from_sql(sql, dialect = "duckdb", schema = NULL)
+extract_lineage_from_sql(
+  sql,
+  dialect = "duckdb",
+  schema = NULL,
+  include_indirect = FALSE
+)
 ```
 
 ## Arguments
@@ -23,6 +28,10 @@ extract_lineage_from_sql(sql, dialect = "duckdb", schema = NULL)
 - schema:
 
   Optional named list mapping table names to column vectors
+
+- include_indirect:
+
+  Also collect filter/join/group/sort columns?
 
 ## Value
 

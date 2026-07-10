@@ -80,11 +80,10 @@ columns, CTEs, and columns computed from several sources at once.</p>
 <code class="sourceCode R"><span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"tgerke/dplyneage"</span><span class="op">)</span></span></code></pre></div>
 <p>dplyr/dbplyr pipelines are analyzed entirely in R, so for those there
 is nothing else to install. Raw SQL strings are analyzed by sqlglot,
-dplyneage’s one Python dependency — declared via
-<code><a href="https://rstudio.github.io/reticulate/reference/py_require.html" class="external-link">reticulate::py_require()</a></code> and provisioned automatically the
-first time it’s needed, with no setup step. See
-<code><a href="../articles/python-integration.html">vignette("python-integration")</a></code> if you manage your own
-Python environment.</p>
+dplyneage’s one Python dependency — install the reticulate package to
+enable that engine, and sqlglot itself is provisioned automatically the
+first time it’s needed. See <code><a href="../articles/python-integration.html">vignette("python-integration")</a></code>
+if you manage your own Python environment.</p>
 </div>
 <div class="section level2">
 <h2 id="your-first-lineage-diagram">Your first lineage diagram<a class="anchor" aria-label="anchor" href="#your-first-lineage-diagram"></a>
@@ -119,7 +118,7 @@ table:</p>
 <span>  <span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"300px"</span><span class="op">)</span></span></code></pre></div>
 <div id="htmlwidget-ac96cb3ee4656e2e9ec3" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
-<script type="application/json" data-for="htmlwidget-ac96cb3ee4656e2e9ec3">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script><p>Each output column connects back to the source column it came from.
+<script type="application/json" data-for="htmlwidget-ac96cb3ee4656e2e9ec3">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"id","transformation":"identity"}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"name","transformation":"identity"}}]},"evals":[],"jsHooks":[]}</script><p>Each output column connects back to the source column it came from.
 Try dragging the tables around, zooming with the mouse wheel, and
 hovering a column to highlight its connections.</p>
 </div>
@@ -136,7 +135,7 @@ followed by an aggregation:</p>
 <span>  <span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"400px"</span><span class="op">)</span></span></code></pre></div>
 <div id="htmlwidget-e5c8c404fe174e4c81bd" style="width:100%;height:400px;" class="lineage_flow html-widget"></div>
-<script type="application/json" data-for="htmlwidget-e5c8c404fe174e4c81bd">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"orders","type":"tableNode","data":{"label":"orders","columns":"amount","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":200},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name","total_spent"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_orders.amount_to_output.total_spent","source":"orders","target":"output","sourceHandle":"amount","targetHandle":"total_spent","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script><p>Notice that <code>total_spent</code> traces back to
+<script type="application/json" data-for="htmlwidget-e5c8c404fe174e4c81bd">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"orders","type":"tableNode","data":{"label":"orders","columns":"amount","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":170},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name","total_spent"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":52},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"id","transformation":"identity"}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"name","transformation":"identity"}},{"id":"e_orders.amount_to_output.total_spent","source":"orders","target":"output","sourceHandle":"amount","targetHandle":"total_spent","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"sum(amount, na.rm = TRUE)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"sum(amount, na.rm = TRUE)","transformation":"aggregation"}}]},"evals":[],"jsHooks":[]}</script><p>Notice that <code>total_spent</code> traces back to
 <code>orders.amount</code> — not to <code>customers</code>, even though
 <code>amount</code> appears unqualified in the generated SQL. When you
 pass a dbplyr table, dplyneage doesn’t parse SQL at all: it walks the
@@ -172,7 +171,7 @@ base tables — <code>recent</code> is transparent, and
 <span><span class="st">"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"300px"</span><span class="op">)</span></span></code></pre></div>
 <div id="htmlwidget-36aa3d2a04d42bbc2145" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
-<script type="application/json" data-for="htmlwidget-36aa3d2a04d42bbc2145">{"x":{"nodes":[{"id":"orders","type":"tableNode","data":{"label":"orders","columns":["customer_id","amount"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["customer_id","total"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_orders.customer_id_to_output.customer_id","source":"orders","target":"output","sourceHandle":"customer_id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_orders.amount_to_output.total","source":"orders","target":"output","sourceHandle":"amount","targetHandle":"total","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script>
+<script type="application/json" data-for="htmlwidget-36aa3d2a04d42bbc2145">{"x":{"nodes":[{"id":"orders","type":"tableNode","data":{"label":"orders","columns":["customer_id","amount"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["customer_id","total"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_orders.customer_id_to_output.customer_id","source":"orders","target":"output","sourceHandle":"customer_id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"customer_id","transformation":"identity"}},{"id":"e_orders.amount_to_output.total","source":"orders","target":"output","sourceHandle":"amount","targetHandle":"total","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"SUM(amount)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"SUM(amount)","transformation":"aggregation"}}]},"evals":[],"jsHooks":[]}</script>
 </div>
 <div class="section level3">
 <h3 id="columns-with-multiple-sources">Columns with multiple sources<a class="anchor" aria-label="anchor" href="#columns-with-multiple-sources"></a>
@@ -187,7 +186,7 @@ sources:</p>
 <span><span class="st">"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"300px"</span><span class="op">)</span></span></code></pre></div>
 <div id="htmlwidget-febe03efa1a2d8d52a86" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
-<script type="application/json" data-for="htmlwidget-febe03efa1a2d8d52a86">{"x":{"nodes":[{"id":"archive","type":"tableNode","data":{"label":"archive","columns":"email","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"users","type":"tableNode","data":{"label":"users","columns":"email","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":200},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":"email","tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_archive.email_to_output.email","source":"archive","target":"output","sourceHandle":"email","targetHandle":"email","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_users.email_to_output.email","source":"users","target":"output","sourceHandle":"email","targetHandle":"email","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script><p>The same applies to arithmetic across tables
+<script type="application/json" data-for="htmlwidget-febe03efa1a2d8d52a86">{"x":{"nodes":[{"id":"archive","type":"tableNode","data":{"label":"archive","columns":"email","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"users","type":"tableNode","data":{"label":"users","columns":"email","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":137},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":"email","tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":68.5},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_archive.email_to_output.email","source":"archive","target":"output","sourceHandle":"email","targetHandle":"email","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"label":"COALESCE(u.email, a.email)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"COALESCE(u.email, a.email)","transformation":"transformation"}},{"id":"e_users.email_to_output.email","source":"users","target":"output","sourceHandle":"email","targetHandle":"email","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"label":"COALESCE(u.email, a.email)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"COALESCE(u.email, a.email)","transformation":"transformation"}}]},"evals":[],"jsHooks":[]}</script><p>The same applies to arithmetic across tables
 (<code>o.amount * r.rate</code>), <code>CASE</code> expressions, and
 both branches of a <code>UNION</code>. dbplyr pipelines get the same
 treatment: a <code><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">full_join()</a></code> key column traces to both sides,
@@ -206,7 +205,7 @@ its columns — but for raw SQL, pass one yourself:</p>
 <span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"300px"</span><span class="op">)</span></span></code></pre></div>
 <div id="htmlwidget-1fb4450895fe099f74a1" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
-<script type="application/json" data-for="htmlwidget-1fb4450895fe099f74a1">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name","email"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name","email"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.email_to_output.email","source":"customers","target":"output","sourceHandle":"email","targetHandle":"email","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script>
+<script type="application/json" data-for="htmlwidget-1fb4450895fe099f74a1">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name","email"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name","email"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"\"customers\".\"id\"","transformation":"identity"}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"\"customers\".\"name\"","transformation":"identity"}},{"id":"e_customers.email_to_output.email","source":"customers","target":"output","sourceHandle":"email","targetHandle":"email","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"\"customers\".\"email\"","transformation":"identity"}}]},"evals":[],"jsHooks":[]}</script>
 </div>
 </div>
 <div class="section level2">
@@ -235,7 +234,7 @@ columns:</li>
 <span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"300px"</span><span class="op">)</span></span></code></pre></div>
 <div id="htmlwidget-10b3b7155e8045a1b2ad" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
-<script type="application/json" data-for="htmlwidget-10b3b7155e8045a1b2ad">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":"name","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"orders","type":"tableNode","data":{"label":"orders","columns":"order_date","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":200},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["name","order_date"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_orders.order_date_to_output.order_date","source":"orders","target":"output","sourceHandle":"order_date","targetHandle":"order_date","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script><p>Without a schema, <code>SELECT *</code> cannot be expanded and
+<script type="application/json" data-for="htmlwidget-10b3b7155e8045a1b2ad">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":"name","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"orders","type":"tableNode","data":{"label":"orders","columns":"order_date","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":137},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["name","order_date"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":52},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"c.name","transformation":"identity"}},{"id":"e_orders.order_date_to_output.order_date","source":"orders","target":"output","sourceHandle":"order_date","targetHandle":"order_date","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"order_date","transformation":"identity"}}]},"evals":[],"jsHooks":[]}</script><p>Without a schema, <code>SELECT *</code> cannot be expanded and
 produces a warning rather than a silently empty diagram.</p>
 <p>Queries in other SQL dialects work by setting
 <code>dialect</code>:</p>
@@ -244,11 +243,46 @@ produces a warning rather than a silently empty diagram.</p>
 <span><span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="va">query</span>, dialect <span class="op">=</span> <span class="st">"snowflake"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="local-data-frames">Local data frames<a class="anchor" aria-label="anchor" href="#local-data-frames"></a>
+</h2>
+<p><code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> reads lineage from a <em>lazy</em>
+query — the tree dbplyr builds up before anything touches the database.
+A pipeline on a plain tibble has no such tree: dplyr executes each verb
+immediately, so by the time you could ask about lineage, only the result
+is left.</p>
+<p>The workaround is one line. <code><a href="https://dbplyr.tidyverse.org/reference/memdb.html" class="external-link">dbplyr::memdb_frame()</a></code> puts
+the data in a throwaway in-memory SQLite database (install the RSQLite
+package once) and hands back a lazy table, so the identical pipeline
+becomes traceable:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">sales</span> <span class="op">&lt;-</span> <span class="fu">dbplyr</span><span class="fu">::</span><span class="fu"><a href="https://dbplyr.tidyverse.org/reference/memdb.html" class="external-link">memdb_frame</a></span><span class="op">(</span></span>
+<span>  customer_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span>,</span>
+<span>  amount <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">100</span>, <span class="fl">250</span>, <span class="fl">40</span><span class="op">)</span>,</span>
+<span>  .name <span class="op">=</span> <span class="st">"sales"</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">sales</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">customer_id</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/summarise.html" class="external-link">summarise</a></span><span class="op">(</span>total <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">amount</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"300px"</span><span class="op">)</span></span></code></pre></div>
+<div id="htmlwidget-4018eef1a407a0df6b52" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
+<script type="application/json" data-for="htmlwidget-4018eef1a407a0df6b52">{"x":{"nodes":[{"id":"sales","type":"tableNode","data":{"label":"sales","columns":["customer_id","amount"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["customer_id","total"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_sales.customer_id_to_output.customer_id","source":"sales","target":"output","sourceHandle":"customer_id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"customer_id","transformation":"identity"}},{"id":"e_sales.amount_to_output.total","source":"sales","target":"output","sourceHandle":"amount","targetHandle":"total","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"sum(amount, na.rm = TRUE)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"sum(amount, na.rm = TRUE)","transformation":"aggregation"}}]},"evals":[],"jsHooks":[]}</script><p>For a data frame you already have,
+<code>copy_to(dbplyr::memdb(), df, name = "df")</code> does the same
+copy. Lineage depends only on the pipeline’s structure, never on the
+data, so for large frames copying a slice is enough —
+<code>copy_to(dbplyr::memdb(), head(df), name = "df")</code> yields the
+same diagram as copying every row.</p>
+<p>The duckdb connection from earlier in this vignette works just as
+well (<code>copy_to(con, df)</code>); <code><a href="https://dbplyr.tidyverse.org/reference/memdb.html" class="external-link">memdb_frame()</a></code> is
+simply the fastest route when no connection exists yet.</p>
+</div>
+<div class="section level2">
 <h2 id="building-diagrams-by-hand">Building diagrams by hand<a class="anchor" aria-label="anchor" href="#building-diagrams-by-hand"></a>
 </h2>
 <p>For documentation or design sketches, skip extraction entirely and
 build the diagram yourself:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">nodes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="../reference/create_table_node.html">create_table_node</a></span><span class="op">(</span></span>
 <span>    table_name <span class="op">=</span> <span class="st">"customers"</span>,</span>
@@ -271,8 +305,8 @@ build the diagram yourself:</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span><span class="va">nodes</span>, <span class="va">edges</span>, height <span class="op">=</span> <span class="st">"300px"</span><span class="op">)</span></span></code></pre></div>
-<div id="htmlwidget-4018eef1a407a0df6b52" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
-<script type="application/json" data-for="htmlwidget-4018eef1a407a0df6b52">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name","email"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"customer_summary","type":"tableNode","data":{"label":"customer_summary","columns":["customer_id","full_name","contact"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":500,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_customer_summary.customer_id","source":"customers","target":"customer_summary","sourceHandle":"id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.name_to_customer_summary.full_name","source":"customers","target":"customer_summary","sourceHandle":"name","targetHandle":"full_name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.email_to_customer_summary.contact","source":"customers","target":"customer_summary","sourceHandle":"email","targetHandle":"contact","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script><p>Nodes come in three types — <code>"source"</code> (blue),
+<div id="htmlwidget-5b1b2f4ad92281566982" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
+<script type="application/json" data-for="htmlwidget-5b1b2f4ad92281566982">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name","email"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"customer_summary","type":"tableNode","data":{"label":"customer_summary","columns":["customer_id","full_name","contact"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":500,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_customer_summary.customer_id","source":"customers","target":"customer_summary","sourceHandle":"id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.name_to_customer_summary.full_name","source":"customers","target":"customer_summary","sourceHandle":"name","targetHandle":"full_name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.email_to_customer_summary.contact","source":"customers","target":"customer_summary","sourceHandle":"email","targetHandle":"contact","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}]},"evals":[],"jsHooks":[]}</script><p>Nodes come in three types — <code>"source"</code> (blue),
 <code>"transform"</code> (orange), and <code>"target"</code> (green) —
 and edges accept a <code>label</code> (e.g. <code>"SUM()"</code>) and
 <code>animated = TRUE</code> for emphasis.
@@ -290,7 +324,7 @@ you can commit it alongside your pipeline code and let CI diff it: if a
 refactor silently changes where a column comes from, the diff shows it
 before it ships. It is also the natural handoff format for data catalogs
 or anything scriptable with jq.</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">lineage</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"customers"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"orders"</span><span class="op">)</span>, by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"id"</span> <span class="op">=</span> <span class="st">"customer_id"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">id</span>, <span class="va">name</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -303,7 +337,7 @@ or anything scriptable with jq.</p>
 <span><span class="co">#&gt;     "sql": "SELECT id, \"name\", SUM(amount) AS total_spent\nFROM (\n  SELECT customers.*, order_id, amount\n  FROM customers\n  LEFT JOIN orders\n    ON (customers.id = orders.customer_id)\n) AS q01\nGROUP BY id, \"name\"",</span></span>
 <span><span class="co">#&gt;     "dialect": "duckdb",</span></span>
 <span><span class="co">#&gt;     "engine": "r",</span></span>
-<span><span class="co">#&gt;     "table_count": 3,</span></span>
+<span><span class="co">#&gt;     "node_count": 3,</span></span>
 <span><span class="co">#&gt;     "edge_count": 3</span></span>
 <span><span class="co">#&gt;   },</span></span>
 <span><span class="co">#&gt;   "nodes": [</span></span>
@@ -328,19 +362,25 @@ or anything scriptable with jq.</p>
 <span><span class="co">#&gt;       "source": "customers",</span></span>
 <span><span class="co">#&gt;       "source_column": "id",</span></span>
 <span><span class="co">#&gt;       "target": "output",</span></span>
-<span><span class="co">#&gt;       "target_column": "id"</span></span>
+<span><span class="co">#&gt;       "target_column": "id",</span></span>
+<span><span class="co">#&gt;       "transformation": "identity",</span></span>
+<span><span class="co">#&gt;       "expression": "id"</span></span>
 <span><span class="co">#&gt;     },</span></span>
 <span><span class="co">#&gt;     {</span></span>
 <span><span class="co">#&gt;       "source": "customers",</span></span>
 <span><span class="co">#&gt;       "source_column": "name",</span></span>
 <span><span class="co">#&gt;       "target": "output",</span></span>
-<span><span class="co">#&gt;       "target_column": "name"</span></span>
+<span><span class="co">#&gt;       "target_column": "name",</span></span>
+<span><span class="co">#&gt;       "transformation": "identity",</span></span>
+<span><span class="co">#&gt;       "expression": "name"</span></span>
 <span><span class="co">#&gt;     },</span></span>
 <span><span class="co">#&gt;     {</span></span>
 <span><span class="co">#&gt;       "source": "orders",</span></span>
 <span><span class="co">#&gt;       "source_column": "amount",</span></span>
 <span><span class="co">#&gt;       "target": "output",</span></span>
-<span><span class="co">#&gt;       "target_column": "total_spent"</span></span>
+<span><span class="co">#&gt;       "target_column": "total_spent",</span></span>
+<span><span class="co">#&gt;       "transformation": "aggregation",</span></span>
+<span><span class="co">#&gt;       "expression": "sum(amount, na.rm = TRUE)"</span></span>
 <span><span class="co">#&gt;     }</span></span>
 <span><span class="co">#&gt;   ]</span></span>
 <span><span class="co">#&gt; }</span></span></code></pre></div>
@@ -351,7 +391,7 @@ possible. The classic one is impact analysis — “if
 <code>orders.amount</code> changes, which outputs are affected?” — or
 its reverse, tracing an output back to every source column that feeds
 it:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".graphml"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/lineage_graphml.html">lineage_graphml</a></span><span class="op">(</span><span class="va">lineage</span>, <span class="va">path</span><span class="op">)</span></span>
 <span></span>
@@ -359,12 +399,12 @@ it:</p>
 <span></span>
 <span><span class="co"># Everything upstream of total_spent</span></span>
 <span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"output.total_spent"</span>, mode <span class="op">=</span> <span class="st">"in"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; + 2/6 vertices, named, from 06ced44:</span></span>
+<span><span class="co">#&gt; + 2/6 vertices, named, from 9c39ca3:</span></span>
 <span><span class="co">#&gt; [1] output.total_spent orders.amount</span></span>
 <span></span>
 <span><span class="co"># Everything downstream of orders.amount</span></span>
 <span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"orders.amount"</span>, mode <span class="op">=</span> <span class="st">"out"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; + 2/6 vertices, named, from 06ced44:</span></span>
+<span><span class="co">#&gt; + 2/6 vertices, named, from 9c39ca3:</span></span>
 <span><span class="co">#&gt; [1] orders.amount      output.total_spent</span></span></code></pre></div>
 <p>Both functions return the serialized string when called without
 <code>path</code>, so they compose in pipes and tests.</p>

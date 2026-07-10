@@ -8,14 +8,16 @@ dplyneage has two lineage engines, and only one of them involves Python:
 - **Raw SQL strings** — and the rare pipeline that embeds raw SQL via
   [`dbplyr::sql()`](https://dbplyr.tidyverse.org/reference/sql.html) —
   are analyzed by [sqlglot](https://github.com/tobymao/sqlglot)’s
-  lineage engine, called through the `reticulate` package.
+  lineage engine, called through the `reticulate` package. reticulate is
+  a Suggests dependency, so install it once with
+  `install.packages("reticulate")` to enable this engine.
 
 So if you only ever pipe dplyr/dbplyr queries into
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md),
-you can stop reading here: Python never enters the picture. The rest of
-this vignette covers how the sqlglot dependency is managed when you do
-analyze raw SQL. It follows the current best practice from the
-[reticulate package
+you can stop reading here: Python never enters the picture, and neither
+does reticulate. The rest of this vignette covers how the sqlglot
+dependency is managed when you do analyze raw SQL. It follows the
+current best practice from the [reticulate package
 documentation](https://rstudio.github.io/reticulate/articles/package.html):
 Python dependencies are declared with
 [`reticulate::py_require()`](https://rstudio.github.io/reticulate/reference/py_require.html)
@@ -23,8 +25,8 @@ when the package loads, and reticulate provisions them automatically.
 
 ## Installation: There Is No Step Two
 
-Python setup is automatic. The first time lineage extraction needs
-sqlglot, reticulate will:
+With reticulate installed, Python setup is automatic. The first time
+lineage extraction needs sqlglot, reticulate will:
 
 1.  Find a suitable Python (downloading a self-contained build via
     [uv](https://docs.astral.sh/uv/) if none is configured)

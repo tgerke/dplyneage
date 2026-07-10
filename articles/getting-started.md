@@ -20,10 +20,9 @@ pak::pak("tgerke/dplyneage")
 
 dplyr/dbplyr pipelines are analyzed entirely in R, so for those there is
 nothing else to install. Raw SQL strings are analyzed by sqlglot,
-dplyneage’s one Python dependency — declared via
-[`reticulate::py_require()`](https://rstudio.github.io/reticulate/reference/py_require.html)
-and provisioned automatically the first time it’s needed, with no setup
-step. See
+dplyneage’s one Python dependency — install the reticulate package to
+enable that engine, and sqlglot itself is provisioned automatically the
+first time it’s needed. See
 [`vignette("python-integration")`](https://tgerke.github.io/dplyneage/articles/python-integration.md)
 if you manage your own Python environment.
 
@@ -196,6 +195,47 @@ extract_lineage(query, dialect = "postgres")
 extract_lineage(query, dialect = "snowflake")
 ```
 
+## Local data frames
+
+[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
+reads lineage from a *lazy* query — the tree dbplyr builds up before
+anything touches the database. A pipeline on a plain tibble has no such
+tree: dplyr executes each verb immediately, so by the time you could ask
+about lineage, only the result is left.
+
+The workaround is one line.
+[`dbplyr::memdb_frame()`](https://dbplyr.tidyverse.org/reference/memdb.html)
+puts the data in a throwaway in-memory SQLite database (install the
+RSQLite package once) and hands back a lazy table, so the identical
+pipeline becomes traceable:
+
+``` r
+
+sales <- dbplyr::memdb_frame(
+  customer_id = c(1, 1, 2),
+  amount = c(100, 250, 40),
+  .name = "sales"
+)
+
+sales |>
+  group_by(customer_id) |>
+  summarise(total = sum(amount, na.rm = TRUE)) |>
+  extract_lineage() |>
+  lineage_flow(height = "300px")
+```
+
+For a data frame you already have,
+`copy_to(dbplyr::memdb(), df, name = "df")` does the same copy. Lineage
+depends only on the pipeline’s structure, never on the data, so for
+large frames copying a slice is enough —
+`copy_to(dbplyr::memdb(), head(df), name = "df")` yields the same
+diagram as copying every row.
+
+The duckdb connection from earlier in this vignette works just as well
+(`copy_to(con, df)`);
+[`memdb_frame()`](https://dbplyr.tidyverse.org/reference/memdb.html) is
+simply the fastest route when no connection exists yet.
+
 ## Building diagrams by hand
 
 For documentation or design sketches, skip extraction entirely and build
@@ -260,7 +300,7 @@ lineage_json(lineage)
 #>     "sql": "SELECT id, \"name\", SUM(amount) AS total_spent\nFROM (\n  SELECT customers.*, order_id, amount\n  FROM customers\n  LEFT JOIN orders\n    ON (customers.id = orders.customer_id)\n) AS q01\nGROUP BY id, \"name\"",
 #>     "dialect": "duckdb",
 #>     "engine": "r",
-#>     "table_count": 3,
+#>     "node_count": 3,
 #>     "edge_count": 3
 #>   },
 #>   "nodes": [
@@ -285,19 +325,25 @@ lineage_json(lineage)
 #>       "source": "customers",
 #>       "source_column": "id",
 #>       "target": "output",
-#>       "target_column": "id"
+#>       "target_column": "id",
+#>       "transformation": "identity",
+#>       "expression": "id"
 #>     },
 #>     {
 #>       "source": "customers",
 #>       "source_column": "name",
 #>       "target": "output",
-#>       "target_column": "name"
+#>       "target_column": "name",
+#>       "transformation": "identity",
+#>       "expression": "name"
 #>     },
 #>     {
 #>       "source": "orders",
 #>       "source_column": "amount",
 #>       "target": "output",
-#>       "target_column": "total_spent"
+#>       "target_column": "total_spent",
+#>       "transformation": "aggregation",
+#>       "expression": "sum(amount, na.rm = TRUE)"
 #>     }
 #>   ]
 #> }
@@ -320,12 +366,12 @@ g <- igraph::read_graph(path, format = "graphml")
 
 # Everything upstream of total_spent
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from 06ced44:
+#> + 2/6 vertices, named, from 9c39ca3:
 #> [1] output.total_spent orders.amount
 
 # Everything downstream of orders.amount
 igraph::subcomponent(g, "orders.amount", mode = "out")
-#> + 2/6 vertices, named, from 06ced44:
+#> + 2/6 vertices, named, from 9c39ca3:
 #> [1] orders.amount      output.total_spent
 ```
 

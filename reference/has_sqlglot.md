@@ -4,12 +4,15 @@ Python is only involved when
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
 analyzes raw SQL strings (or falls back to sqlglot for a pipeline it
 cannot trace in R); dbplyr pipelines are analyzed by a pure-R engine.
-dplyneage declares its sqlglot dependency via
+The sqlglot engine needs the reticulate package (a Suggests dependency —
+install it with `install.packages("reticulate")`); dplyneage then
+declares its sqlglot dependency via
 [`reticulate::py_require()`](https://rstudio.github.io/reticulate/reference/py_require.html),
-so it is provisioned automatically the first time it is needed — you
-should not need to install anything. Use this to check availability, or
-to gate code that extracts lineage from raw SQL (examples, vignette
-chunks, Shiny apps). Note that calling it may initialize Python.
+so sqlglot itself is provisioned automatically the first time it is
+needed. Use this to check availability, or to gate code that extracts
+lineage from raw SQL (examples, vignette chunks, Shiny apps). Returns
+`FALSE` when reticulate is not installed. Note that calling it may
+initialize Python.
 
 ## Usage
 

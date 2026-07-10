@@ -77,21 +77,23 @@ alone required.</li>
 <li>
 <strong>Raw SQL strings</strong> — and the rare pipeline that embeds
 raw SQL via <code><a href="https://dbplyr.tidyverse.org/reference/sql.html" class="external-link">dbplyr::sql()</a></code> — are analyzed by <a href="https://github.com/tobymao/sqlglot" class="external-link">sqlglot</a>’s lineage engine,
-called through the <code>reticulate</code> package.</li>
+called through the <code>reticulate</code> package. reticulate is a
+Suggests dependency, so install it once with
+<code>install.packages("reticulate")</code> to enable this engine.</li>
 </ul>
 <p>So if you only ever pipe dplyr/dbplyr queries into
 <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code>, you can stop reading here: Python never
-enters the picture. The rest of this vignette covers how the sqlglot
-dependency is managed when you do analyze raw SQL. It follows the
-current best practice from the <a href="https://rstudio.github.io/reticulate/articles/package.html" class="external-link">reticulate
+enters the picture, and neither does reticulate. The rest of this
+vignette covers how the sqlglot dependency is managed when you do
+analyze raw SQL. It follows the current best practice from the <a href="https://rstudio.github.io/reticulate/articles/package.html" class="external-link">reticulate
 package documentation</a>: Python dependencies are declared with
 <code><a href="https://rstudio.github.io/reticulate/reference/py_require.html" class="external-link">reticulate::py_require()</a></code> when the package loads, and
 reticulate provisions them automatically.</p>
 <div class="section level2">
 <h2 id="installation-there-is-no-step-two">Installation: There Is No Step Two<a class="anchor" aria-label="anchor" href="#installation-there-is-no-step-two"></a>
 </h2>
-<p>Python setup is automatic. The first time lineage extraction needs
-sqlglot, reticulate will:</p>
+<p>With reticulate installed, Python setup is automatic. The first time
+lineage extraction needs sqlglot, reticulate will:</p>
 <ol style="list-style-type: decimal">
 <li>Find a suitable Python (downloading a self-contained build via <a href="https://docs.astral.sh/uv/" class="external-link">uv</a> if none is configured)</li>
 <li>Provision an ephemeral virtual environment containing

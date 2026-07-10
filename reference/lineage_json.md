@@ -40,7 +40,9 @@ A JSON string. With `metadata` (present on
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
 results), `nodes` (objects with `id`, `type`, and `columns`), and
 `edges` (objects with `source`, `source_column`, `target`, and
-`target_column`).
+`target_column`; edges produced by
+[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
+also carry `transformation` and `expression`).
 
 ## See also
 
@@ -48,7 +50,9 @@ results), `nodes` (objects with `id`, `type`, and `columns`), and
 to compute lineage automatically
 
 Other lineage exporters:
-[`lineage_graphml()`](https://tgerke.github.io/dplyneage/reference/lineage_graphml.md)
+[`lineage_graphml()`](https://tgerke.github.io/dplyneage/reference/lineage_graphml.md),
+[`lineage_mermaid()`](https://tgerke.github.io/dplyneage/reference/lineage_mermaid.md),
+[`lineage_openlineage()`](https://tgerke.github.io/dplyneage/reference/lineage_openlineage.md)
 
 ## Examples
 
@@ -97,7 +101,7 @@ extract_lineage("SELECT customer_id, SUM(amount) AS total
 #>     "sql": "SELECT customer_id, SUM(amount) AS total\n                 FROM orders GROUP BY customer_id",
 #>     "dialect": "duckdb",
 #>     "engine": "sqlglot",
-#>     "table_count": 2,
+#>     "node_count": 2,
 #>     "edge_count": 2
 #>   },
 #>   "nodes": [
@@ -117,13 +121,17 @@ extract_lineage("SELECT customer_id, SUM(amount) AS total
 #>       "source": "orders",
 #>       "source_column": "customer_id",
 #>       "target": "output",
-#>       "target_column": "customer_id"
+#>       "target_column": "customer_id",
+#>       "transformation": "identity",
+#>       "expression": "customer_id"
 #>     },
 #>     {
 #>       "source": "orders",
 #>       "source_column": "amount",
 #>       "target": "output",
-#>       "target_column": "total"
+#>       "target_column": "total",
+#>       "transformation": "aggregation",
+#>       "expression": "SUM(amount)"
 #>     }
 #>   ]
 #> } 

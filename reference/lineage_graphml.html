@@ -95,7 +95,9 @@ string is returned invisibly.</p></dd>
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="extract_lineage.html">extract_lineage()</a></code> to compute lineage automatically</p>
 <p>Other lineage exporters:
-<code><a href="lineage_json.html">lineage_json()</a></code></p></div>
+<code><a href="lineage_json.html">lineage_json()</a></code>,
+<code><a href="lineage_mermaid.html">lineage_mermaid()</a></code>,
+<code><a href="lineage_openlineage.html">lineage_openlineage()</a></code></p></div>
     </div>
 
     <div class="section level2">
@@ -118,6 +120,8 @@ string is returned invisibly.</p></dd>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   &lt;key id="table" for="node" attr.name="table" attr.type="string"/&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   &lt;key id="column" for="node" attr.name="column" attr.type="string"/&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   &lt;key id="node_type" for="node" attr.name="node_type" attr.type="string"/&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   &lt;key id="transformation" for="edge" attr.name="transformation" attr.type="string"/&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   &lt;key id="expression" for="edge" attr.name="expression" attr.type="string"/&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   &lt;graph id="lineage" edgedefault="directed"&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     &lt;node id="orders.order_id"&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       &lt;data key="name"&gt;orders.order_id&lt;/data&gt;</span>
@@ -146,7 +150,7 @@ string is returned invisibly.</p></dd>
 <span class="r-in"><span><span class="fu">lineage_graphml</span><span class="op">(</span><span class="va">lineage</span>, path <span class="op">=</span> <span class="va">path</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/read_graph.html" class="external-link">read_graph</a></span><span class="op">(</span><span class="va">path</span>, format <span class="op">=</span> <span class="st">"graphml"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"daily_totals.total"</span>, mode <span class="op">=</span> <span class="st">"in"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> + 2/3 vertices, named, from 0a1b3f2:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> + 2/3 vertices, named, from e067e89:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] daily_totals.total orders.amount     </span>
 </code></pre></div>
     </div>

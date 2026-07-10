@@ -43,7 +43,9 @@ A string containing the GraphML document.
 to compute lineage automatically
 
 Other lineage exporters:
-[`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+[`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md),
+[`lineage_mermaid()`](https://tgerke.github.io/dplyneage/reference/lineage_mermaid.md),
+[`lineage_openlineage()`](https://tgerke.github.io/dplyneage/reference/lineage_openlineage.md)
 
 ## Examples
 
@@ -66,6 +68,8 @@ cat(lineage_graphml(lineage))
 #>   <key id="table" for="node" attr.name="table" attr.type="string"/>
 #>   <key id="column" for="node" attr.name="column" attr.type="string"/>
 #>   <key id="node_type" for="node" attr.name="node_type" attr.type="string"/>
+#>   <key id="transformation" for="edge" attr.name="transformation" attr.type="string"/>
+#>   <key id="expression" for="edge" attr.name="expression" attr.type="string"/>
 #>   <graph id="lineage" edgedefault="directed">
 #>     <node id="orders.order_id">
 #>       <data key="name">orders.order_id</data>
@@ -94,6 +98,6 @@ path <- tempfile(fileext = ".graphml")
 lineage_graphml(lineage, path = path)
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "daily_totals.total", mode = "in")
-#> + 2/3 vertices, named, from 0a1b3f2:
+#> + 2/3 vertices, named, from e067e89:
 #> [1] daily_totals.total orders.amount     
 ```
