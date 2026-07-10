@@ -177,15 +177,17 @@ function renderReactFlow(el, x, width, height) {
             (edge.target === hoveredHandle.nodeId && edge.targetHandle === hoveredHandle.handleId)
           );
           
+          // Merge over the edge's own style so per-edge patterns
+          // (e.g. the dashes on indirect edges) survive highlighting
           if (isConnected) {
             return Object.assign({}, edge, {
               animated: true,
-              style: { stroke: '#f59e0b', strokeWidth: 3 }
+              style: Object.assign({}, edge.style, { stroke: '#f59e0b', strokeWidth: 3 })
             });
           } else {
             return Object.assign({}, edge, {
               animated: false,
-              style: { stroke: '#d1d5db', strokeWidth: 2, opacity: 0.3 }
+              style: Object.assign({}, edge.style, { stroke: '#d1d5db', strokeWidth: 2, opacity: 0.3 })
             });
           }
         });

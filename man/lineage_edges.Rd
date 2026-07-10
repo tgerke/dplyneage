@@ -22,7 +22,9 @@ For edges produced by \code{\link[=extract_lineage]{extract_lineage()}}, the \co
 classifies each edge (\code{"identity"} for plain column passthrough,
 \code{"aggregation"}, or \code{"transformation"}) and \code{expression} records the
 output column's defining expression; both are \code{NA} for hand-built
-edges.
+edges. With \code{include_indirect = TRUE}, indirect edges are classified by
+how the source column is used — \code{"filter"}, \code{"join"}, \code{"group_by"}, or
+\code{"sort"} — with \code{NA} for \code{expression}.
 }
 \examples{
 lineage <- list(

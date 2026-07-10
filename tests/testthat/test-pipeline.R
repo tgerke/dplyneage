@@ -166,3 +166,39 @@ test_that("a duckdb medallion pipeline stitches end to end", {
     "silver.total_spent -> big_spender"
   ))
 })
+
+test_that("indirect edges stitch across models and extend traversal", {
+  skip_if_no_r_engine()
+
+  silver <- dbplyr::lazy_frame(
+    order_id = 1L, customer_id = 1L, amount = 1,
+    .name = "orders"
+  ) |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total_spent = sum(amount, na.rm = TRUE))
+  gold <- dbplyr::lazy_frame(
+    customer_id = 1L, total_spent = 1, loaded_at = 1L,
+    .name = "silver"
+  ) |>
+    dplyr::filter(loaded_at > 0) |>
+    dplyr::transmute(customer_id)
+
+  lineage <- extract_lineage(
+    list(silver = silver, gold = gold),
+    include_indirect = TRUE
+  )
+
+  edges <- lineage_edges(lineage)
+  filters <- edges[edges$transformation == "filter", ]
+  expect_identical(filters$source_table, "silver")
+  expect_identical(filters$source_column, "loaded_at")
+  expect_identical(filters$target_table, "gold")
+
+  # The filter column appears on the silver node even though silver's own
+  # select list never mentions it, and impact analysis sees through it
+  expect_in("loaded_at", node_columns(lineage, "silver"))
+  expect_in(
+    "silver.loaded_at",
+    lineage_upstream(lineage, "gold.customer_id")
+  )
+})

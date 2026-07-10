@@ -264,3 +264,26 @@ test_that("GraphML round-trips through igraph with usable names", {
   expect_in("orders.amount", names(upstream))
   expect_false("customers.customer_id" %in% names(upstream))
 })
+
+test_that("indirect edges export their kind without an expression", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  lineage <- dbplyr::lazy_frame(a = 1, b = 2, .name = "t1") |>
+    dplyr::filter(b > 0) |>
+    dplyr::select(a) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  parsed <- jsonlite::fromJSON(lineage_json(lineage), simplifyVector = FALSE)
+  indirect <- Filter(
+    function(e) identical(e$transformation, "filter"),
+    parsed$edges
+  )
+  expect_length(indirect, 1L)
+  expect_null(indirect[[1]]$expression)
+
+  xml <- lineage_graphml(lineage)
+  expect_match(xml, '<data key="transformation">filter</data>', fixed = TRUE)
+  parsed_xml <- xml2::read_xml(xml)
+  expect_s3_class(parsed_xml, "xml_document")
+})

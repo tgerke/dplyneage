@@ -1,5 +1,15 @@
 # dplyneage (development version)
 
+* New `include_indirect` argument for `extract_lineage()`: columns used in
+  `filter()`/`WHERE`, join conditions, `group_by()`, and
+  `arrange()`/`ORDER BY` — which shape the result without appearing in
+  it — draw as dashed edges to each output column, classified by use
+  (`"filter"`, `"join"`, `"group_by"`, `"sort"`). Impact analysis via
+  `lineage_upstream()`/`lineage_downstream()` then sees them too: dropping
+  a column used only in a `filter()` still breaks the pipeline. Both
+  engines support it, and multi-model pipelines stitch indirect edges
+  across layers.
+
 * `extract_lineage()` now stitches multi-model pipelines: pass a named
   list of lazy tables or SQL strings (one element per model) and any
   source table matching another element's name links to that model's

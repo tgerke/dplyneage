@@ -128,13 +128,60 @@ def _select_info(expression, dialect):
     return info
 
 
-def extract_lineage(sql, dialect="duckdb", schema=None):
+def _indirect_refs(qualified, dialect):
+    """Columns referenced in WHERE/HAVING/JOIN ON/GROUP BY/ORDER BY.
+
+    These shape the result without appearing in it (OpenLineage's
+    "indirect" lineage). Works on the qualified tree so column references
+    carry a table alias; the alias map covers every table in the tree, so
+    filters inside CTE bodies attribute to their base tables. Columns that
+    resolve to a CTE itself (an outer query filtering on a CTE output) are
+    skipped rather than mis-attributed.
+    """
+    ctes = _cte_names(qualified)
+    alias_to_table = {}
+    for table in qualified.find_all(exp.Table):
+        name = _table_name(table)
+        alias_to_table[table.alias_or_name] = name
+        alias_to_table.setdefault(name, name)
+
+    containers = []
+    for where in qualified.find_all(exp.Where):
+        containers.append((where, "filter"))
+    for having in qualified.find_all(exp.Having):
+        containers.append((having, "filter"))
+    for group in qualified.find_all(exp.Group):
+        containers.append((group, "group_by"))
+    for order in qualified.find_all(exp.Order):
+        containers.append((order, "sort"))
+    for join in qualified.find_all(exp.Join):
+        on = join.args.get("on")
+        if on is not None:
+            containers.append((on, "join"))
+
+    refs = []
+    seen = set()
+    for node, kind in containers:
+        for col in node.find_all(exp.Column):
+            table = alias_to_table.get(col.table)
+            if not table or col.table in ctes or table in ctes:
+                continue
+            key = (table, col.name, kind)
+            if key in seen:
+                continue
+            seen.add(key)
+            refs.append({"table": table, "column_name": col.name, "kind": kind})
+    return refs
+
+
+def extract_lineage(sql, dialect="duckdb", schema=None, include_indirect=False):
     """Extract column-level lineage from a SQL query.
 
     Returns a dict with:
       tables:   base table references
       columns:  [{output_name, expression, sources: [{table, column_name}]}]
       warnings: human-readable notes about anything that could not be traced
+      indirect: (only with include_indirect) [{table, column_name, kind}]
     """
     schema, schema_warning = _normalize_schema(schema)
     parsed = parse_one(sql, dialect=dialect)
@@ -184,8 +231,11 @@ def extract_lineage(sql, dialect="duckdb", schema=None):
             warnings.append(f"Could not trace column '{name}': {err}")
         columns.append(col_info)
 
-    return {
+    result = {
         "tables": list_tables(sql, dialect=dialect),
         "columns": columns,
         "warnings": warnings,
     }
+    if include_indirect:
+        result["indirect"] = _indirect_refs(qualified, dialect)
+    return result

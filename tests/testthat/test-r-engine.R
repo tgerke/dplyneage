@@ -396,3 +396,127 @@ test_that("auto engine errors clearly when unsupported and sqlglot is absent", {
     "sqlglot is not available"
   )
 })
+
+# Indirect lineage (include_indirect = TRUE) ---------------------------
+
+test_that("include_indirect adds dashed filter edges to every output column", {
+  skip_if_no_r_engine()
+
+  lineage <- orders_lf() |>
+    dplyr::filter(amount > 100) |>
+    dplyr::select(order_id, customer_id) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  edges <- lineage_edges(lineage)
+  filters <- edges[edges$transformation == "filter", ]
+  expect_identical(filters$source_column, c("amount", "amount"))
+  expect_identical(sort(filters$target_column), c("customer_id", "order_id"))
+  expect_true(all(is.na(filters$expression)))
+
+  # The filter column joins its table's node, and the edge draws dashed
+  expect_identical(
+    node_columns(lineage, "orders"),
+    c("amount", "customer_id", "order_id")
+  )
+  dashed <- Filter(function(e) !is.null(e$style$strokeDasharray), lineage$edges)
+  expect_length(dashed, 2L)
+})
+
+test_that("indirect edges are off by default", {
+  skip_if_no_r_engine()
+
+  lineage <- orders_lf() |>
+    dplyr::filter(amount > 100) |>
+    dplyr::select(order_id) |>
+    extract_lineage(engine = "r")
+
+  expect_edges(lineage, "orders.order_id -> order_id")
+  expect_false("amount" %in% node_columns(lineage, "orders"))
+})
+
+test_that("a direct edge suppresses the duplicate indirect edge", {
+  skip_if_no_r_engine()
+
+  lineage <- orders_lf() |>
+    dplyr::filter(amount > 100) |>
+    dplyr::transmute(amount) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  edges <- lineage_edges(lineage)
+  expect_identical(nrow(edges), 1L)
+  expect_identical(edges$transformation, "identity")
+})
+
+test_that("group keys and sort columns are classified by use", {
+  skip_if_no_r_engine()
+
+  lineage <- orders_lf() |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total_spent = sum(amount, na.rm = TRUE)) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  edges <- lineage_edges(lineage)
+  group_by <- edges[edges$transformation == "group_by", ]
+  # customer_id -> customer_id is already an identity edge; only the
+  # aggregate column gains the indirect group_by edge
+  expect_identical(group_by$source_column, "customer_id")
+  expect_identical(group_by$target_column, "total_spent")
+
+  sorted <- orders_lf() |>
+    dplyr::arrange(dplyr::desc(order_date)) |>
+    dplyr::select(order_id) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+  sort_edges <- lineage_edges(sorted)
+  expect_identical(
+    sort_edges[sort_edges$transformation == "sort", ]$source_column,
+    "order_date"
+  )
+})
+
+test_that("join keys on both sides become indirect join edges", {
+  skip_if_no_r_engine()
+
+  lineage <- customers_lf() |>
+    dplyr::left_join(orders_lf(), by = "customer_id") |>
+    dplyr::transmute(first_name, amount) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  edges <- lineage_edges(lineage)
+  joins <- edges[edges$transformation == "join", ]
+  expect_identical(
+    sort(unique(paste0(joins$source_table, ".", joins$source_column))),
+    c("customers.customer_id", "orders.customer_id")
+  )
+})
+
+test_that("semi join match columns from the filter table appear indirectly", {
+  skip_if_no_r_engine()
+
+  lineage <- customers_lf() |>
+    dplyr::semi_join(orders_lf(), by = "customer_id") |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  edges <- lineage_edges(lineage)
+  joins <- edges[edges$transformation == "join", ]
+  expect_in("orders.customer_id", paste0(joins$source_table, ".", joins$source_column))
+  expect_in("orders", node_ids(lineage))
+})
+
+test_that("filters after summarise resolve through the aggregate", {
+  skip_if_no_r_engine()
+
+  lineage <- orders_lf() |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total_spent = sum(amount, na.rm = TRUE)) |>
+    dplyr::filter(total_spent > 500) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  edges <- lineage_edges(lineage)
+  filters <- edges[edges$transformation == "filter", ]
+  # total_spent's own sources (orders.amount) carry the filter, resolved
+  # through the intermediate aggregate
+  expect_identical(
+    sort(unique(filters$source_column)),
+    "amount"
+  )
+})

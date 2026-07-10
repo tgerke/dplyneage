@@ -199,3 +199,42 @@ test_that("dialect is forwarded to sqlglot", {
 
   expect_edges(lineage, "orders.amount -> amount_chr")
 })
+
+test_that("include_indirect traces WHERE, JOIN ON, and GROUP BY columns", {
+  skip_if_no_sqlglot()
+
+  lineage <- extract_lineage("
+    SELECT o.customer_id, SUM(o.amount) AS total
+    FROM orders o JOIN customers c ON o.customer_id = c.id
+    WHERE c.region = 'east'
+    GROUP BY o.customer_id
+  ", include_indirect = TRUE)
+
+  edges <- lineage_edges(lineage)
+  expect_identical(
+    unique(edges[edges$transformation == "filter", "source_column"]),
+    "region"
+  )
+  expect_in("id", edges[edges$transformation == "join", "source_column"])
+  expect_in(
+    "customer_id",
+    edges[edges$transformation == "group_by", "source_column"]
+  )
+  expect_in("region", node_columns(lineage, "customers"))
+})
+
+test_that("indirect filters inside CTE bodies attribute to base tables", {
+  skip_if_no_sqlglot()
+
+  lineage <- extract_lineage("
+    WITH recent AS (
+      SELECT customer_id, amount FROM orders WHERE order_date > 100
+    )
+    SELECT customer_id, SUM(amount) AS total FROM recent GROUP BY customer_id
+  ", include_indirect = TRUE)
+
+  edges <- lineage_edges(lineage)
+  filters <- edges[edges$transformation == "filter", ]
+  expect_identical(unique(filters$source_table), "orders")
+  expect_identical(unique(filters$source_column), "order_date")
+})

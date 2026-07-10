@@ -5,7 +5,8 @@
 
 #' Extract and stitch lineage for a named list of models
 #' @noRd
-extract_lineage_pipeline <- function(models, dialect, schema, show_sql, engine) {
+extract_lineage_pipeline <- function(models, dialect, schema, show_sql, engine,
+                                     include_indirect = FALSE) {
   nms <- names(models)
   if (
     length(models) == 0 || is.null(nms) || any(!nzchar(nms)) ||
@@ -20,7 +21,7 @@ extract_lineage_pipeline <- function(models, dialect, schema, show_sql, engine) 
   }
 
   model_data <- lapply(models, function(model) {
-    extract_lineage_data(model, dialect, schema, show_sql, engine)
+    extract_lineage_data(model, dialect, schema, show_sql, engine, include_indirect)
   })
 
   convert_pipeline_to_graph(model_data, dialect)
@@ -41,27 +42,50 @@ convert_pipeline_to_graph <- function(model_data, dialect) {
   deps <- list() # model -> upstream node ids, for layering
   edges <- list()
 
+  # Classify one source table for model m (base table vs upstream model)
+  # and record the node column and layering dependency it implies
+  register_source <- function(m, source) {
+    st <- source_table_name(source)
+    if (st == m) {
+      stop(
+        "Model '", m, "' reads from a table with the same name; ",
+        "models and their source tables need distinct names.",
+        call. = FALSE
+      )
+    }
+    if (st %in% model_names) {
+      referenced <<- union(referenced, st)
+      if (!source$column_name %in% model_outputs[[st]]) {
+        model_extra[[st]] <<- union(model_extra[[st]], source$column_name)
+      }
+    } else {
+      base_cols[[st]] <<- union(base_cols[[st]], source$column_name)
+    }
+    deps[[m]] <<- union(deps[[m]], st)
+    st
+  }
+
   for (m in model_names) {
+    edge_keys <- character()
     for (col in model_data[[m]]$columns) {
       for (source in col$sources) {
-        st <- source_table_name(source)
-        if (st == m) {
-          stop(
-            "Model '", m, "' reads from a table with the same name; ",
-            "models and their source tables need distinct names.",
-            call. = FALSE
-          )
-        }
-        if (st %in% model_names) {
-          referenced <- union(referenced, st)
-          if (!source$column_name %in% model_outputs[[st]]) {
-            model_extra[[st]] <- union(model_extra[[st]], source$column_name)
-          }
-        } else {
-          base_cols[[st]] <- union(base_cols[[st]], source$column_name)
-        }
-        deps[[m]] <- union(deps[[m]], st)
+        st <- register_source(m, source)
         edges[[length(edges) + 1]] <- lineage_edge_for(col, source, m)
+        edge_keys <- c(
+          edge_keys,
+          paste0(st, ".", source$column_name, "->", col$output_name)
+        )
+      }
+    }
+    # Indirect columns (filter/join/group/sort) connect to every output
+    # column of this model, dashed, skipping pairs a direct edge covers
+    for (source in model_data[[m]]$indirect %||% list()) {
+      st <- register_source(m, source)
+      for (output_column in model_outputs[[m]]) {
+        key <- paste0(st, ".", source$column_name, "->", output_column)
+        if (key %in% edge_keys) next
+        edge_keys <- c(edge_keys, key)
+        edges[[length(edges) + 1]] <- indirect_edge_for(source, m, output_column)
       }
     }
   }
@@ -150,6 +174,25 @@ lineage_edge_for <- function(col, source, target_table) {
   if (!is.null(type)) {
     edge$data <- list(expression = col$expression, transformation = type)
   }
+  edge
+}
+
+#' Build one dashed indirect-lineage edge
+#'
+#' Indirect sources are the filter/join/group/sort columns collected under
+#' `include_indirect = TRUE`: `list(table, column_name, kind)`. They carry
+#' their kind as the edge classification and no defining expression.
+#' @noRd
+indirect_edge_for <- function(source, target_table, target_column) {
+  edge <- create_column_edge(
+    from_table = source_table_name(source),
+    from_column = source$column_name,
+    to_table = target_table,
+    to_column = target_column
+  )
+  edge$style$stroke <- "#94a3b8"
+  edge$style$strokeDasharray <- "6 4"
+  edge$data <- list(transformation = source$kind)
   edge
 }
 

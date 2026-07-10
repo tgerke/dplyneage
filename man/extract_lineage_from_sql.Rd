@@ -4,7 +4,12 @@
 \alias{extract_lineage_from_sql}
 \title{Extract Lineage from SQL using sqlglot}
 \usage{
-extract_lineage_from_sql(sql, dialect = "duckdb", schema = NULL)
+extract_lineage_from_sql(
+  sql,
+  dialect = "duckdb",
+  schema = NULL,
+  include_indirect = FALSE
+)
 }
 \arguments{
 \item{sql}{SQL query string}
@@ -12,6 +17,8 @@ extract_lineage_from_sql(sql, dialect = "duckdb", schema = NULL)
 \item{dialect}{SQL dialect}
 
 \item{schema}{Optional named list mapping table names to column vectors}
+
+\item{include_indirect}{Also collect filter/join/group/sort columns?}
 }
 \value{
 List containing tables, columns, sql, and dialect

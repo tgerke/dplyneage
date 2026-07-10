@@ -47,7 +47,9 @@ print.dplyneage_lineage <- function(x, ...) {
 #' classifies each edge (`"identity"` for plain column passthrough,
 #' `"aggregation"`, or `"transformation"`) and `expression` records the
 #' output column's defining expression; both are `NA` for hand-built
-#' edges.
+#' edges. With `include_indirect = TRUE`, indirect edges are classified by
+#' how the source column is used — `"filter"`, `"join"`, `"group_by"`, or
+#' `"sort"` — with `NA` for `expression`.
 #'
 #' @param lineage The result of [extract_lineage()], or any list with
 #'   `nodes` and `edges` built with [create_table_node()] and

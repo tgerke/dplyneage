@@ -9,7 +9,8 @@ extract_lineage(
   dialect = "duckdb",
   schema = NULL,
   show_sql = FALSE,
-  engine = c("auto", "sqlglot", "r")
+  engine = c("auto", "sqlglot", "r"),
+  include_indirect = FALSE
 )
 }
 \arguments{
@@ -41,6 +42,11 @@ the pure-R engine for lazy tables when dbplyr (>= 2.5.0) is installed,
 falling back to sqlglot for SQL strings or unsupported constructs.
 \code{"r"} forces the pure-R engine and errors on anything it cannot trace.
 \code{"sqlglot"} always renders to SQL and analyzes with sqlglot.}
+
+\item{include_indirect}{If \code{TRUE}, columns used in \code{filter()}/\code{WHERE},
+join conditions, \code{group_by()}, and \code{arrange()}/\verb{ORDER BY} also appear
+in the diagram, connected by dashed edges (see Details). Default:
+\code{FALSE}, matching most lineage tools.}
 }
 \value{
 A list with \code{nodes} and \code{edges} ready to pass to
@@ -64,8 +70,14 @@ engine; sqlglot itself is provisioned automatically). If a pipeline uses
 a construct the R engine cannot trace (e.g. raw SQL injected with
 \code{dbplyr::sql()}), it falls back to sqlglot automatically.
 
-Both engines trace select-list lineage: columns used only in \code{filter()},
-join conditions, or \code{arrange()} do not create lineage edges.
+Both engines trace select-list lineage by default: columns used only in
+\code{filter()}, join conditions, or \code{arrange()} do not create lineage
+edges. Set \code{include_indirect = TRUE} to add them as dashed edges — a
+column that only filters the result still breaks the pipeline if it is
+dropped, so impact analysis usually wants them. Indirect edges connect
+each filter/join/group/sort column to every output column, since these
+conditions shape the whole result, and are classified by how the column
+is used (\code{"filter"}, \code{"join"}, \code{"group_by"}, \code{"sort"}).
 
 A named list stitches a multi-model pipeline into one graph. Each
 element (lazy table or SQL string) is analyzed on its own, and any

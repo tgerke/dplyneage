@@ -128,11 +128,14 @@ lineage_semantics <- function(lineage) {
       target = e$target,
       target_column = e$targetHandle
     )
-    # extract_lineage() edges carry a classification and the defining
-    # expression; hand-built edges do not
+    # extract_lineage() edges carry a classification, and direct ones the
+    # defining expression; hand-built edges carry neither, and indirect
+    # (filter/join/group/sort) edges have no expression
     if (!is.null(e$data$transformation)) {
       edge$transformation <- e$data$transformation
-      edge$expression <- e$data$expression
+      if (!is.null(e$data$expression)) {
+        edge$expression <- e$data$expression
+      }
     }
     edge
   })
@@ -177,11 +180,18 @@ build_graphml <- function(semantics) {
     if (is.null(e$transformation)) {
       return(paste0(open, "/>"))
     }
+    expression_xml <- if (is.null(e$expression)) {
+      ""
+    } else {
+      paste0(
+        '      <data key="expression">', xml_escape(e$expression), "</data>\n"
+      )
+    }
     paste0(
       open, ">\n",
       '      <data key="transformation">', xml_escape(e$transformation),
       "</data>\n",
-      '      <data key="expression">', xml_escape(e$expression), "</data>\n",
+      expression_xml,
       "    </edge>"
     )
   }, character(1))

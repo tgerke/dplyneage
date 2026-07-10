@@ -15,8 +15,14 @@
 #' a construct the R engine cannot trace (e.g. raw SQL injected with
 #' `dbplyr::sql()`), it falls back to sqlglot automatically.
 #'
-#' Both engines trace select-list lineage: columns used only in `filter()`,
-#' join conditions, or `arrange()` do not create lineage edges.
+#' Both engines trace select-list lineage by default: columns used only in
+#' `filter()`, join conditions, or `arrange()` do not create lineage
+#' edges. Set `include_indirect = TRUE` to add them as dashed edges — a
+#' column that only filters the result still breaks the pipeline if it is
+#' dropped, so impact analysis usually wants them. Indirect edges connect
+#' each filter/join/group/sort column to every output column, since these
+#' conditions shape the whole result, and are classified by how the column
+#' is used (`"filter"`, `"join"`, `"group_by"`, `"sort"`).
 #'
 #' A named list stitches a multi-model pipeline into one graph. Each
 #' element (lazy table or SQL string) is analyzed on its own, and any
@@ -50,6 +56,10 @@
 #'   falling back to sqlglot for SQL strings or unsupported constructs.
 #'   `"r"` forces the pure-R engine and errors on anything it cannot trace.
 #'   `"sqlglot"` always renders to SQL and analyzes with sqlglot.
+#' @param include_indirect If `TRUE`, columns used in `filter()`/`WHERE`,
+#'   join conditions, `group_by()`, and `arrange()`/`ORDER BY` also appear
+#'   in the diagram, connected by dashed edges (see Details). Default:
+#'   `FALSE`, matching most lineage tools.
 #' @return A list with `nodes` and `edges` ready to pass to
 #'   [lineage_flow()], plus `metadata` recording the analyzed SQL, the
 #'   dialect, the engine used, and node/edge counts.
@@ -102,18 +112,21 @@
 #'
 #' DBI::dbDisconnect(con)
 extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = FALSE,
-                            engine = c("auto", "sqlglot", "r")) {
+                            engine = c("auto", "sqlglot", "r"),
+                            include_indirect = FALSE) {
   engine <- match.arg(engine)
 
   # A bare named list is a multi-model pipeline: each element is analyzed
   # on its own, then stitched into one graph by matching source tables to
   # model names
   if (is.list(sql) && !is.object(sql)) {
-    return(extract_lineage_pipeline(sql, dialect, schema, show_sql, engine))
+    return(extract_lineage_pipeline(
+      sql, dialect, schema, show_sql, engine, include_indirect
+    ))
   }
 
   convert_lineage_to_graph(
-    extract_lineage_data(sql, dialect, schema, show_sql, engine)
+    extract_lineage_data(sql, dialect, schema, show_sql, engine, include_indirect)
   )
 }
 
@@ -123,7 +136,8 @@ extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = F
 #' fallback, schema harvesting, and sqlglot extraction, without the final
 #' conversion to a graph — so pipelines can stitch several results first.
 #' @noRd
-extract_lineage_data <- function(sql, dialect, schema, show_sql, engine) {
+extract_lineage_data <- function(sql, dialect, schema, show_sql, engine,
+                                 include_indirect = FALSE) {
   is_lazy <- inherits(sql, "tbl_lazy")
 
   if (engine == "r") {
@@ -140,7 +154,7 @@ extract_lineage_data <- function(sql, dialect, schema, show_sql, engine) {
         call. = FALSE
       )
     }
-    lineage_data <- extract_lineage_from_tbl(sql, dialect)
+    lineage_data <- extract_lineage_from_tbl(sql, dialect, include_indirect)
     if (show_sql) {
       show_analyzed_sql(lineage_data$sql)
     }
@@ -151,7 +165,7 @@ extract_lineage_data <- function(sql, dialect, schema, show_sql, engine) {
   # through to sqlglot if the query uses a construct the walker can't trace.
   if (engine == "auto" && is_lazy && r_engine_available()) {
     lineage_data <- tryCatch(
-      extract_lineage_from_tbl(sql, dialect),
+      extract_lineage_from_tbl(sql, dialect, include_indirect),
       dplyneage_unsupported_lineage = function(cnd) {
         if (!has_sqlglot()) {
           stop(
@@ -219,7 +233,7 @@ extract_lineage_data <- function(sql, dialect, schema, show_sql, engine) {
   }
 
   # Extract lineage using sqlglot
-  extract_lineage_from_sql(sql, dialect, schema)
+  extract_lineage_from_sql(sql, dialect, schema, include_indirect)
 }
 
 #' Print the SQL being analyzed (the `show_sql = TRUE` output)
@@ -307,11 +321,16 @@ harvest_schema <- function(con, sql, dialect = "duckdb") {
 #' @param sql SQL query string
 #' @param dialect SQL dialect
 #' @param schema Optional named list mapping table names to column vectors
+#' @param include_indirect Also collect filter/join/group/sort columns?
 #' @return List containing tables, columns, sql, and dialect
 #' @keywords internal
-extract_lineage_from_sql <- function(sql, dialect = "duckdb", schema = NULL) {
+extract_lineage_from_sql <- function(sql, dialect = "duckdb", schema = NULL,
+                                     include_indirect = FALSE) {
   result <- tryCatch(
-    lineage_module()$extract_lineage(sql, dialect = dialect, schema = schema),
+    lineage_module()$extract_lineage(
+      sql,
+      dialect = dialect, schema = schema, include_indirect = include_indirect
+    ),
     error = function(e) {
       stop(
         "Failed to extract lineage from SQL.\n",
@@ -327,12 +346,16 @@ extract_lineage_from_sql <- function(sql, dialect = "duckdb", schema = NULL) {
     warning(w, call. = FALSE)
   }
 
-  list(
+  out <- list(
     tables = result$tables,
     columns = result$columns,
     sql = sql,
     dialect = dialect
   )
+  if (include_indirect) {
+    out$indirect <- result$indirect
+  }
+  out
 }
 
 #' Convert Lineage Data to Graph Structure
@@ -344,22 +367,30 @@ extract_lineage_from_sql <- function(sql, dialect = "duckdb", schema = NULL) {
 #' @keywords internal
 convert_lineage_to_graph <- function(lineage_data) {
   columns <- lineage_data$columns
+  indirect <- lineage_data$indirect %||% list()
 
-  # Group source columns by table
+  # Group source columns by table; indirect sources (filter/join/group/
+  # sort columns) join their table's node like any other column
   tables_with_columns <- list()
+  add_table_column <- function(source) {
+    table_name <- source_table_name(source)
+    if (!table_name %in% names(tables_with_columns)) {
+      tables_with_columns[[table_name]] <<- list()
+    }
+    if (!source$column_name %in% tables_with_columns[[table_name]]) {
+      tables_with_columns[[table_name]] <<- c(
+        tables_with_columns[[table_name]],
+        source$column_name
+      )
+    }
+  }
   for (col in columns) {
     for (source in col$sources) {
-      table_name <- source_table_name(source)
-      if (!table_name %in% names(tables_with_columns)) {
-        tables_with_columns[[table_name]] <- list()
-      }
-      if (!source$column_name %in% tables_with_columns[[table_name]]) {
-        tables_with_columns[[table_name]] <- c(
-          tables_with_columns[[table_name]],
-          source$column_name
-        )
-      }
+      add_table_column(source)
     }
+  }
+  for (source in indirect) {
+    add_table_column(source)
   }
 
   source_tables <- names(tables_with_columns)
@@ -397,9 +428,29 @@ convert_lineage_to_graph <- function(lineage_data) {
 
   # Create edges based on column lineage
   edges <- list()
+  edge_keys <- character()
   for (col in columns) {
     for (source in col$sources) {
       edges[[length(edges) + 1]] <- lineage_edge_for(col, source, output_table)
+      edge_keys <- c(edge_keys, paste0(
+        source_table_name(source), ".", source$column_name,
+        "->", col$output_name
+      ))
+    }
+  }
+
+  # Indirect columns shape the whole result, so each connects to every
+  # output column — dashed, and skipped where a direct edge already exists
+  for (source in indirect) {
+    for (output_column in output_columns) {
+      key <- paste0(
+        source_table_name(source), ".", source$column_name,
+        "->", output_column
+      )
+      if (key %in% edge_keys) next
+      edge_keys <- c(edge_keys, key)
+      edges[[length(edges) + 1]] <-
+        indirect_edge_for(source, output_table, output_column)
     }
   }
 
