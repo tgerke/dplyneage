@@ -57,9 +57,10 @@ Two engines are available. dbplyr lazy tables are analyzed by a pure-R
 fast path that walks the pipeline's lazy query tree directly — no Python
 required. SQL strings are analyzed by
 \href{https://github.com/tobymao/sqlglot}{sqlglot}'s lineage engine via
-reticulate. If a pipeline uses a construct the R engine cannot trace
-(e.g. raw SQL injected with \code{dbplyr::sql()}), it falls back to sqlglot
-automatically.
+reticulate (a Suggests dependency: install reticulate to enable this
+engine; sqlglot itself is provisioned automatically). If a pipeline uses
+a construct the R engine cannot trace (e.g. raw SQL injected with
+\code{dbplyr::sql()}), it falls back to sqlglot automatically.
 
 Both engines trace select-list lineage: columns used only in \code{filter()},
 join conditions, or \code{arrange()} do not create lineage edges.

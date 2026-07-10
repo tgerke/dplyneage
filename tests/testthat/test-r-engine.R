@@ -294,6 +294,30 @@ test_that("across() expands into per-column lineage", {
   ))
 })
 
+test_that("schema-qualified tables keep their qualifier in node names", {
+  skip_if_no_r_engine()
+
+  lineage <- dbplyr::lazy_frame(
+    order_id = 1L, amount = 1,
+    .name = I("stg.orders")
+  ) |>
+    dplyr::select(order_id) |>
+    extract_lineage(engine = "r")
+
+  expect_identical(node_ids(lineage), c("output", "stg.orders"))
+  expect_edges(lineage, "stg.orders.order_id -> order_id")
+})
+
+test_that("a table named 'output' does not collide with the output node", {
+  skip_if_no_r_engine()
+
+  lineage <- dbplyr::lazy_frame(x = 1, .name = "output") |>
+    extract_lineage(engine = "r")
+
+  expect_identical(node_ids(lineage), c("output", "output_"))
+  expect_edges(lineage, "output.x -> x")
+})
+
 test_that("raw SQL expressions raise a classed error under engine = 'r'", {
   skip_if_no_r_engine()
 

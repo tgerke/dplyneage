@@ -120,6 +120,47 @@ test_that("SELECT * without a schema warns instead of failing silently", {
   expect_length(lineage$edges, 0)
 })
 
+test_that("schema-qualified tables stay distinct nodes", {
+  skip_if_no_sqlglot()
+
+  lineage <- extract_lineage(
+    "SELECT o.amount, r.status
+     FROM stg.orders o JOIN raw.orders r ON o.order_id = r.order_id"
+  )
+
+  expect_edges(lineage, c(
+    "stg.orders.amount -> amount",
+    "raw.orders.status -> status"
+  ))
+  expect_identical(node_ids(lineage), c("output", "raw.orders", "stg.orders"))
+})
+
+test_that("qualified schema keys expand stars and attribute columns", {
+  skip_if_no_sqlglot()
+
+  lineage <- extract_lineage(
+    "SELECT * FROM stg.orders",
+    schema = list("stg.orders" = c("order_id", "amount"))
+  )
+
+  expect_edges(lineage, c(
+    "stg.orders.order_id -> order_id",
+    "stg.orders.amount -> amount"
+  ))
+})
+
+test_that("mixed-depth schemas are dropped with a warning", {
+  skip_if_no_sqlglot()
+
+  expect_warning(
+    extract_lineage(
+      "SELECT amount FROM stg.orders",
+      schema = list("stg.orders" = "amount", customers = "id")
+    ),
+    "uniform nesting depth"
+  )
+})
+
 test_that("literal columns appear in output without lineage edges", {
   skip_if_no_sqlglot()
 

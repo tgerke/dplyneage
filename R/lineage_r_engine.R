@@ -102,7 +102,12 @@ lineage_walk.lazy_base_query <- function(qry, con) {
   if (inherits(path, "sql")) {
     unsupported_lineage("tables defined by raw SQL (`tbl(con, sql(...))`)")
   }
-  table <- dbplyr::table_path_name(path, con)
+  # Keep schema/catalog qualifiers so same-named tables in different
+  # schemas stay distinct nodes (matches the sqlglot engine's naming)
+  table <- paste(
+    unlist(dbplyr::table_path_components(path, con)),
+    collapse = "."
+  )
   cols <- lapply(qry$vars, function(v) {
     list(expression = v, sources = list(list(table = table, column_name = v)))
   })

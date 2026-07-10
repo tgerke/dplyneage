@@ -10,9 +10,10 @@
 #' fast path that walks the pipeline's lazy query tree directly — no Python
 #' required. SQL strings are analyzed by
 #' [sqlglot](https://github.com/tobymao/sqlglot)'s lineage engine via
-#' reticulate. If a pipeline uses a construct the R engine cannot trace
-#' (e.g. raw SQL injected with `dbplyr::sql()`), it falls back to sqlglot
-#' automatically.
+#' reticulate (a Suggests dependency: install reticulate to enable this
+#' engine; sqlglot itself is provisioned automatically). If a pipeline uses
+#' a construct the R engine cannot trace (e.g. raw SQL injected with
+#' `dbplyr::sql()`), it falls back to sqlglot automatically.
 #'
 #' Both engines trace select-list lineage: columns used only in `filter()`,
 #' join conditions, or `arrange()` do not create lineage edges.
@@ -132,6 +133,15 @@ extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = F
 
   # sqlglot engine
   if (!has_sqlglot()) {
+    if (!reticulate_available()) {
+      stop(
+        "Analyzing this input needs the sqlglot engine, which requires the ",
+        "'reticulate' package. Install it with ",
+        "install.packages(\"reticulate\"); sqlglot itself is then ",
+        "provisioned automatically.",
+        call. = FALSE
+      )
+    }
     stop(
       "Python package 'sqlglot' is required for lineage extraction.\n",
       "dplyneage requests it automatically via reticulate::py_require(); ",
@@ -221,7 +231,7 @@ harvest_schema <- function(con, sql, dialect = "duckdb") {
   }
 
   tables <- tryCatch(
-    .dplyneage$lineage$list_tables(sql, dialect = dialect),
+    lineage_module()$list_tables(sql, dialect = dialect),
     error = function(e) NULL
   )
   if (length(tables) == 0) {
@@ -230,8 +240,11 @@ harvest_schema <- function(con, sql, dialect = "duckdb") {
 
   schema <- list()
   for (tbl in tables) {
+    # Qualified names (schema.table) need a DBI::Id lookup, not a bare string
+    parts <- strsplit(tbl$name, ".", fixed = TRUE)[[1]]
+    ref <- if (length(parts) > 1) DBI::Id(parts) else tbl$name
     fields <- tryCatch(
-      DBI::dbListFields(con, tbl$name),
+      DBI::dbListFields(con, ref),
       error = function(e) NULL
     )
     if (!is.null(fields)) {
@@ -255,7 +268,7 @@ harvest_schema <- function(con, sql, dialect = "duckdb") {
 #' @keywords internal
 extract_lineage_from_sql <- function(sql, dialect = "duckdb", schema = NULL) {
   result <- tryCatch(
-    .dplyneage$lineage$extract_lineage(sql, dialect = dialect, schema = schema),
+    lineage_module()$extract_lineage(sql, dialect = dialect, schema = schema),
     error = function(e) {
       stop(
         "Failed to extract lineage from SQL.\n",
@@ -289,29 +302,11 @@ extract_lineage_from_sql <- function(sql, dialect = "duckdb", schema = NULL) {
 convert_lineage_to_graph <- function(lineage_data) {
   columns <- lineage_data$columns
 
-  # Group columns by table
+  # Group source columns by table
   tables_with_columns <- list()
-  output_table <- "output"
-
   for (col in columns) {
-    # Add output column to output table
-    if (!output_table %in% names(tables_with_columns)) {
-      tables_with_columns[[output_table]] <- list()
-    }
-    if (!col$output_name %in% tables_with_columns[[output_table]]) {
-      tables_with_columns[[output_table]] <- c(
-        tables_with_columns[[output_table]],
-        col$output_name
-      )
-    }
-
-    # Add source columns to source tables
     for (source in col$sources) {
-      table_name <- source$table
-      if (is.null(table_name) || is.na(table_name)) {
-        table_name <- "unknown"
-      }
-
+      table_name <- source_table_name(source)
       if (!table_name %in% names(tables_with_columns)) {
         tables_with_columns[[table_name]] <- list()
       }
@@ -324,14 +319,26 @@ convert_lineage_to_graph <- function(lineage_data) {
     }
   }
 
+  source_tables <- names(tables_with_columns)
+
+  # The synthetic output node must not collide with a real table name
+  output_table <- "output"
+  while (output_table %in% source_tables) {
+    output_table <- paste0(output_table, "_")
+  }
+
+  output_columns <- unique(vapply(
+    columns,
+    function(col) col$output_name,
+    character(1)
+  ))
+
   # Create nodes
   nodes <- list()
   x_pos <- 0
   y_pos <- 0
   y_spacing <- 200
   x_spacing <- 400
-
-  source_tables <- setdiff(names(tables_with_columns), output_table)
 
   for (i in seq_along(source_tables)) {
     table_name <- source_tables[i]
@@ -349,38 +356,27 @@ convert_lineage_to_graph <- function(lineage_data) {
   }
 
   # Add output table
-  if (output_table %in% names(tables_with_columns)) {
-    cols <- unlist(tables_with_columns[[output_table]])
-    if (length(cols) > 0) {
-      nodes[[length(nodes) + 1]] <- create_table_node(
-        table_name = output_table,
-        columns = cols,
-        x = x_pos + x_spacing,
-        y = y_pos + max(length(source_tables) - 1, 0) * y_spacing / 2,
-        table_type = "target"
-      )
-    }
+  if (length(output_columns) > 0) {
+    nodes[[length(nodes) + 1]] <- create_table_node(
+      table_name = output_table,
+      columns = output_columns,
+      x = x_pos + x_spacing,
+      y = y_pos + max(length(source_tables) - 1, 0) * y_spacing / 2,
+      table_type = "target"
+    )
   }
 
   # Create edges based on column lineage
   edges <- list()
 
   for (col in columns) {
-    target_col <- col$output_name
-
     for (source in col$sources) {
-      source_table <- if (!is.null(source$table)) source$table else "unknown"
-      source_col <- source$column_name
-
-      # Only create edge if source table exists in our nodes
-      if (source_table %in% names(tables_with_columns)) {
-        edges[[length(edges) + 1]] <- create_column_edge(
-          from_table = source_table,
-          from_column = source_col,
-          to_table = output_table,
-          to_column = target_col
-        )
-      }
+      edges[[length(edges) + 1]] <- create_column_edge(
+        from_table = source_table_name(source),
+        from_column = source$column_name,
+        to_table = output_table,
+        to_column = col$output_name
+      )
     }
   }
 
@@ -391,8 +387,18 @@ convert_lineage_to_graph <- function(lineage_data) {
       sql = lineage_data$sql,
       dialect = lineage_data$dialect,
       engine = if (is.null(lineage_data$engine)) "sqlglot" else lineage_data$engine,
-      table_count = length(nodes),
+      node_count = length(nodes),
       edge_count = length(edges)
     )
   )
+}
+
+# Sources with no usable table name (NULL, NA, empty) group under "unknown"
+#' @noRd
+source_table_name <- function(source) {
+  table <- source$table
+  if (is.null(table) || length(table) != 1 || is.na(table) || !nzchar(table)) {
+    return("unknown")
+  }
+  table
 }

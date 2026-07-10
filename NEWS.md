@@ -1,5 +1,31 @@
 # dplyneage (development version)
 
+* reticulate has moved from Imports to Suggests: dbplyr pipelines are
+  analyzed entirely in R, so Python tooling is now only installed by users
+  who analyze raw SQL. `extract_lineage()` and `has_sqlglot()` explain the
+  requirement when reticulate is missing.
+
+* Schema-qualified tables keep their qualifier: `stg.orders` and
+  `raw.orders` are now distinct nodes in both engines instead of merging
+  into one `orders` node, `extract_lineage()`'s `schema` argument accepts
+  qualified names (`list("stg.orders" = ...)`), and automatic schema
+  harvesting looks qualified tables up correctly.
+
+* `extract_lineage()` no longer lets a real table named `output` collide
+  with the synthetic output node, and sources whose table cannot be
+  determined (`NA` or empty names) now connect to the `unknown` node
+  instead of producing dangling edges.
+
+* The sqlglot engine now records each output column's actual defining
+  expression (previously it recorded the column name), matching the R
+  engine.
+
+* `metadata$table_count` is now `metadata$node_count`, since it counts all
+  diagram nodes including the output node.
+
+* The static SVG fallback in `lineage_flow()` escapes table labels before
+  inserting them into HTML.
+
 * `lineage_flow()` now routes each target column's edges through its own
   vertical lane instead of bending every edge at the same midpoint, so
   parallel edges no longer draw on top of each other. Edges fanning into

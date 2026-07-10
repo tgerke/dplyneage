@@ -11,19 +11,45 @@ from sqlglot.lineage import lineage
 from sqlglot.optimizer.qualify import qualify
 
 
+def _table_name(table):
+    """Qualified table name: catalog.db.name for whichever parts exist."""
+    return ".".join(part.name for part in table.parts if part.name)
+
+
 def _normalize_schema(schema):
-    """Accept {table: [col, ...]} or {table: {col: type}}; return sqlglot form."""
+    """Accept {table: [col, ...]} or {table: {col: type}}, with optionally
+    qualified table keys ("db.table"); return (nested sqlglot schema, warning).
+
+    sqlglot's MappingSchema requires every table at the same nesting depth,
+    so a schema mixing qualified and unqualified names is dropped with a
+    warning rather than raising mid-extraction.
+    """
     if not schema:
-        return None
-    normalized = {}
+        return None, None
+    depths = set()
+    entries = []
     for table, cols in schema.items():
         if isinstance(cols, dict):
-            normalized[table] = cols
+            coldict = cols
         else:
             if isinstance(cols, str):
                 cols = [cols]
-            normalized[table] = {str(col): "unknown" for col in cols}
-    return normalized or None
+            coldict = {str(col): "unknown" for col in cols}
+        parts = str(table).split(".")
+        depths.add(len(parts))
+        entries.append((parts, coldict))
+    if len(depths) > 1:
+        return None, (
+            "Schema mixes qualified and unqualified table names; sqlglot "
+            "needs a uniform nesting depth, so the schema was ignored."
+        )
+    nested = {}
+    for parts, coldict in entries:
+        node = nested
+        for part in parts[:-1]:
+            node = node.setdefault(part, {})
+        node[parts[-1]] = coldict
+    return (nested or None), None
 
 
 def _cte_names(expression):
@@ -37,8 +63,9 @@ def list_tables(sql, dialect="duckdb"):
     tables = []
     seen = set()
     for table in parsed.find_all(exp.Table):
-        name = table.name
-        if name in ctes or name in seen:
+        name = _table_name(table)
+        # CTE references are always unqualified, so bare-name matching holds
+        if table.name in ctes or name in seen:
             continue
         seen.add(name)
         tables.append(
@@ -68,13 +95,26 @@ def _column_sources(column, sql, schema, dialect):
         # clauses) contribute no lineage edge.
         if not isinstance(leaf.source, exp.Table):
             continue
-        table = leaf.source.name
+        table = _table_name(leaf.source)
         col = leaf.name.split(".")[-1]
         key = (table, col)
         if key not in seen:
             seen.add(key)
             sources.append({"table": table, "column_name": col})
     return sources
+
+
+def _select_expressions(expression, dialect):
+    """Map each output column name to the SQL of its defining expression."""
+    try:
+        selects = expression.selects
+    except Exception:
+        return {}
+    out = {}
+    for select in selects:
+        inner = select.this if isinstance(select, exp.Alias) else select
+        out[select.alias_or_name] = inner.sql(dialect=dialect)
+    return out
 
 
 def extract_lineage(sql, dialect="duckdb", schema=None):
@@ -85,9 +125,11 @@ def extract_lineage(sql, dialect="duckdb", schema=None):
       columns:  [{output_name, expression, sources: [{table, column_name}]}]
       warnings: human-readable notes about anything that could not be traced
     """
-    schema = _normalize_schema(schema)
+    schema, schema_warning = _normalize_schema(schema)
     parsed = parse_one(sql, dialect=dialect)
     warnings = []
+    if schema_warning:
+        warnings.append(schema_warning)
 
     # Qualify (with schema when available) so stars expand and unqualified
     # columns resolve to their tables. Fall back to the raw parse on failure.
@@ -111,9 +153,18 @@ def extract_lineage(sql, dialect="duckdb", schema=None):
             "`schema` to expand them."
         )
 
+    # Prefer the expression as written; star-expanded columns only exist in
+    # the qualified tree
+    expressions = _select_expressions(qualified, dialect)
+    expressions.update(_select_expressions(parsed, dialect))
+
     columns = []
     for name in output_names:
-        col_info = {"output_name": name, "expression": name, "sources": []}
+        col_info = {
+            "output_name": name,
+            "expression": expressions.get(name, name),
+            "sources": [],
+        }
         try:
             col_info["sources"] = _column_sources(name, sql, schema, dialect)
         except SqlglotError as err:

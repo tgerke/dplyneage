@@ -18,8 +18,7 @@ BugReports: https://github.com/tgerke/dplyneage/issues
 Encoding: UTF-8
 Imports:
     htmlwidgets,
-    jsonlite,
-    reticulate
+    jsonlite
 Suggests:
     DBI,
     dbplyr,
@@ -28,6 +27,7 @@ Suggests:
     ducklake,
     igraph,
     knitr,
+    reticulate,
     rmarkdown,
     shiny,
     testthat (>= 3.2.0),

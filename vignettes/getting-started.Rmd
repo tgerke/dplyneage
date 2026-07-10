@@ -32,7 +32,7 @@ This vignette starts with the smallest possible example and works up to the case
 pak::pak("tgerke/dplyneage")
 ```
 
-dplyr/dbplyr pipelines are analyzed entirely in R, so for those there is nothing else to install. Raw SQL strings are analyzed by sqlglot, dplyneage's one Python dependency — declared via `reticulate::py_require()` and provisioned automatically the first time it's needed, with no setup step. See `vignette("python-integration")` if you manage your own Python environment.
+dplyr/dbplyr pipelines are analyzed entirely in R, so for those there is nothing else to install. Raw SQL strings are analyzed by sqlglot, dplyneage's one Python dependency — install the reticulate package to enable that engine, and sqlglot itself is provisioned automatically the first time it's needed. See `vignette("python-integration")` if you manage your own Python environment.
 
 ## Your first lineage diagram
 

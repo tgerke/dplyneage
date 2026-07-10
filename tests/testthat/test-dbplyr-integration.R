@@ -117,6 +117,27 @@ test_that("the R and sqlglot engines agree on real pipelines", {
   }
 })
 
+test_that("schema-qualified duckdb tables trace identically in both engines", {
+  skip_if_no_db_stack()
+  con <- local_duckdb()
+  DBI::dbExecute(con, "CREATE SCHEMA stg")
+  DBI::dbExecute(con, "CREATE TABLE stg.orders AS SELECT * FROM orders")
+
+  query <- dplyr::tbl(con, DBI::Id("stg", "orders")) |>
+    dplyr::select(order_id, amount)
+
+  r_lineage <- extract_lineage(query, engine = "r")
+  expect_edges(r_lineage, c(
+    "stg.orders.order_id -> order_id",
+    "stg.orders.amount -> amount"
+  ))
+
+  # The sqlglot path harvests the qualified table's schema via DBI::Id
+  sqlglot_lineage <- extract_lineage(query, engine = "sqlglot")
+  expect_identical(edge_set(sqlglot_lineage), edge_set(r_lineage))
+  expect_identical(node_ids(sqlglot_lineage), node_ids(r_lineage))
+})
+
 test_that("engine = 'auto' takes the R fast path for lazy tables", {
   testthat::skip_if_not_installed("dplyr")
   testthat::skip_if_not_installed("dbplyr", "2.5.0")

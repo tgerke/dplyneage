@@ -3,17 +3,50 @@
 
 # Package initialization
 .onLoad <- function(libname, pkgname) {
-  # Declare Python requirements; reticulate provisions sqlglot automatically
-  # in an ephemeral environment when no user-configured Python is active
-  reticulate::py_require("sqlglot>=23.0.0")
+  # Python is only needed for the sqlglot engine, so reticulate is a
+  # Suggests dependency; when it is installed, declare requirements up
+  # front (reticulate provisions sqlglot automatically in an ephemeral
+  # environment when no user-configured Python is active) and import the
+  # bundled lineage module with delay_load so Python does not initialize
+  # until lineage extraction is first used
+  if (reticulate_available()) {
+    reticulate::py_require("sqlglot>=23.0.0")
+    .dplyneage$lineage <- reticulate::import_from_path(
+      "dplyneage_lineage",
+      path = system.file("python", package = pkgname),
+      delay_load = TRUE
+    )
+  }
+}
 
-  # Import the bundled lineage module with delay_load so Python does not
-  # initialize until lineage extraction is first used
-  .dplyneage$lineage <- reticulate::import_from_path(
-    "dplyneage_lineage",
-    path = system.file("python", package = pkgname),
-    delay_load = TRUE
-  )
+# Wrapper so tests can mock reticulate's absence
+#' @noRd
+reticulate_available <- function() {
+  requireNamespace("reticulate", quietly = TRUE)
+}
+
+#' Access the bundled Python lineage module
+#'
+#' Imports on first use when reticulate was installed after the package
+#' loaded (in which case `.onLoad` skipped the import).
+#' @noRd
+lineage_module <- function() {
+  if (is.null(.dplyneage$lineage)) {
+    if (!reticulate_available()) {
+      stop(
+        "The sqlglot engine requires the 'reticulate' package. ",
+        "Install it with install.packages(\"reticulate\").",
+        call. = FALSE
+      )
+    }
+    reticulate::py_require("sqlglot>=23.0.0")
+    .dplyneage$lineage <- reticulate::import_from_path(
+      "dplyneage_lineage",
+      path = system.file("python", package = "dplyneage"),
+      delay_load = TRUE
+    )
+  }
+  .dplyneage$lineage
 }
 
 #' Install sqlglot Python Package
@@ -44,12 +77,15 @@ install_sqlglot <- function(method = "auto", envname = "r-dplyneage") {
 #'
 #' Python is only involved when [extract_lineage()] analyzes raw SQL
 #' strings (or falls back to sqlglot for a pipeline it cannot trace in R);
-#' dbplyr pipelines are analyzed by a pure-R engine. dplyneage declares its
-#' sqlglot dependency via [reticulate::py_require()], so it is provisioned
-#' automatically the first time it is needed — you should not need to
-#' install anything. Use this to check availability, or to gate code that
-#' extracts lineage from raw SQL (examples, vignette chunks, Shiny apps).
-#' Note that calling it may initialize Python.
+#' dbplyr pipelines are analyzed by a pure-R engine. The sqlglot engine
+#' needs the reticulate package (a Suggests dependency — install it with
+#' `install.packages("reticulate")`); dplyneage then declares its sqlglot
+#' dependency via [reticulate::py_require()], so sqlglot itself is
+#' provisioned automatically the first time it is needed. Use this to
+#' check availability, or to gate code that extracts lineage from raw SQL
+#' (examples, vignette chunks, Shiny apps). Returns `FALSE` when
+#' reticulate is not installed. Note that calling it may initialize
+#' Python.
 #'
 #' @return `TRUE` if sqlglot can be loaded, `FALSE` otherwise
 #' @seealso `vignette("python-integration")` for using your own Python
@@ -60,7 +96,7 @@ install_sqlglot <- function(method = "auto", envname = "r-dplyneage") {
 #' has_sqlglot()
 #' }
 has_sqlglot <- function() {
-  reticulate::py_module_available("sqlglot")
+  reticulate_available() && reticulate::py_module_available("sqlglot")
 }
 
 #' Build React Flow Bundle
