@@ -19,13 +19,17 @@ print.dplyneage_lineage <- function(x, ...) {
   if (!is.null(meta$engine)) {
     cat("  engine: ", meta$engine, " (dialect: ", meta$dialect, ")\n", sep = "")
   }
-  sources <- ids[is.na(types) | types != "target"]
+  sources <- ids[is.na(types) | !(types %in% c("transform", "target"))]
   cat(
     "  sources: ",
     if (length(sources)) paste(sources, collapse = ", ") else "(none)",
     "\n",
     sep = ""
   )
+  transforms <- ids[!is.na(types) & types == "transform"]
+  if (length(transforms)) {
+    cat("  transforms: ", paste(transforms, collapse = ", "), "\n", sep = "")
+  }
   for (i in which(!is.na(types) & types == "target")) {
     cols <- unlist(x$nodes[[i]]$data$columns)
     cat("  ", ids[[i]], ": ", paste(cols, collapse = ", "), "\n", sep = "")

@@ -13,11 +13,13 @@ extract_lineage(
 )
 }
 \arguments{
-\item{sql}{A dbplyr lazy table (\code{tbl_lazy}) or a single SQL query string.
-Lazy tables are analyzed directly from their lazy query tree (the SQL
-recorded in \code{metadata} still comes from \code{\link[dbplyr:sql_render]{dbplyr::sql_render()}}); when
-one is handled by the sqlglot engine instead, its database connection
-is used to harvest table schemas automatically.}
+\item{sql}{A dbplyr lazy table (\code{tbl_lazy}), a single SQL query string,
+or a named list of these (one element per pipeline model; see
+Details). Lazy tables are analyzed directly from their lazy query
+tree (the SQL recorded in \code{metadata} still comes from
+\code{\link[dbplyr:sql_render]{dbplyr::sql_render()}}); when one is handled by the sqlglot engine
+instead, its database connection is used to harvest table schemas
+automatically.}
 
 \item{dialect}{SQL dialect the query is written in, e.g. \code{"duckdb"}
 (the default), \code{"postgres"}, \code{"mysql"}, \code{"snowflake"}, \code{"bigquery"}.
@@ -64,6 +66,14 @@ a construct the R engine cannot trace (e.g. raw SQL injected with
 
 Both engines trace select-list lineage: columns used only in \code{filter()},
 join conditions, or \code{arrange()} do not create lineage edges.
+
+A named list stitches a multi-model pipeline into one graph. Each
+element (lazy table or SQL string) is analyzed on its own, and any
+source table whose name matches another element's name connects to that
+model's node — so a bronze/silver/gold flow where each layer is
+materialized under its model's name renders as a single multi-hop DAG,
+with intermediate models drawn as orange transform nodes and terminal
+models as green targets.
 }
 \examples{
 \dontshow{if (dplyneage::has_sqlglot()) withAutoprint(\{ # examplesIf}
@@ -96,6 +106,18 @@ tbl(con, "customers") |>
   group_by(id, name) |>
   summarise(total_spent = sum(amount, na.rm = TRUE), .groups = "drop") |>
   extract_lineage() |>
+  lineage_flow()
+
+# Multi-model pipelines: name each step and pass a named list; source
+# tables matching a model name stitch the layers into one DAG
+silver <- tbl(con, "orders") |>
+  group_by(customer_id) |>
+  summarise(total_spent = sum(amount, na.rm = TRUE), .groups = "drop")
+invisible(compute(silver, name = "silver", temporary = TRUE))
+gold <- tbl(con, "silver") |>
+  mutate(big_spender = total_spent > 100)
+
+extract_lineage(list(silver = silver, gold = gold)) |>
   lineage_flow()
 
 DBI::dbDisconnect(con)

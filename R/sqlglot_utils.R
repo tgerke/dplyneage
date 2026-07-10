@@ -18,11 +18,21 @@
 #' Both engines trace select-list lineage: columns used only in `filter()`,
 #' join conditions, or `arrange()` do not create lineage edges.
 #'
-#' @param sql A dbplyr lazy table (`tbl_lazy`) or a single SQL query string.
-#'   Lazy tables are analyzed directly from their lazy query tree (the SQL
-#'   recorded in `metadata` still comes from [dbplyr::sql_render()]); when
-#'   one is handled by the sqlglot engine instead, its database connection
-#'   is used to harvest table schemas automatically.
+#' A named list stitches a multi-model pipeline into one graph. Each
+#' element (lazy table or SQL string) is analyzed on its own, and any
+#' source table whose name matches another element's name connects to that
+#' model's node — so a bronze/silver/gold flow where each layer is
+#' materialized under its model's name renders as a single multi-hop DAG,
+#' with intermediate models drawn as orange transform nodes and terminal
+#' models as green targets.
+#'
+#' @param sql A dbplyr lazy table (`tbl_lazy`), a single SQL query string,
+#'   or a named list of these (one element per pipeline model; see
+#'   Details). Lazy tables are analyzed directly from their lazy query
+#'   tree (the SQL recorded in `metadata` still comes from
+#'   [dbplyr::sql_render()]); when one is handled by the sqlglot engine
+#'   instead, its database connection is used to harvest table schemas
+#'   automatically.
 #' @param dialect SQL dialect the query is written in, e.g. `"duckdb"`
 #'   (the default), `"postgres"`, `"mysql"`, `"snowflake"`, `"bigquery"`.
 #'   Any dialect sqlglot understands works here.
@@ -78,10 +88,42 @@
 #'   extract_lineage() |>
 #'   lineage_flow()
 #'
+#' # Multi-model pipelines: name each step and pass a named list; source
+#' # tables matching a model name stitch the layers into one DAG
+#' silver <- tbl(con, "orders") |>
+#'   group_by(customer_id) |>
+#'   summarise(total_spent = sum(amount, na.rm = TRUE), .groups = "drop")
+#' invisible(compute(silver, name = "silver", temporary = TRUE))
+#' gold <- tbl(con, "silver") |>
+#'   mutate(big_spender = total_spent > 100)
+#'
+#' extract_lineage(list(silver = silver, gold = gold)) |>
+#'   lineage_flow()
+#'
 #' DBI::dbDisconnect(con)
 extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = FALSE,
                             engine = c("auto", "sqlglot", "r")) {
   engine <- match.arg(engine)
+
+  # A bare named list is a multi-model pipeline: each element is analyzed
+  # on its own, then stitched into one graph by matching source tables to
+  # model names
+  if (is.list(sql) && !is.object(sql)) {
+    return(extract_lineage_pipeline(sql, dialect, schema, show_sql, engine))
+  }
+
+  convert_lineage_to_graph(
+    extract_lineage_data(sql, dialect, schema, show_sql, engine)
+  )
+}
+
+#' Run one query through the engine dispatch, returning lineage_data
+#'
+#' The single-query core of [extract_lineage()]: engine selection, R-engine
+#' fallback, schema harvesting, and sqlglot extraction, without the final
+#' conversion to a graph — so pipelines can stitch several results first.
+#' @noRd
+extract_lineage_data <- function(sql, dialect, schema, show_sql, engine) {
   is_lazy <- inherits(sql, "tbl_lazy")
 
   if (engine == "r") {
@@ -102,7 +144,7 @@ extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = F
     if (show_sql) {
       show_analyzed_sql(lineage_data$sql)
     }
-    return(convert_lineage_to_graph(lineage_data))
+    return(lineage_data)
   }
 
   # Fast path: walk the lazy query tree in R, no Python needed. Falls
@@ -127,7 +169,7 @@ extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = F
       if (show_sql) {
         show_analyzed_sql(lineage_data$sql)
       }
-      return(convert_lineage_to_graph(lineage_data))
+      return(lineage_data)
     }
   }
 
@@ -161,7 +203,11 @@ extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = F
 
   # Ensure we have a single character string
   if (!is.character(sql) || length(sql) != 1) {
-    stop("sql must be a character string or a dbplyr lazy table", call. = FALSE)
+    stop(
+      "sql must be a character string, a dbplyr lazy table, or a named ",
+      "list of them",
+      call. = FALSE
+    )
   }
 
   if (show_sql) {
@@ -173,10 +219,7 @@ extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = F
   }
 
   # Extract lineage using sqlglot
-  lineage_data <- extract_lineage_from_sql(sql, dialect, schema)
-
-  # Convert to nodes and edges format
-  convert_lineage_to_graph(lineage_data)
+  extract_lineage_from_sql(sql, dialect, schema)
 }
 
 #' Print the SQL being analyzed (the `show_sql = TRUE` output)
@@ -333,62 +376,30 @@ convert_lineage_to_graph <- function(lineage_data) {
     character(1)
   ))
 
-  # Create nodes
-  nodes <- list()
-  x_pos <- 0
-  y_pos <- 0
-  y_spacing <- 200
-  x_spacing <- 400
-
-  for (i in seq_along(source_tables)) {
-    table_name <- source_tables[i]
-    cols <- unlist(tables_with_columns[[table_name]])
-
-    if (length(cols) > 0) {
-      nodes[[length(nodes) + 1]] <- create_table_node(
-        table_name = table_name,
-        columns = cols,
-        x = x_pos,
-        y = y_pos + (i - 1) * y_spacing,
-        table_type = "source"
-      )
-    }
-  }
-
-  # Add output table
+  # Node specs: sources in layer 0, output in layer 1
+  specs <- lapply(source_tables, function(table_name) {
+    list(
+      id = table_name,
+      columns = unlist(tables_with_columns[[table_name]]),
+      type = "source",
+      layer = 0L
+    )
+  })
   if (length(output_columns) > 0) {
-    nodes[[length(nodes) + 1]] <- create_table_node(
-      table_name = output_table,
+    specs[[length(specs) + 1]] <- list(
+      id = output_table,
       columns = output_columns,
-      x = x_pos + x_spacing,
-      y = y_pos + max(length(source_tables) - 1, 0) * y_spacing / 2,
-      table_type = "target"
+      type = "target",
+      layer = 1L
     )
   }
+  nodes <- build_layout_nodes(specs)
 
-  # Create edges based on column lineage. Non-identity edges are labeled
-  # with the column's defining expression; aggregations are animated.
+  # Create edges based on column lineage
   edges <- list()
-
   for (col in columns) {
-    type <- col$type
-    labeled <- !is.null(type) && type != "identity" && !is.null(col$expression)
     for (source in col$sources) {
-      edge <- create_column_edge(
-        from_table = source_table_name(source),
-        from_column = source$column_name,
-        to_table = output_table,
-        to_column = col$output_name,
-        label = if (labeled) truncate_label(col$expression) else NULL,
-        animated = identical(type, "aggregation")
-      )
-      if (!is.null(type)) {
-        edge$data <- list(
-          expression = col$expression,
-          transformation = type
-        )
-      }
-      edges[[length(edges) + 1]] <- edge
+      edges[[length(edges) + 1]] <- lineage_edge_for(col, source, output_table)
     }
   }
 

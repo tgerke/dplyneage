@@ -32,7 +32,7 @@ dbplyr pipelines are analyzed in pure R by walking their lazy query tree, so no 
 pak::pak("tgerke/dplyneage")
 ```
 
-dbplyr pipelines need no Python at all. For raw SQL input, the Python dependency (sqlglot) is provisioned automatically the first time it's needed, via `reticulate::py_require()` — there is no setup step. See `vignette("python-integration")` if you manage your own Python environment.
+dbplyr pipelines need no Python at all — not even reticulate. For raw SQL input, install the reticulate package once; the Python dependency (sqlglot) is then provisioned automatically the first time it's needed. See `vignette("python-integration")` if you manage your own Python environment.
 
 ## Usage
 
@@ -80,7 +80,31 @@ Behind that one pipe, `extract_lineage()`:
 - walks the pipeline's lazy query tree in pure R, tracing every output column to its source columns (joins, aggregations, unions, and multi-source computed columns all resolve exactly)
 - falls back to sqlglot's lineage engine when the pipeline injects raw SQL with `dbplyr::sql()`, or when you pass a SQL string directly (that path handles aliases, CTEs, and subqueries, and reads table schemas from your connection so unqualified columns attribute correctly)
 
-The resulting diagram is fully interactive: drag tables to rearrange, zoom and pan, and hover columns to highlight their connections.
+The resulting diagram is fully interactive: drag tables to rearrange, zoom and pan, and hover columns to highlight their connections. Computed columns carry their defining expression as an edge label, and aggregation edges animate.
+
+## Multi-model pipelines
+
+Real pipelines materialize layers — bronze tables feed a silver summary, silver feeds gold. Pass `extract_lineage()` a named list, one element per layer, and it stitches them into a single DAG: any source table whose name matches another element's name links to that model's node.
+
+```{r fig.alt="Three-layer lineage diagram: the orders source table in blue feeds the silver transform table in orange, which feeds the gold target table in green, with column-level edges through all three layers"}
+silver <- tbl(con, "orders") |>
+  group_by(customer_id) |>
+  summarise(total_spent = sum(amount, na.rm = TRUE), .groups = "drop")
+invisible(compute(silver, name = "silver", temporary = TRUE))
+
+gold <- tbl(con, "silver") |>
+  mutate(big_spender = total_spent > 400)
+
+extract_lineage(list(silver = silver, gold = gold)) |>
+  lineage_flow(height = "450px")
+```
+
+Intermediate models render as orange transform nodes, terminal models as green targets, and impact questions now span the whole pipeline:
+
+```{r}
+extract_lineage(list(silver = silver, gold = gold)) |>
+  lineage_upstream("gold.big_spender")
+```
 
 ## Building diagrams by hand
 
@@ -143,9 +167,9 @@ get_ducklake_table("orders") |>
 
 The [ducklake lineage vignette](https://tgerke.github.io/dplyneage/articles/ducklake-lineage.html) works through a full example: building a small lake, diagramming each layer of a bronze/silver/gold pipeline, and extracting lineage from time-travel queries.
 
-## Exporting lineage
+## Lineage as data
 
-Diagrams are for people; the same lineage is also useful as plain data. `lineage_json()` gives you a small, stable document you can query with jq, feed to a data catalog, or commit next to your pipeline code — then a CI diff flags any change to column provenance before it ships:
+Diagrams are for people; the same lineage is also useful as plain data. `lineage_edges()` flattens it to one classified row per column edge, and `lineage_upstream()` / `lineage_downstream()` answer impact questions directly:
 
 ```{r}
 lineage <- tbl(con, "orders") |>
@@ -154,6 +178,14 @@ lineage <- tbl(con, "orders") |>
   summarise(total_spent = sum(amount, na.rm = TRUE), .groups = "drop") |>
   extract_lineage()
 
+lineage_edges(lineage)
+
+lineage_upstream(lineage, "output.total_spent")
+```
+
+`lineage_diff()` compares two extractions — run it across branches in CI and provenance changes surface before they ship. For interchange, `lineage_json()` gives you a small, stable document you can query with jq, feed to a data catalog, or commit next to your pipeline code:
+
+```{r}
 lineage_json(lineage)
 ```
 

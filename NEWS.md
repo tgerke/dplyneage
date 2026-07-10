@@ -1,5 +1,21 @@
 # dplyneage (development version)
 
+* `extract_lineage()` now stitches multi-model pipelines: pass a named
+  list of lazy tables or SQL strings (one element per model) and any
+  source table matching another element's name links to that model's
+  node, so a bronze/silver/gold flow renders as one multi-hop DAG.
+  Intermediate models draw as orange transform nodes, terminal models as
+  green targets, and `metadata$models` records each model's SQL and
+  engine.
+
+* Diagrams are laid out by a height-aware layered algorithm: each
+  pipeline hop advances one column, nodes stack with spacing that
+  accounts for their column count (tall tables no longer overlap), and
+  layers are vertically centered.
+
+* The ducklake vignette now ends with the stitched whole-lake diagram and
+  a transitive `lineage_upstream()` impact query.
+
 * `extract_lineage()` results are now classed `dplyneage_lineage` with a
   compact print method summarising engine, tables, output columns, and
   edge count.
