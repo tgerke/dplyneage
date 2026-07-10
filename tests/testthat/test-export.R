@@ -287,3 +287,63 @@ test_that("indirect edges export their kind without an expression", {
   parsed_xml <- xml2::read_xml(xml)
   expect_s3_class(parsed_xml, "xml_document")
 })
+
+# lineage_mermaid --------------------------------------------------------
+
+test_that("lineage_mermaid renders subgraphs, edges, and classes", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  lineage <- dbplyr::lazy_frame(customer_id = 1L, amount = 1, .name = "orders") |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total = sum(amount, na.rm = TRUE)) |>
+    extract_lineage(engine = "r")
+
+  expect_snapshot(cat(lineage_mermaid(lineage)))
+})
+
+test_that("mermaid labels non-identity edges and dashes indirect ones", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  lineage <- dbplyr::lazy_frame(a = 1, b = 2, .name = "t1") |>
+    dplyr::filter(b > 0) |>
+    dplyr::transmute(doubled = a * 2) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  mermaid <- lineage_mermaid(lineage)
+  expect_match(mermaid, 't1_a -->|"a * 2"| output_doubled', fixed = TRUE)
+  expect_match(mermaid, "t1_b -.-> output_doubled", fixed = TRUE)
+})
+
+test_that("mermaid ids avoid reserved words, digits, and collisions", {
+  lineage <- list(
+    nodes = list(
+      create_table_node("or\"ders", c("end", "1col"), table_type = "source"),
+      create_table_node("out", "x", table_type = "target")
+    ),
+    edges = list(create_column_edge("or\"ders", "end", "out", "x"))
+  )
+
+  mermaid <- lineage_mermaid(lineage)
+  # quotes become the #quot; entity, never raw inside a label
+  expect_match(mermaid, 'or_ders["or#quot;ders"]', fixed = TRUE)
+  expect_match(mermaid, "or_ders_end", fixed = TRUE)
+
+  # a table named "end" would break the flowchart as a bare id, and names
+  # that sanitize to the same string must stay distinct
+  ids <- mermaid_id_map(c("t\rend", "t\ra.b", "t\ra_b", "t\r1col"))
+  expect_identical(ids[["t\rend"]], "end_")
+  expect_false(identical(ids[["t\ra.b"]], ids[["t\ra_b"]]))
+  expect_identical(ids[["t\r1col"]], "n1col")
+})
+
+test_that("lineage_mermaid writes to a file and returns invisibly", {
+  lineage <- list(
+    nodes = list(create_table_node("orders", "amount")),
+    edges = list()
+  )
+  path <- withr::local_tempfile(fileext = ".mmd")
+  expect_invisible(lineage_mermaid(lineage, path = path))
+  expect_match(readLines(path)[[1]], "flowchart LR", fixed = TRUE)
+})

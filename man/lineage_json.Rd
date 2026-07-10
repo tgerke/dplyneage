@@ -57,6 +57,7 @@ extract_lineage("SELECT customer_id, SUM(amount) AS total
 \code{\link[=extract_lineage]{extract_lineage()}} to compute lineage automatically
 
 Other lineage exporters:
-\code{\link[=lineage_graphml]{lineage_graphml()}}
+\code{\link[=lineage_graphml]{lineage_graphml()}},
+\code{\link[=lineage_mermaid]{lineage_mermaid()}}
 }
 \concept{lineage exporters}

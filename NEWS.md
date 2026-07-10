@@ -1,5 +1,11 @@
 # dplyneage (development version)
 
+* New `lineage_mermaid()` exports lineage as a Mermaid flowchart — paste
+  it into a ` ```mermaid ` fence and it renders natively on GitHub, in
+  Quarto, and in most documentation tools, with no htmlwidget involved.
+  Tables draw as colored subgraphs, non-identity edges carry their
+  expression, and indirect edges draw dashed.
+
 * New `include_indirect` argument for `extract_lineage()`: columns used in
   `filter()`/`WHERE`, join conditions, `group_by()`, and
   `arrange()`/`ORDER BY` — which shape the result without appearing in

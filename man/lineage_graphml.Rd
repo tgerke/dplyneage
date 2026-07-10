@@ -52,6 +52,7 @@ igraph::subcomponent(g, "daily_totals.total", mode = "in")
 \code{\link[=extract_lineage]{extract_lineage()}} to compute lineage automatically
 
 Other lineage exporters:
-\code{\link[=lineage_json]{lineage_json()}}
+\code{\link[=lineage_json]{lineage_json()}},
+\code{\link[=lineage_mermaid]{lineage_mermaid()}}
 }
 \concept{lineage exporters}

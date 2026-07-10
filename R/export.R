@@ -92,6 +92,128 @@ lineage_graphml <- function(lineage, path = NULL) {
   write_export(out, path)
 }
 
+#' Export lineage as a Mermaid flowchart
+#'
+#' Serializes a lineage object to [Mermaid](https://mermaid.js.org/)
+#' flowchart text. Mermaid renders natively in GitHub markdown, Quarto,
+#' and most documentation tools, so this is the exporter to reach for when
+#' lineage should live *in the docs*: paste the output into a
+#' ` ```mermaid ` code fence and the diagram renders with no R, no
+#' htmlwidget, and no JavaScript bundle.
+#'
+#' Each table becomes a subgraph containing its columns, colored by table
+#' type with the same palette as [lineage_flow()]. Non-identity edges are
+#' labeled with the column's defining expression, and indirect edges
+#' (from `extract_lineage(include_indirect = TRUE)`) draw dashed.
+#'
+#' @inheritParams lineage_json
+#' @param path Optional file to write the Mermaid text to. When supplied,
+#'   the string is returned invisibly.
+#' @return A string containing the Mermaid flowchart definition.
+#' @family lineage exporters
+#' @seealso [extract_lineage()] to compute lineage automatically
+#' @export
+#' @examples
+#' lineage <- list(
+#'   nodes = list(
+#'     create_table_node("orders", c("order_id", "amount")),
+#'     create_table_node("daily_totals", "total", table_type = "target")
+#'   ),
+#'   edges = list(
+#'     create_column_edge("orders", "amount", "daily_totals", "total")
+#'   )
+#' )
+#' cat(lineage_mermaid(lineage))
+#'
+#' # Ready to paste into a GitHub README or Quarto document:
+#' cat("```mermaid\n", lineage_mermaid(lineage), "```\n", sep = "")
+lineage_mermaid <- function(lineage, path = NULL) {
+  out <- build_mermaid(lineage_semantics(lineage))
+  write_export(out, path)
+}
+
+#' @noRd
+build_mermaid <- function(semantics) {
+  tables <- vapply(semantics$nodes, function(n) n$id, character(1))
+  keys <- c(
+    paste0("t\r", tables),
+    unlist(lapply(semantics$nodes, function(n) paste0("c\r", n$id, ".", n$columns)))
+  )
+  ids <- mermaid_id_map(keys)
+  table_id <- function(table) ids[[paste0("t\r", table)]]
+  column_id <- function(table, col) ids[[paste0("c\r", table, ".", col)]]
+
+  lines <- "flowchart LR"
+  for (n in semantics$nodes) {
+    lines <- c(lines, paste0(
+      "  subgraph ", table_id(n$id), "[", mermaid_label(n$id), "]"
+    ))
+    for (col in n$columns) {
+      lines <- c(lines, paste0(
+        "    ", column_id(n$id, col), "[", mermaid_label(col), "]"
+      ))
+    }
+    lines <- c(lines, "  end")
+  }
+
+  indirect_kinds <- c("filter", "join", "group_by", "sort")
+  for (e in semantics$edges) {
+    from <- column_id(e$source, e$source_column)
+    to <- column_id(e$target, e$target_column)
+    arrow <- if (isTRUE(e$transformation %in% indirect_kinds)) {
+      " -.-> "
+    } else if (!is.null(e$expression) &&
+      !identical(e$transformation, "identity")) {
+      paste0(" -->|", mermaid_label(truncate_label(e$expression)), "| ")
+    } else {
+      " --> "
+    }
+    lines <- c(lines, paste0("  ", from, arrow, to))
+  }
+
+  # Same palette as create_table_node(); classes color the subgraph frames
+  lines <- c(
+    lines,
+    "  classDef source fill:#f0f7ff,stroke:#3b82f6,color:#1d4ed8",
+    "  classDef transform fill:#fef3f2,stroke:#f59e0b,color:#d97706",
+    "  classDef target fill:#f0fdf4,stroke:#10b981,color:#059669"
+  )
+  for (n in semantics$nodes) {
+    if (isTRUE(n$type %in% c("source", "transform", "target"))) {
+      lines <- c(lines, paste0("  class ", table_id(n$id), " ", n$type))
+    }
+  }
+
+  paste0(paste(lines, collapse = "\n"), "\n")
+}
+
+# Mermaid node ids share one namespace (subgraphs included), must avoid
+# reserved words like "end", and only safely allow [A-Za-z0-9_]
+#' @noRd
+mermaid_id_map <- function(keys) {
+  ids <- sub("^[tc]\r", "", keys)
+  ids <- gsub("[^A-Za-z0-9_]", "_", ids)
+  digits <- grepl("^[0-9]", ids)
+  ids[digits] <- paste0("n", ids[digits])
+  reserved <- c(
+    "end", "subgraph", "graph", "flowchart", "class", "classDef",
+    "style", "linkStyle", "click", "direction"
+  )
+  ids[ids %in% reserved] <- paste0(ids[ids %in% reserved], "_")
+  while (anyDuplicated(ids) > 0) {
+    dup <- duplicated(ids)
+    ids[dup] <- paste0(ids[dup], "_")
+  }
+  stats::setNames(as.list(ids), keys)
+}
+
+# Quoted Mermaid labels tolerate most characters; double quotes become
+# the #quot; entity
+#' @noRd
+mermaid_label <- function(x) {
+  paste0('"', gsub('"', "#quot;", x, fixed = TRUE), '"')
+}
+
 # Duck-type the extract_lineage() contract, same as lineage_flow()
 #' @noRd
 check_lineage <- function(lineage) {
