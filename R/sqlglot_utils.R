@@ -366,31 +366,52 @@ convert_lineage_to_graph <- function(lineage_data) {
     )
   }
 
-  # Create edges based on column lineage
+  # Create edges based on column lineage. Non-identity edges are labeled
+  # with the column's defining expression; aggregations are animated.
   edges <- list()
 
   for (col in columns) {
+    type <- col$type
+    labeled <- !is.null(type) && type != "identity" && !is.null(col$expression)
     for (source in col$sources) {
-      edges[[length(edges) + 1]] <- create_column_edge(
+      edge <- create_column_edge(
         from_table = source_table_name(source),
         from_column = source$column_name,
         to_table = output_table,
-        to_column = col$output_name
+        to_column = col$output_name,
+        label = if (labeled) truncate_label(col$expression) else NULL,
+        animated = identical(type, "aggregation")
       )
+      if (!is.null(type)) {
+        edge$data <- list(
+          expression = col$expression,
+          transformation = type
+        )
+      }
+      edges[[length(edges) + 1]] <- edge
     }
   }
 
-  list(
-    nodes = nodes,
-    edges = edges,
-    metadata = list(
-      sql = lineage_data$sql,
-      dialect = lineage_data$dialect,
-      engine = if (is.null(lineage_data$engine)) "sqlglot" else lineage_data$engine,
-      node_count = length(nodes),
-      edge_count = length(edges)
-    )
+  structure(
+    list(
+      nodes = nodes,
+      edges = edges,
+      metadata = list(
+        sql = lineage_data$sql,
+        dialect = lineage_data$dialect,
+        engine = if (is.null(lineage_data$engine)) "sqlglot" else lineage_data$engine,
+        node_count = length(nodes),
+        edge_count = length(edges)
+      )
+    ),
+    class = "dplyneage_lineage"
   )
+}
+
+# Edge labels stay readable; the full expression is kept in edge$data
+#' @noRd
+truncate_label <- function(x, max = 40) {
+  if (nchar(x) > max) paste0(substr(x, 1, max - 1), "\u2026") else x
 }
 
 # Sources with no usable table name (NULL, NA, empty) group under "unknown"

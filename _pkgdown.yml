@@ -30,6 +30,15 @@ reference:
     - lineage_example
     - lineage_flow-shiny
   
+  - title: Working with Lineage
+    desc: >
+      Query, compare, and traverse extracted lineage as plain data
+    contents:
+    - lineage_edges
+    - lineage_tables
+    - lineage_upstream
+    - lineage_diff
+
   - title: Manual Lineage Creation
     desc: >
       Functions for manually creating lineage visualizations

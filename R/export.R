@@ -17,7 +17,8 @@
 #' @return A JSON string. With `metadata` (present on [extract_lineage()]
 #'   results), `nodes` (objects with `id`, `type`, and `columns`), and
 #'   `edges` (objects with `source`, `source_column`, `target`, and
-#'   `target_column`).
+#'   `target_column`; edges produced by [extract_lineage()] also carry
+#'   `transformation` and `expression`).
 #' @family lineage exporters
 #' @seealso [extract_lineage()] to compute lineage automatically
 #' @export
@@ -121,12 +122,19 @@ lineage_semantics <- function(lineage) {
   })
 
   edges <- lapply(lineage$edges, function(e) {
-    list(
+    edge <- list(
       source = e$source,
       source_column = e$sourceHandle,
       target = e$target,
       target_column = e$targetHandle
     )
+    # extract_lineage() edges carry a classification and the defining
+    # expression; hand-built edges do not
+    if (!is.null(e$data$transformation)) {
+      edge$transformation <- e$data$transformation
+      edge$expression <- e$data$expression
+    }
+    edge
   })
 
   semantics <- list(nodes = nodes, edges = edges)
@@ -162,9 +170,19 @@ build_graphml <- function(semantics) {
   }))
 
   edge_xml <- vapply(semantics$edges, function(e) {
-    paste0(
+    open <- paste0(
       '    <edge source="', xml_escape(paste0(e$source, ".", e$source_column)),
-      '" target="', xml_escape(paste0(e$target, ".", e$target_column)), '"/>'
+      '" target="', xml_escape(paste0(e$target, ".", e$target_column)), '"'
+    )
+    if (is.null(e$transformation)) {
+      return(paste0(open, "/>"))
+    }
+    paste0(
+      open, ">\n",
+      '      <data key="transformation">', xml_escape(e$transformation),
+      "</data>\n",
+      '      <data key="expression">', xml_escape(e$expression), "</data>\n",
+      "    </edge>"
     )
   }, character(1))
 
@@ -178,6 +196,8 @@ build_graphml <- function(semantics) {
     '  <key id="table" for="node" attr.name="table" attr.type="string"/>\n',
     '  <key id="column" for="node" attr.name="column" attr.type="string"/>\n',
     '  <key id="node_type" for="node" attr.name="node_type" attr.type="string"/>\n',
+    '  <key id="transformation" for="edge" attr.name="transformation" attr.type="string"/>\n',
+    '  <key id="expression" for="edge" attr.name="expression" attr.type="string"/>\n',
     '  <graph id="lineage" edgedefault="directed">\n',
     paste0(c(node_xml, edge_xml, "  </graph>"), collapse = "\n"), "\n",
     "</graphml>\n"

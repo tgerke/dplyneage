@@ -21,7 +21,8 @@ readability. Use \code{FALSE} for a single-line document.}
 A JSON string. With \code{metadata} (present on \code{\link[=extract_lineage]{extract_lineage()}}
 results), \code{nodes} (objects with \code{id}, \code{type}, and \code{columns}), and
 \code{edges} (objects with \code{source}, \code{source_column}, \code{target}, and
-\code{target_column}).
+\code{target_column}; edges produced by \code{\link[=extract_lineage]{extract_lineage()}} also carry
+\code{transformation} and \code{expression}).
 }
 \description{
 Serializes a lineage object to a small, stable JSON document: node ids

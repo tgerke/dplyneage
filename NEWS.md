@@ -1,5 +1,28 @@
 # dplyneage (development version)
 
+* `extract_lineage()` results are now classed `dplyneage_lineage` with a
+  compact print method summarising engine, tables, output columns, and
+  edge count.
+
+* New `lineage_edges()` and `lineage_tables()` flatten a lineage object
+  into plain data frames — one classified row per column edge, one row per
+  table.
+
+* Lineage edges are now classified as `identity`, `aggregation`, or
+  `transformation` (mirroring OpenLineage's transformation types) in both
+  engines. Diagrams label non-identity edges with the column's defining
+  expression and animate aggregations automatically; `lineage_json()` and
+  `lineage_graphml()` carry the classification and expression on each
+  edge.
+
+* New `lineage_diff()` compares two extractions and reports added/removed
+  edges and columns — extract lineage on two branches and fail CI when
+  column provenance changed.
+
+* New `lineage_upstream()` and `lineage_downstream()` answer impact
+  questions ("what feeds this column?" / "what does this column feed?")
+  by transitive traversal, without exporting to igraph first.
+
 * reticulate has moved from Imports to Suggests: dbplyr pipelines are
   analyzed entirely in R, so Python tooling is now only installed by users
   who analyze raw SQL. `extract_lineage()` and `has_sqlglot()` explain the

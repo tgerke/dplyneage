@@ -104,17 +104,28 @@ def _column_sources(column, sql, schema, dialect):
     return sources
 
 
-def _select_expressions(expression, dialect):
-    """Map each output column name to the SQL of its defining expression."""
+def _select_info(expression, dialect):
+    """Map each output column name to its defining expression SQL and a
+    coarse lineage classification (identity / aggregation / transformation),
+    mirroring OpenLineage's transformation types."""
     try:
         selects = expression.selects
     except Exception:
         return {}
-    out = {}
+    info = {}
     for select in selects:
         inner = select.this if isinstance(select, exp.Alias) else select
-        out[select.alias_or_name] = inner.sql(dialect=dialect)
-    return out
+        if isinstance(inner, exp.Column):
+            kind = "identity"
+        elif inner.find(exp.AggFunc):
+            kind = "aggregation"
+        else:
+            kind = "transformation"
+        info[select.alias_or_name] = {
+            "expression": inner.sql(dialect=dialect),
+            "type": kind,
+        }
+    return info
 
 
 def extract_lineage(sql, dialect="duckdb", schema=None):
@@ -155,14 +166,16 @@ def extract_lineage(sql, dialect="duckdb", schema=None):
 
     # Prefer the expression as written; star-expanded columns only exist in
     # the qualified tree
-    expressions = _select_expressions(qualified, dialect)
-    expressions.update(_select_expressions(parsed, dialect))
+    info = _select_info(qualified, dialect)
+    info.update(_select_info(parsed, dialect))
 
     columns = []
     for name in output_names:
+        details = info.get(name, {"expression": name, "type": None})
         col_info = {
             "output_name": name,
-            "expression": expressions.get(name, name),
+            "expression": details["expression"],
+            "type": details["type"],
             "sources": [],
         }
         try:

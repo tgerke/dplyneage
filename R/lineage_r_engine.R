@@ -57,6 +57,7 @@ extract_lineage_from_tbl <- function(tbl, dialect = "duckdb") {
     columns[[i]] <- list(
       output_name = names(cols)[[i]],
       expression = cols[[i]]$expression,
+      type = cols[[i]]$type,
       sources = cols[[i]]$sources
     )
   }
@@ -109,10 +110,27 @@ lineage_walk.lazy_base_query <- function(qry, con) {
     collapse = "."
   )
   cols <- lapply(qry$vars, function(v) {
-    list(expression = v, sources = list(list(table = table, column_name = v)))
+    list(
+      expression = v,
+      type = "identity",
+      sources = list(list(table = table, column_name = v))
+    )
   })
   names(cols) <- qry$vars
   cols
+}
+
+# Aggregate translations dbplyr supports; used only to classify lineage
+# edges for styling, so the list need not be exhaustive
+r_aggregate_funs <- c(
+  "sum", "min", "max", "mean", "median", "sd", "var", "n", "n_distinct",
+  "count", "first", "last", "any", "all", "quantile", "str_flatten"
+)
+
+#' Classify a non-passthrough select expression for edge styling
+#' @noRd
+classify_r_expression <- function(e) {
+  if (any(all.names(e) %in% r_aggregate_funs)) "aggregation" else "transformation"
 }
 
 # select/rename/mutate/transmute/filter/arrange/distinct/head/summarise.
@@ -131,9 +149,16 @@ lineage_walk.lazy_select_query <- function(qry, con) {
         paste0("raw SQL in expressions (`", sel$name[[i]], " = sql(...)`)")
       )
     }
+    # A plain (possibly renamed) passthrough keeps the inner column's
+    # expression and classification
+    if (is.symbol(e) && as.character(e) %in% names(inner)) {
+      cols[[i]] <- inner[[as.character(e)]]
+      next
+    }
     vars <- intersect(all.vars(e), names(inner))
     cols[[i]] <- list(
       expression = deparse1(e),
+      type = classify_r_expression(e),
       sources = combine_sources(lapply(vars, function(v) inner[[v]]$sources))
     )
   }
@@ -170,10 +195,17 @@ lineage_walk.lazy_rf_join_query <- function(qry, con) {
     parts <- list()
     if (!is.na(vars$x[[i]])) parts <- c(parts, list(xm[[vars$x[[i]]]]))
     if (!is.na(vars$y[[i]])) parts <- c(parts, list(ym[[vars$y[[i]]]]))
-    cols[[i]] <- list(
-      expression = if (length(parts) == 1) parts[[1]]$expression else vars$name[[i]],
-      sources = combine_sources(lapply(parts, function(p) p$sources))
-    )
+    if (length(parts) == 1) {
+      cols[[i]] <- parts[[1]]
+    } else {
+      cols[[i]] <- list(
+        expression = paste0(
+          "coalesce(", vars$x[[i]], ", ", vars$y[[i]], ")"
+        ),
+        type = "transformation",
+        sources = combine_sources(lapply(parts, function(p) p$sources))
+      )
+    }
   }
   cols
 }

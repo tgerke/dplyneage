@@ -170,6 +170,24 @@ test_that("literal columns appear in output without lineage edges", {
   expect_true("flag" %in% node_columns(lineage, "output"))
 })
 
+test_that("sqlglot edges are classified and carry expressions", {
+  skip_if_no_sqlglot()
+
+  lineage <- extract_lineage(
+    "SELECT customer_id, SUM(amount) AS total
+     FROM orders GROUP BY customer_id"
+  )
+
+  edges <- lineage_edges(lineage)
+  agg <- edges[edges$target_column == "total", ]
+  expect_identical(agg$transformation, "aggregation")
+  expect_identical(agg$expression, "SUM(amount)")
+  expect_identical(
+    edges[edges$target_column == "customer_id", ]$transformation,
+    "identity"
+  )
+})
+
 test_that("dialect is forwarded to sqlglot", {
   skip_if_no_sqlglot()
 

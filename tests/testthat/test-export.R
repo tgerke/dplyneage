@@ -41,12 +41,29 @@ test_that("lineage_json emits the semantic schema", {
   expect_length(parsed$edges, 2L)
   expect_named(
     parsed$edges[[1]],
-    c("source", "source_column", "target", "target_column")
+    c(
+      "source", "source_column", "target", "target_column",
+      "transformation", "expression"
+    )
   )
   amount_edge <- Filter(function(e) e$source_column == "amount", parsed$edges)
   expect_identical(amount_edge[[1]]$source, "orders")
   expect_identical(amount_edge[[1]]$target, "output")
   expect_identical(amount_edge[[1]]$target_column, "total_spent")
+  expect_identical(amount_edge[[1]]$transformation, "aggregation")
+  expect_identical(amount_edge[[1]]$expression, "SUM(amount)")
+})
+
+test_that("hand-built edges export without transformation fields", {
+  parsed <- jsonlite::fromJSON(
+    lineage_json(manual_graph()),
+    simplifyVector = FALSE
+  )
+
+  expect_named(
+    parsed$edges[[1]],
+    c("source", "source_column", "target", "target_column")
+  )
 })
 
 test_that("lineage_json passes metadata through", {
@@ -132,7 +149,10 @@ test_that("lineage_graphml emits valid column-level GraphML", {
 
   xml2::xml_ns_strip(doc)
   keys <- xml2::xml_attr(xml2::xml_find_all(doc, "//key"), "attr.name")
-  expect_identical(keys, c("name", "table", "column", "node_type"))
+  expect_identical(
+    keys,
+    c("name", "table", "column", "node_type", "transformation", "expression")
+  )
 
   expect_identical(
     xml2::xml_attr(xml2::xml_find_first(doc, "//graph"), "edgedefault"),
@@ -160,6 +180,18 @@ test_that("lineage_graphml emits valid column-level GraphML", {
     "//edge[@source='orders.amount']"
   )
   expect_identical(xml2::xml_attr(amount_edge, "target"), "output.total_spent")
+  expect_identical(
+    xml2::xml_text(
+      xml2::xml_find_first(amount_edge, "./data[@key='transformation']")
+    ),
+    "aggregation"
+  )
+  expect_identical(
+    xml2::xml_text(
+      xml2::xml_find_first(amount_edge, "./data[@key='expression']")
+    ),
+    "SUM(amount)"
+  )
 
   amount_node <- xml2::xml_find_first(doc, "//node[@id='orders.amount']")
   data_vals <- xml2::xml_text(xml2::xml_find_all(amount_node, "./data"))

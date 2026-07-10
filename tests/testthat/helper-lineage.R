@@ -20,11 +20,13 @@ fixture_lineage <- function() {
       list(
         output_name = "customer_id",
         expression = "customer_id",
+        type = "identity",
         sources = list(list(table = "customers", column_name = "customer_id"))
       ),
       list(
         output_name = "total_spent",
         expression = "SUM(amount)",
+        type = "aggregation",
         sources = list(list(table = "orders", column_name = "amount"))
       )
     ),

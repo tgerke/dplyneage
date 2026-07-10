@@ -294,6 +294,53 @@ test_that("across() expands into per-column lineage", {
   ))
 })
 
+test_that("edges are classified and labeled from their expressions", {
+  skip_if_no_r_engine()
+
+  lineage <- orders_lf() |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(
+      total_spent = sum(amount, na.rm = TRUE),
+      n_orders = dplyr::n()
+    ) |>
+    extract_lineage(engine = "r")
+
+  edges <- lineage_edges(lineage)
+  agg <- edges[edges$target_column == "total_spent", ]
+  expect_identical(agg$transformation, "aggregation")
+  expect_identical(agg$expression, "sum(amount, na.rm = TRUE)")
+
+  key <- edges[edges$target_column == "customer_id", ]
+  expect_identical(key$transformation, "identity")
+
+  # the widget edge carries the label and animation
+  raw <- lineage$edges[[which(vapply(
+    lineage$edges,
+    function(e) e$targetHandle == "total_spent",
+    logical(1)
+  ))]]
+  expect_identical(raw$label, "sum(amount, na.rm = TRUE)")
+  expect_true(raw$animated)
+})
+
+test_that("renames stay identity; selecting a computed column keeps its type", {
+  skip_if_no_r_engine()
+
+  renamed <- customers_lf() |>
+    dplyr::select(id = customer_id) |>
+    extract_lineage(engine = "r")
+  expect_identical(lineage_edges(renamed)$transformation, "identity")
+
+  computed <- orders_lf() |>
+    dplyr::transmute(subtotal = amount + order_id) |>
+    dplyr::select(subtotal) |>
+    extract_lineage(engine = "r")
+  expect_identical(
+    unique(lineage_edges(computed)$transformation),
+    "transformation"
+  )
+})
+
 test_that("schema-qualified tables keep their qualifier in node names", {
   skip_if_no_r_engine()
 
