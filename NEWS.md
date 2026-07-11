@@ -1,5 +1,11 @@
 # dplyneage (development version)
 
+* `extract_lineage()` now gives an actionable error when passed a plain
+  data frame, pointing to the `dbplyr::memdb_frame()` / `copy_to()`
+  workaround instead of failing later with a misleading message about
+  Python or SQL strings. The workaround is also documented in the README
+  and on `?extract_lineage`.
+
 * New `lineage_openlineage()` exports lineage as an OpenLineage `RunEvent`
   with `ColumnLineage` facets — the interchange format Marquez, DataHub,
   and OpenMetadata ingest, so dplyneage-extracted lineage can sit

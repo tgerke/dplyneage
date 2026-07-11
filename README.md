@@ -94,6 +94,41 @@ zoom and pan, and hover columns to highlight their connections. Computed
 columns carry their defining expression as an edge label, and
 aggregation edges animate.
 
+## Local data frames
+
+Lineage extraction needs the lazy query tree that dbplyr builds before
+anything executes. A pipeline on a plain tibble has no such tree — dplyr
+runs each verb immediately — so `extract_lineage()` can’t trace it. The
+workaround is one line: `dbplyr::memdb_frame()` puts the data in a
+throwaway in-memory SQLite database and hands back a lazy table, and the
+identical pipeline becomes traceable.
+
+``` r
+sales <- memdb_frame(
+  customer_id = c(1, 1, 2),
+  amount = c(100, 250, 40),
+  .name = "sales"
+)
+
+sales |>
+  group_by(customer_id) |>
+  summarise(total = sum(amount, na.rm = TRUE)) |>
+  extract_lineage() |>
+  lineage_flow(height = "350px")
+#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpF7IxQF/file177c062e1dec9/widget177c05ae990d6.html screenshot completed
+```
+
+<img src="man/figures/README-unnamed-chunk-4-1.png" alt="Column-level lineage diagram tracing the summarised output table's total column back to the amount column of the sales source table"  />
+
+For a data frame you already have,
+`copy_to(dbplyr::memdb(), df, name = "df")` does the same copy. Lineage
+depends only on the pipeline’s structure, never on the data, so for
+large frames copying a slice is enough —
+`copy_to(dbplyr::memdb(), head(df), name = "df")` yields the same
+diagram as copying every row. See the [Local data
+frames](https://tgerke.github.io/dplyneage/articles/getting-started.html#local-data-frames)
+section of the getting-started vignette for more.
+
 ## Multi-model pipelines
 
 Real pipelines materialize layers — bronze tables feed a silver summary,
@@ -112,10 +147,10 @@ gold <- tbl(con, "silver") |>
 
 extract_lineage(list(silver = silver, gold = gold)) |>
   lineage_flow(height = "450px")
-#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpfA4gSE/file137e47b9f0f1f/widget137e4799fba1.html screenshot completed
+#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpF7IxQF/file177c06a1c37a7/widget177c06289eb5d.html screenshot completed
 ```
 
-<img src="man/figures/README-unnamed-chunk-4-1.png" alt="Three-layer lineage diagram: the orders source table in blue feeds the silver transform table in orange, which feeds the gold target table in green, with column-level edges through all three layers"  />
+<img src="man/figures/README-unnamed-chunk-5-1.png" alt="Three-layer lineage diagram: the orders source table in blue feeds the silver transform table in orange, which feeds the gold target table in green, with column-level edges through all three layers"  />
 
 Intermediate models render as orange transform nodes, terminal models as
 green targets, and impact questions now span the whole pipeline:
@@ -161,10 +196,10 @@ edges <- list(
 )
 
 lineage_flow(nodes, edges, height = "600px")
-#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpfA4gSE/file137e41403c709/widget137e44002a23.html screenshot completed
+#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpF7IxQF/file177c033ee8508/widget177c0705feada.html screenshot completed
 ```
 
-<img src="man/figures/README-unnamed-chunk-6-1.png" alt="Hand-built lineage diagram showing the customers and orders source tables in blue connected to a customer_summary target table in green, with a SUM() label on the total_spent edge"  />
+<img src="man/figures/README-unnamed-chunk-7-1.png" alt="Hand-built lineage diagram showing the customers and orders source tables in blue connected to a customer_summary target table in green, with a SUM() label on the total_spent edge"  />
 
 Table types follow the color conventions used by dbt and SQLMesh:
 
@@ -309,7 +344,7 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from ef74e0f:
+#> + 2/6 vertices, named, from dc9ae91:
 #> [1] output.total_spent orders.amount
 ```
 

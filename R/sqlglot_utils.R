@@ -38,7 +38,11 @@
 #'   tree (the SQL recorded in `metadata` still comes from
 #'   [dbplyr::sql_render()]); when one is handled by the sqlglot engine
 #'   instead, its database connection is used to harvest table schemas
-#'   automatically.
+#'   automatically. Plain data frames are not accepted — dplyr executes
+#'   each verb on them immediately, leaving no query tree to read. Wrap
+#'   the data with [dbplyr::memdb_frame()] (or copy an existing frame
+#'   with `copy_to(dbplyr::memdb(), df, name = "df")`) and the same
+#'   pipeline becomes traceable; see `vignette("getting-started")`.
 #' @param dialect SQL dialect the query is written in, e.g. `"duckdb"`
 #'   (the default), `"postgres"`, `"mysql"`, `"snowflake"`, `"bigquery"`.
 #'   Any dialect sqlglot understands works here.
@@ -115,6 +119,20 @@ extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = F
                             engine = c("auto", "sqlglot", "r"),
                             include_indirect = FALSE) {
   engine <- match.arg(engine)
+
+  # Catch plain data frames up front: they'd otherwise fall through to the
+  # sqlglot branch and fail with errors about Python or SQL strings that
+  # never mention the actual fix
+  if (is.data.frame(sql)) {
+    stop(
+      "extract_lineage() reads lineage from a lazy query tree, which a ",
+      "plain data frame doesn't have. Wrap it first: ",
+      "dbplyr::memdb_frame() for new data, or ",
+      "copy_to(dbplyr::memdb(), df, name = \"df\") for an existing frame. ",
+      "See vignette(\"getting-started\").",
+      call. = FALSE
+    )
+  }
 
   # A bare named list is a multi-model pipeline: each element is analyzed
   # on its own, then stitched into one graph by matching source tables to

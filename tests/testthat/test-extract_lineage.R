@@ -8,6 +8,13 @@ test_that("extract_lineage rejects non-SQL input", {
   expect_error(extract_lineage(list()), "named list")
 })
 
+test_that("plain data frames get an error pointing to memdb_frame", {
+  expect_error(
+    extract_lineage(data.frame(x = 1)),
+    "memdb_frame"
+  )
+})
+
 test_that("simple single-table select", {
   skip_if_no_sqlglot()
 

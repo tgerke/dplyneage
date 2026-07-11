@@ -20,7 +20,11 @@ Details). Lazy tables are analyzed directly from their lazy query
 tree (the SQL recorded in \code{metadata} still comes from
 \code{\link[dbplyr:sql_render]{dbplyr::sql_render()}}); when one is handled by the sqlglot engine
 instead, its database connection is used to harvest table schemas
-automatically.}
+automatically. Plain data frames are not accepted — dplyr executes
+each verb on them immediately, leaving no query tree to read. Wrap
+the data with \code{\link[dbplyr:memdb_frame]{dbplyr::memdb_frame()}} (or copy an existing frame
+with \code{copy_to(dbplyr::memdb(), df, name = "df")}) and the same
+pipeline becomes traceable; see \code{vignette("getting-started")}.}
 
 \item{dialect}{SQL dialect the query is written in, e.g. \code{"duckdb"}
 (the default), \code{"postgres"}, \code{"mysql"}, \code{"snowflake"}, \code{"bigquery"}.
