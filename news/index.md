@@ -2,6 +2,16 @@
 
 ## dplyneage (development version)
 
+- [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
+  now gives an actionable error when passed a plain data frame, pointing
+  to the
+  [`dbplyr::memdb_frame()`](https://dbplyr.tidyverse.org/reference/memdb.html)
+  / [`copy_to()`](https://dplyr.tidyverse.org/reference/copy_to.html)
+  workaround instead of failing later with a misleading message about
+  Python or SQL strings. The workaround is also documented in the README
+  and on
+  [`?extract_lineage`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md).
+
 - New
   [`lineage_openlineage()`](https://tgerke.github.io/dplyneage/reference/lineage_openlineage.md)
   exports lineage as an OpenLineage `RunEvent` with `ColumnLineage`

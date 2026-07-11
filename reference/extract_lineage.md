@@ -29,7 +29,14 @@ extract_lineage(
   recorded in `metadata` still comes from
   [`dbplyr::sql_render()`](https://dbplyr.tidyverse.org/reference/sql_build.html));
   when one is handled by the sqlglot engine instead, its database
-  connection is used to harvest table schemas automatically.
+  connection is used to harvest table schemas automatically. Plain data
+  frames are not accepted — dplyr executes each verb on them
+  immediately, leaving no query tree to read. Wrap the data with
+  [`dbplyr::memdb_frame()`](https://dbplyr.tidyverse.org/reference/memdb.html)
+  (or copy an existing frame with
+  `copy_to(dbplyr::memdb(), df, name = "df")`) and the same pipeline
+  becomes traceable; see
+  [`vignette("getting-started")`](https://tgerke.github.io/dplyneage/articles/getting-started.md).
 
 - dialect:
 
@@ -153,6 +160,10 @@ library(dplyr)
 #>     intersect, setdiff, setequal, union
 
 con <- DBI::dbConnect(duckdb::duckdb())
+#> duckdb is keeping downloaded extensions in a temporary directory:
+#> ℹ /tmp/RtmpAfUuyL/duckdb/extensions
+#> This is removed when the R session ends, so extensions are re-downloaded each session.
+#> ℹ To keep them, point `options(duckdb.extension_directory =)` or the `DUCKDB_EXTENSION_DIRECTORY` environment variable at a permanent path.
 DBI::dbWriteTable(con, "customers", data.frame(id = 1, name = "a"))
 DBI::dbWriteTable(con, "orders", data.frame(customer_id = 1, amount = 10))
 
