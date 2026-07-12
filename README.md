@@ -115,7 +115,6 @@ sales |>
   summarise(total = sum(amount, na.rm = TRUE)) |>
   extract_lineage() |>
   lineage_flow(height = "350px")
-#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpF7IxQF/file177c062e1dec9/widget177c05ae990d6.html screenshot completed
 ```
 
 <img src="man/figures/README-unnamed-chunk-4-1.png" alt="Column-level lineage diagram tracing the summarised output table's total column back to the amount column of the sales source table"  />
@@ -147,7 +146,6 @@ gold <- tbl(con, "silver") |>
 
 extract_lineage(list(silver = silver, gold = gold)) |>
   lineage_flow(height = "450px")
-#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpF7IxQF/file177c06a1c37a7/widget177c06289eb5d.html screenshot completed
 ```
 
 <img src="man/figures/README-unnamed-chunk-5-1.png" alt="Three-layer lineage diagram: the orders source table in blue feeds the silver transform table in orange, which feeds the gold target table in green, with column-level edges through all three layers"  />
@@ -196,7 +194,6 @@ edges <- list(
 )
 
 lineage_flow(nodes, edges, height = "600px")
-#> file:////private/var/folders/fw/0d9nr9951q57f0d5l6qc1j200000gn/T/RtmpF7IxQF/file177c033ee8508/widget177c0705feada.html screenshot completed
 ```
 
 <img src="man/figures/README-unnamed-chunk-7-1.png" alt="Hand-built lineage diagram showing the customers and orders source tables in blue connected to a customer_summary target table in green, with a SUM() label on the total_spent edge"  />
@@ -344,7 +341,7 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from dc9ae91:
+#> + 2/6 vertices, named, from fb656f2:
 #> [1] output.total_spent orders.amount
 ```
 

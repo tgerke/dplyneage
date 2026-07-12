@@ -9,6 +9,9 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
   fig.path = "man/figures/README-",
+  # webshot2 announces each htmlwidget screenshot via message(); keep those
+  # out of the rendered output
+  message = FALSE,
   # note: out.width must stay numeric-free; webshot2 receives it as vwidth
   # when screenshotting htmlwidgets and requires integer pixels
   screenshot.opts = list(vwidth = 1200, vheight = 700)
