@@ -1,4 +1,4 @@
-# dplyneage (development version)
+# dplyneage 0.2.0
 
 * `extract_lineage()` now gives an actionable error when passed a plain
   data frame, pointing to the `dbplyr::memdb_frame()` / `copy_to()`
