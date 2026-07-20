@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">dplyneage</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,7 +39,7 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="development version" id="dplyneage-development-version">dplyneage (development version)<a class="anchor" aria-label="anchor" href="#dplyneage-development-version"></a></h2>
+<h2 class="pkg-version" data-toc-text="0.2.0" id="dplyneage-020">dplyneage 0.2.0<a class="anchor" aria-label="anchor" href="#dplyneage-020"></a></h2>
 <ul><li><p><code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> now gives an actionable error when passed a plain data frame, pointing to the <code><a href="https://dbplyr.tidyverse.org/reference/memdb.html" class="external-link">dbplyr::memdb_frame()</a></code> / <code><a href="https://dplyr.tidyverse.org/reference/copy_to.html" class="external-link">copy_to()</a></code> workaround instead of failing later with a misleading message about Python or SQL strings. The workaround is also documented in the README and on <code><a href="../reference/extract_lineage.html">?extract_lineage</a></code>.</p></li>
 <li><p>New <code><a href="../reference/lineage_openlineage.html">lineage_openlineage()</a></code> exports lineage as an OpenLineage <code>RunEvent</code> with <code>ColumnLineage</code> facets — the interchange format Marquez, DataHub, and OpenMetadata ingest, so dplyneage-extracted lineage can sit alongside lineage from dbt, Airflow, or Spark. Edge classifications map to OpenLineage transformation types, including <code>INDIRECT</code> subtypes for <code>include_indirect</code> edges.</p></li>
 <li><p>New <code><a href="../reference/lineage_mermaid.html">lineage_mermaid()</a></code> exports lineage as a Mermaid flowchart — paste it into a <code>```mermaid</code> fence and it renders natively on GitHub, in Quarto, and in most documentation tools, with no htmlwidget involved. Tables draw as colored subgraphs, non-identity edges carry their expression, and indirect edges draw dashed.</p></li>

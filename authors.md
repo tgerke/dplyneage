@@ -10,13 +10,13 @@ Source:
 [`DESCRIPTION`](https://github.com/tgerke/dplyneage/blob/main/DESCRIPTION)
 
 Gerke T (2026). *dplyneage: Column Lineage Visualization for dplyr
-Pipelines*. R package version 0.1.0.9000,
+Pipelines*. R package version 0.2.0,
 <https://tgerke.github.io/dplyneage/>.
 
     @Manual{,
       title = {dplyneage: Column Lineage Visualization for dplyr Pipelines},
       author = {Travis Gerke},
       year = {2026},
-      note = {R package version 0.1.0.9000},
+      note = {R package version 0.2.0},
       url = {https://tgerke.github.io/dplyneage/},
     }

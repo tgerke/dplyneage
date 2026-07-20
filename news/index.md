@@ -1,6 +1,6 @@
 # Changelog
 
-## dplyneage (development version)
+## dplyneage 0.2.0
 
 - [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
   now gives an actionable error when passed a plain data frame, pointing
