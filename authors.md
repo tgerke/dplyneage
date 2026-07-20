@@ -7,7 +7,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/tgerke/dplyneage/blob/main/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/tgerke/dplyneage/blob/v0.2.0/DESCRIPTION)
 
 Gerke T (2026). *dplyneage: Column Lineage Visualization for dplyr
 Pipelines*. R package version 0.2.0,
