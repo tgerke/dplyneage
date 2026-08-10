@@ -1,23 +1,54 @@
+var FIT_VIEW_OPTIONS = { padding: 0.2 };
+
 HTMLWidgets.widget({
   name: 'lineage_flow',
   type: 'output',
   factory: function(el, width, height) {
+    // flow is set by renderReactFlow's onInit; observer waits out hidden
+    // containers before the first render
+    var state = { flow: null, observer: null };
+
+    function render(x) {
+      if (typeof window.ReactFlowBundle !== 'undefined') {
+        renderReactFlow(el, x, width, height, state);
+      } else {
+        renderSVG(el, x, width, height);
+      }
+    }
+
     return {
       renderValue: function(x) {
-        var nodes = x.nodes || [];
-        var edges = x.edges || [];
-        
-        // Check if React Flow bundle is available
-        if (typeof window.ReactFlowBundle !== 'undefined') {
-          // Use React Flow for interactive visualization
-          renderReactFlow(el, x, width, height);
-        } else {
-          // Fallback to SVG visualization
-          renderSVG(el, x, width, height);
+        if (state.observer) {
+          state.observer.disconnect();
+          state.observer = null;
         }
+        state.flow = null;
+
+        // React Flow mounted inside a hidden container (a non-active
+        // reveal.js slide, a hidden tabset panel) records zero dimensions
+        // and pins the viewport at minZoom, where later fitView calls
+        // no-op. Wait for real dimensions before the first render.
+        var hasSize = el.offsetWidth > 0 && el.offsetHeight > 0;
+        if (hasSize || typeof ResizeObserver === 'undefined') {
+          render(x);
+          return;
+        }
+        var observer = new ResizeObserver(function() {
+          if (el.offsetWidth > 0 && el.offsetHeight > 0) {
+            observer.disconnect();
+            state.observer = null;
+            render(x);
+          }
+        });
+        state.observer = observer;
+        observer.observe(el);
       },
       resize: function(width, height) {
-        // Handle resize
+        // React Flow tracks its own wrapper size, so a container resize
+        // only needs the graph re-fit into the new frame
+        if (state.flow) {
+          state.flow.fitView(FIT_VIEW_OPTIONS);
+        }
       }
     };
   }
@@ -72,7 +103,7 @@ function computeLaneFractions(nodes, edges) {
   return fractions;
 }
 
-function renderReactFlow(el, x, width, height) {
+function renderReactFlow(el, x, width, height, state) {
   var React = window.ReactFlowBundle.React;
   var ReactDOM = window.ReactFlowBundle.ReactDOM;
   var ReactFlow = window.ReactFlowBundle.ReactFlow;
@@ -87,7 +118,12 @@ function renderReactFlow(el, x, width, height) {
   var defaultEdgeType = LineageEdge ? 'lineage' : 'smoothstep';
 
   el.style.width = '100%';
-  el.style.height = height || '600px';
+  // htmlwidgets sets an inline height on el; default only when embedding
+  // outside that machinery leaves it unset (the factory's height is 0 for
+  // a container that initialized hidden, so it can't be trusted here)
+  if (!el.style.height) {
+    el.style.height = height ? height + 'px' : '600px';
+  }
   // Class rather than id: multiple widgets can render on one page
   el.innerHTML = '<div class="lineage-flow-container" style="width: 100%; height: 100%;"></div>';
 
@@ -224,8 +260,11 @@ function renderReactFlow(el, x, width, height) {
           onConnect: onConnect,
           nodeTypes: nodeTypes,
           edgeTypes: edgeTypes,
+          onInit: function(flow) {
+            state.flow = flow;
+          },
           fitView: true,
-          fitViewOptions: { padding: 0.2 },
+          fitViewOptions: FIT_VIEW_OPTIONS,
           minZoom: 0.1,
           maxZoom: 4,
           nodesDraggable: true,
