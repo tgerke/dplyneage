@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">dplyneage</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -35,9 +35,15 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Changelog</h1>
-      <small>Source: <a href="https://github.com/tgerke/dplyneage/blob/v0.2.0/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
+      <small>Source: <a href="https://github.com/tgerke/dplyneage/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="development version" id="dplyneage-development-version">dplyneage (development version)<a class="anchor" aria-label="anchor" href="#dplyneage-development-version"></a></h2>
+<ul><li><p><code><a href="../reference/lineage_flow.html">lineage_flow()</a></code> widgets that initialize while their container is hidden (a non-active reveal.js slide, a hidden tabset panel) now wait for the container to gain nonzero dimensions before mounting React Flow. Mounting against a zero-size container pinned the viewport at minZoom, and no later fit — including the Controls fit button — could recover it, so widgets on non-first Quarto revealjs slides rendered as a dot in the corner. No host-page JavaScript is needed anymore to work around this.</p></li>
+<li><p>The widget’s htmlwidgets <code>resize</code> hook is now implemented: when the container changes size, the graph re-fits into the new frame.</p></li>
+<li><p><code>lineage_flow(height = ...)</code> is respected when the widget initializes hidden; previously the binding overrode it with a 600px default because the not-yet-laid-out container measured zero.</p></li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.2.0" id="dplyneage-020">dplyneage 0.2.0<a class="anchor" aria-label="anchor" href="#dplyneage-020"></a></h2>
 <ul><li><p><code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> now gives an actionable error when passed a plain data frame, pointing to the <code><a href="https://dbplyr.tidyverse.org/reference/memdb.html" class="external-link">dbplyr::memdb_frame()</a></code> / <code><a href="https://dplyr.tidyverse.org/reference/copy_to.html" class="external-link">copy_to()</a></code> workaround instead of failing later with a misleading message about Python or SQL strings. The workaround is also documented in the README and on <code><a href="../reference/extract_lineage.html">?extract_lineage</a></code>.</p></li>

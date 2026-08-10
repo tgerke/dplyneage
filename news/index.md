@@ -1,5 +1,23 @@
 # Changelog
 
+## dplyneage (development version)
+
+- [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
+  widgets that initialize while their container is hidden (a non-active
+  reveal.js slide, a hidden tabset panel) now wait for the container to
+  gain nonzero dimensions before mounting React Flow. Mounting against a
+  zero-size container pinned the viewport at minZoom, and no later fit —
+  including the Controls fit button — could recover it, so widgets on
+  non-first Quarto revealjs slides rendered as a dot in the corner. No
+  host-page JavaScript is needed anymore to work around this.
+
+- The widget’s htmlwidgets `resize` hook is now implemented: when the
+  container changes size, the graph re-fits into the new frame.
+
+- `lineage_flow(height = ...)` is respected when the widget initializes
+  hidden; previously the binding overrode it with a 600px default
+  because the not-yet-laid-out container measured zero.
+
 ## dplyneage 0.2.0
 
 - [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
