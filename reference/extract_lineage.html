@@ -7,7 +7,7 @@ COALESCE(a.x, b.x) all resolve to their true source columns."><meta property="og
 source table columns it was computed from. Pipe a dbplyr lazy table
 straight into it, or pass a SQL string. Aliases, CTEs, subqueries, set
 operations like UNION, and multi-source expressions such as
-COALESCE(a.x, b.x) all resolve to their true source columns."><!-- dependencies from examples --><link href="libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet"><script src="libs/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="libs/reactflow-bundle-1.0.0/reactflow-bundle.min.js"></script><script src="libs/lineage_flow-binding-0.2.1/lineage_flow.js"></script></head><body>
+COALESCE(a.x, b.x) all resolve to their true source columns."><!-- dependencies from examples --><link href="libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet"><script src="libs/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="libs/reactflow-bundle-1.0.0/reactflow-bundle.min.js"></script><script src="libs/lineage_flow-binding-0.2.1.9000/lineage_flow.js"></script></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -15,7 +15,7 @@ COALESCE(a.x, b.x) all resolve to their true source columns."><!-- dependencies 
 
     <a class="navbar-brand me-2" href="../index.html">dplyneage</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -43,7 +43,7 @@ COALESCE(a.x, b.x) all resolve to their true source columns."><!-- dependencies 
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Extract column lineage from a dplyr pipeline or SQL query</h1>
-      <small class="dont-index">Source: <a href="https://github.com/tgerke/dplyneage/blob/v0.2.1/R/sqlglot_utils.R" class="external-link"><code>R/sqlglot_utils.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/tgerke/dplyneage/blob/main/R/sqlglot_utils.R" class="external-link"><code>R/sqlglot_utils.R</code></a></small>
       <div class="d-none name"><code>extract_lineage.Rd</code></div>
     </div>
 
@@ -196,7 +196,7 @@ CTEs and multi-source columns.</p></div>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbConnect.html" class="external-link">dbConnect</a></span><span class="op">(</span><span class="fu">duckdb</span><span class="fu">::</span><span class="fu"><a href="https://r.duckdb.org/reference/duckdb.html" class="external-link">duckdb</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> duckdb keeps downloaded extensions and secrets in a temporary directory:</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB;">ℹ</span> /tmp/RtmphkijLu/duckdb</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB;">ℹ</span> /tmp/RtmpgvZovW/duckdb</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> This is removed when the R session ends.</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">•</span> Extensions are re-downloaded each session.</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">•</span> Secrets are lost.</span>

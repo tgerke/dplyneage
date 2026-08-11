@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">dplyneage</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -35,9 +35,12 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Changelog</h1>
-      <small>Source: <a href="https://github.com/tgerke/dplyneage/blob/v0.2.1/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
+      <small>Source: <a href="https://github.com/tgerke/dplyneage/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="development version" id="dplyneage-development-version">dplyneage (development version)<a class="anchor" aria-label="anchor" href="#dplyneage-development-version"></a></h2>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.2.1" id="dplyneage-021">dplyneage 0.2.1<a class="anchor" aria-label="anchor" href="#dplyneage-021"></a></h2>
 <ul><li><p>The pure-R engine now handles both ways dbplyr stores select expressions. Under dbplyr 2.5.x, partial evaluation wraps computed expressions in quosures and leaves <code><a href="https://dplyr.tidyverse.org/reference/sql.html" class="external-link">sql()</a></code> calls unevaluated, so edge labels picked up a leading <code>~</code> and raw-SQL columns were traced as if they had no sources instead of raising the classed error that triggers the sqlglot fallback. dbplyr 2.6.0 stores bare expressions with <code><a href="https://dplyr.tidyverse.org/reference/sql.html" class="external-link">sql()</a></code> already evaluated, which is what the engine was written against. Both layouts now produce identical lineage.</p></li>
