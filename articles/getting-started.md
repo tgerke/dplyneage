@@ -366,12 +366,12 @@ g <- igraph::read_graph(path, format = "graphml")
 
 # Everything upstream of total_spent
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from b64133a:
+#> + 2/6 vertices, named, from 0a69fc7:
 #> [1] output.total_spent orders.amount
 
 # Everything downstream of orders.amount
 igraph::subcomponent(g, "orders.amount", mode = "out")
-#> + 2/6 vertices, named, from b64133a:
+#> + 2/6 vertices, named, from 0a69fc7:
 #> [1] orders.amount      output.total_spent
 ```
 
