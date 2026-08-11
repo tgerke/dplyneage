@@ -28,6 +28,7 @@ Suggests:
     igraph,
     knitr,
     reticulate,
+    rlang,
     rmarkdown,
     RSQLite,
     shiny,

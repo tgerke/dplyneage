@@ -1,5 +1,14 @@
 # dplyneage (development version)
 
+* The pure-R engine now handles both ways dbplyr stores select
+  expressions. Under dbplyr 2.5.x, partial evaluation wraps computed
+  expressions in quosures and leaves `sql()` calls unevaluated, so edge
+  labels picked up a leading `~` and raw-SQL columns were traced as if
+  they had no sources instead of raising the classed error that triggers
+  the sqlglot fallback. dbplyr 2.6.0 stores bare expressions with `sql()`
+  already evaluated, which is what the engine was written against. Both
+  layouts now produce identical lineage.
+
 * `lineage_flow()` widgets that initialize while their container is hidden
   (a non-active reveal.js slide, a hidden tabset panel) now wait for the
   container to gain nonzero dimensions before mounting React Flow. Mounting

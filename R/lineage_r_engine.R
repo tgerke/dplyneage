@@ -196,6 +196,33 @@ classify_r_expression <- function(e) {
   if (any(all.names(e) %in% r_aggregate_funs)) "aggregation" else "transformation"
 }
 
+#' Normalize a stored select expression to a bare expression
+#'
+#' dbplyr 2.5.x's partial evaluation wraps computed select expressions in
+#' quosures; 2.6.0 stores them bare. Strip the wrapper so deparse labels,
+#' `all.vars()`, and the raw-SQL check behave the same under both.
+#' rlang is guaranteed here: the walker only runs when dbplyr is
+#' installed, and dbplyr imports rlang.
+#' @noRd
+strip_quosure <- function(e) {
+  while (rlang::is_quosure(e)) {
+    e <- rlang::quo_get_expr(e)
+  }
+  e
+}
+
+#' Does a select expression carry raw SQL the walker cannot trace?
+#'
+#' Matches every representation dbplyr has stored for `sql("...")`: the
+#' evaluated sql object (dbplyr >= 2.6, or injected with `!!`), and the
+#' unevaluated `sql()` / `dbplyr::sql()` call kept by 2.5.x. The
+#' setdiff() keeps a column that is merely *named* sql from matching —
+#' only call-position uses count.
+#' @noRd
+uses_raw_sql <- function(e) {
+  inherits(e, "sql") || "sql" %in% setdiff(all.names(e), all.vars(e))
+}
+
 # select/rename/mutate/transmute/filter/arrange/distinct/head/summarise.
 # where/group_by/order_by contribute sources only when a collector is
 # active; across() arrives pre-expanded; chained mutates arrive as nested
@@ -211,8 +238,8 @@ lineage_walk.lazy_select_query <- function(qry, con, collector = NULL) {
   cols <- vector("list", nrow(sel))
   names(cols) <- sel$name
   for (i in seq_len(nrow(sel))) {
-    e <- sel$expr[[i]]
-    if (inherits(e, "sql")) {
+    e <- strip_quosure(sel$expr[[i]])
+    if (uses_raw_sql(e)) {
       unsupported_lineage(
         paste0("raw SQL in expressions (`", sel$name[[i]], " = sql(...)`)")
       )

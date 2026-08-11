@@ -384,6 +384,27 @@ test_that("engine = 'r' rejects SQL strings", {
   )
 })
 
+test_that("select expressions normalize across dbplyr storage styles", {
+  skip_if_no_r_engine()
+  testthat::skip_if_not_installed("rlang")
+
+  # dbplyr 2.5.x stores computed expressions as quosures; 2.6.0 stores
+  # them bare — strip_quosure() must accept both
+  q <- rlang::new_quosure(quote(sum(amount, na.rm = TRUE)), emptyenv())
+  expect_identical(strip_quosure(q), quote(sum(amount, na.rm = TRUE)))
+  expect_identical(strip_quosure(quote(amount)), quote(amount))
+
+  # raw SQL in every stored representation: evaluated sql object
+  # (dbplyr >= 2.6 or !!-injected), bare or namespaced sql() call (2.5.x)
+  expect_true(uses_raw_sql(dbplyr::sql("amount + 1")))
+  expect_true(uses_raw_sql(quote(sql("amount + 1"))))
+  expect_true(uses_raw_sql(quote(dbplyr::sql("amount + 1"))))
+
+  # a column merely named sql is not raw SQL
+  expect_false(uses_raw_sql(quote(sql + 1)))
+  expect_false(uses_raw_sql(quote(sum(amount, na.rm = TRUE))))
+})
+
 test_that("auto engine errors clearly when unsupported and sqlglot is absent", {
   skip_if_no_r_engine()
 
