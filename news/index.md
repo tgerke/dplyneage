@@ -1,6 +1,6 @@
 # Changelog
 
-## dplyneage (development version)
+## dplyneage 0.2.1
 
 - The pure-R engine now handles both ways dbplyr stores select
   expressions. Under dbplyr 2.5.x, partial evaluation wraps computed
