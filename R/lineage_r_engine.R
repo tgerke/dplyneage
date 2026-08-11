@@ -8,6 +8,15 @@
 # test-r-engine.R so upstream changes fail loudly. Unknown node classes
 # signal a classed condition that extract_lineage() can catch to fall back
 # to sqlglot.
+#
+# dbplyr 2.5.x and 2.6.0 store select expressions differently: quosures
+# with sql() calls deferred vs. bare expressions with sql() already
+# evaluated. strip_quosure() and uses_raw_sql() below normalize both.
+# Once dbplyr 2.6+ has reached pinned/snapshot environments (revisit
+# around mid-2027), the call-form branch of uses_raw_sql() and the rlang
+# Suggests entry can be retired; strip_quosure() stays either way — it is
+# a no-op on bare expressions and dbplyr has changed this representation
+# in both directions before.
 
 #' Is the pure-R lineage engine usable?
 #'
