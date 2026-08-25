@@ -45,8 +45,6 @@ has_sqlglot()
 #> [1] TRUE
 ```
 
-Note: `install_sqlglot()` from earlier development versions is deprecated and does nothing — there is no manual installation step anymore.
-
 ## Using Your Own Python Environment
 
 If you manage your own Python environment (a project virtualenv, conda env, or a system Python), reticulate will respect it as usual. Just make sure `sqlglot` is installed there:

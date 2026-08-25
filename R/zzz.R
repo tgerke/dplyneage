@@ -49,30 +49,6 @@ lineage_module <- function() {
   .dplyneage$lineage
 }
 
-#' Install sqlglot Python Package
-#'
-#' @description
-#' Deprecated: Python dependencies are managed
-#' automatically via `reticulate::py_require()` when the package loads, so no
-#' manual installation step is needed. If you manage your own Python
-#' environment (e.g. a project virtualenv), install sqlglot into it directly
-#' with `pip install sqlglot`.
-#'
-#' @param method Ignored. Kept for backward compatibility.
-#' @param envname Ignored. Kept for backward compatibility.
-#' @return Invisibly returns TRUE
-#' @keywords internal
-#' @export
-install_sqlglot <- function(method = "auto", envname = "r-dplyneage") {
-  .Deprecated(
-    msg = paste(
-      "install_sqlglot() is deprecated and does nothing.",
-      "Python dependencies are managed automatically via reticulate::py_require()."
-    )
-  )
-  invisible(TRUE)
-}
-
 #' Is the Python sqlglot dependency available?
 #'
 #' Python is only involved when [extract_lineage()] analyzes raw SQL

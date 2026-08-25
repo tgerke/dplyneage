@@ -1,10 +1,14 @@
 # dplyneage 0.3.0
 
-First CRAN release. No user-facing behavior changed since 0.2.1; the work
-here was packaging.
+First CRAN release. Apart from dropping a deprecated function, the work
+here was packaging rather than behavior.
 
 * dplyneage now declares `R (>= 4.1.0)`, which the examples have required
   since they started using the native pipe.
+
+* `install_sqlglot()` is gone. It had already been reduced to a no-op that
+  warned, and reticulate provisions sqlglot on its own, so there was no
+  reason to carry a deprecated function into a first release.
 
 * The ducklake integration vignette moved to a website-only article.
   ducklake is not on CRAN, so shipping it as a vignette meant declaring a
