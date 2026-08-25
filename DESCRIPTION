@@ -1,21 +1,33 @@
 Package: dplyneage
 Type: Package
-Title: Column Lineage Visualization for dplyr Pipelines
-Version: 0.2.1.9000
+Title: Column Lineage Visualization for 'dplyr' Pipelines
+Version: 0.3.0
 Authors@R: c(
     person(
       "Travis", "Gerke",
-      email = "tgerke@mail.harvard.edu",
-      role = c("aut", "cre")
+      email = "travisgerke@gmail.com",
+      role = c("aut", "cre", "cph")
+    ),
+    person(
+      family = "Meta Platforms, Inc. and affiliates",
+      role = "cph",
+      comment = "React and scheduler libraries bundled in inst/htmlwidgets/lib/reactflow"
+    ),
+    person(
+      family = "xyflow GmbH",
+      role = "cph",
+      comment = "React Flow library bundled in inst/htmlwidgets/lib/reactflow"
     )
   )
-Description: Implements column lineage visualizations using React Flow
-    for dplyr and dbplyr pipelines. Provides a tidyverse-style interface
+Description: Implements column lineage visualizations using 'React Flow'
+    for 'dplyr' and 'dbplyr' pipelines. Provides a tidyverse-style interface
     for tracking data transformations through pipeline operations.
 License: MIT + file LICENSE
 URL: https://tgerke.github.io/dplyneage/, https://github.com/tgerke/dplyneage
 BugReports: https://github.com/tgerke/dplyneage/issues
 Encoding: UTF-8
+Depends:
+    R (>= 4.1.0)
 Imports:
     htmlwidgets,
     jsonlite
@@ -24,7 +36,6 @@ Suggests:
     dbplyr,
     dplyr,
     duckdb,
-    ducklake,
     igraph,
     knitr,
     reticulate,
@@ -36,8 +47,8 @@ Suggests:
     withr,
     xml2
 VignetteBuilder: knitr
-Remotes:
-    ducklake=tgerke/ducklake-r
 Roxygen: list(markdown = TRUE)
 Config/testthat/edition: 3
-Config/roxygen2/version: 8.0.0
+Config/roxygen2/version: 8.1.0
+Config/Needs/website:
+    tgerke/ducklake-r

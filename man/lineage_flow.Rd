@@ -51,7 +51,7 @@ edges <- list(
   )
 )
 lineage_flow(nodes, edges)
-\dontshow{if (dplyneage::has_sqlglot()) withAutoprint(\{ # examplesIf}
+\dontshow{if (identical(Sys.getenv("NOT_CRAN"), "true") && dplyneage::has_sqlglot()) withAutoprint(\{ # examplesIf}
 # Or pipe from extract_lineage()
 extract_lineage("SELECT id, name FROM customers") |>
   lineage_flow()

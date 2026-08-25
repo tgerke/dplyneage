@@ -4,9 +4,9 @@
 \name{dplyneage-package}
 \alias{dplyneage}
 \alias{dplyneage-package}
-\title{dplyneage: Column Lineage Visualization for dplyr Pipelines}
+\title{dplyneage: Column Lineage Visualization for 'dplyr' Pipelines}
 \description{
-Implements column lineage visualizations using React Flow for dplyr and dbplyr pipelines. Provides a tidyverse-style interface for tracking data transformations through pipeline operations.
+Implements column lineage visualizations using 'React Flow' for 'dplyr' and 'dbplyr' pipelines. Provides a tidyverse-style interface for tracking data transformations through pipeline operations.
 }
 \seealso{
 The two functions most users need:
@@ -17,11 +17,17 @@ or SQL query
 }
 }
 \author{
-\strong{Maintainer}: Travis Gerke \email{tgerke@mail.harvard.edu}
+\strong{Maintainer}: Travis Gerke \email{travisgerke@gmail.com} [copyright holder]
 
 Authors:
 \itemize{
-  \item Travis Gerke \email{tgerke@mail.harvard.edu}
+  \item Travis Gerke \email{travisgerke@gmail.com} [copyright holder]
+}
+
+Other contributors:
+\itemize{
+  \item  Meta Platforms, Inc. and affiliates (React and scheduler libraries bundled in inst/htmlwidgets/lib/reactflow) [copyright holder]
+  \item  xyflow GmbH (React Flow library bundled in inst/htmlwidgets/lib/reactflow) [copyright holder]
 }
 
 }

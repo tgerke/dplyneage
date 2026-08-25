@@ -34,7 +34,7 @@
 #'   )
 #' )
 #' lineage_flow(nodes, edges)
-#' @examplesIf dplyneage::has_sqlglot()
+#' @examplesIf identical(Sys.getenv("NOT_CRAN"), "true") && dplyneage::has_sqlglot()
 #' # Or pipe from extract_lineage()
 #' extract_lineage("SELECT id, name FROM customers") |>
 #'   lineage_flow()

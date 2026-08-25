@@ -9,8 +9,11 @@ vignette: >
 
 ```{r, include = FALSE}
 # The raw-SQL examples need Python sqlglot, so only evaluate chunks when
-# the full stack is available and the vignette builds anywhere
-can_eval <- requireNamespace("dplyr", quietly = TRUE) &&
+# the full stack is available. has_sqlglot() initializes Python, which lets
+# reticulate provision an environment over the network, so it must not be
+# called during a CRAN check; there the chunks render as unevaluated code.
+can_eval <- identical(Sys.getenv("NOT_CRAN"), "true") &&
+  requireNamespace("dplyr", quietly = TRUE) &&
   requireNamespace("dbplyr", quietly = TRUE) &&
   requireNamespace("duckdb", quietly = TRUE) &&
   tryCatch(dplyneage::has_sqlglot(), error = function(e) FALSE)

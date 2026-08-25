@@ -37,7 +37,7 @@
 #' # Write to a file instead
 #' path <- tempfile(fileext = ".json")
 #' lineage_json(lineage, path = path)
-#' @examplesIf dplyneage::has_sqlglot()
+#' @examplesIf identical(Sys.getenv("NOT_CRAN"), "true") && dplyneage::has_sqlglot()
 #' extract_lineage("SELECT customer_id, SUM(amount) AS total
 #'                  FROM orders GROUP BY customer_id") |>
 #'   lineage_json()

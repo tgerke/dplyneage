@@ -54,6 +54,10 @@ jobs:
       - uses: r-lib/actions/check-r-package@v2
         env:
           RETICULATE_PYTHON: ${{ steps.setup-python.outputs.python-path }}
+          # The sqlglot tests and vignette chunks are gated on NOT_CRAN so
+          # they never start Python on CRAN. This job installs sqlglot
+          # above, so opt them back in here.
+          NOT_CRAN: true
         with:
           upload-snapshots: true
           build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'

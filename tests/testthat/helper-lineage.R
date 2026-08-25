@@ -1,6 +1,9 @@
 # Skip helpers ---------------------------------------------------------
 
 skip_if_no_sqlglot <- function() {
+  # has_sqlglot() initializes Python, which lets reticulate provision an
+  # environment over the network. CRAN checks must not do that.
+  testthat::skip_on_cran()
   testthat::skip_if_not_installed("reticulate")
   available <- tryCatch(has_sqlglot(), error = function(e) FALSE)
   testthat::skip_if_not(available, "Python sqlglot is not available")

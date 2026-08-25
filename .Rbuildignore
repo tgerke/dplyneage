@@ -2,6 +2,9 @@
 ^.*\.Rproj$
 ^\.git$
 ^\.gitignore$
+^\.Rhistory$
+^\.RData$
+\.DS_Store$
 ^srcjs/node_modules$
 ^srcjs/package-lock\.json$
 ^build_bundle\.sh$
@@ -15,3 +18,8 @@
 ^\.claude$
 ^\.github$
 ^inst/python/__pycache__$
+^inst/examples$
+^vignettes/articles$
+^cran-comments\.md$
+^CRAN-SUBMISSION$
+^revdep$

@@ -1,0 +1,44 @@
+The dplyneage package as a whole is distributed under the MIT license
+(see the LICENSE and LICENSE.md files), Copyright (c) 2026 Travis Gerke.
+
+It ships one pre-built JavaScript bundle that contains third-party code:
+
+  inst/htmlwidgets/lib/reactflow/reactflow-bundle.min.js
+
+That bundle is compiled from the sources in the srcjs/ directory of the
+package's GitHub repository (https://github.com/tgerke/dplyneage) and
+embeds the libraries listed below. Each is MIT licensed, and each retains
+the copyright of its own authors. The license headers that the build
+extracts from these libraries are kept alongside the bundle in
+reactflow-bundle.min.js.LICENSE.txt.
+
+-------------------------------------------------------------------------
+React, ReactDOM, scheduler, use-sync-external-store
+Copyright (c) Meta Platforms, Inc. and affiliates.
+https://github.com/facebook/react
+-------------------------------------------------------------------------
+React Flow (@xyflow/react)
+Copyright (c) 2019-2024 xyflow GmbH
+https://github.com/xyflow/xyflow
+-------------------------------------------------------------------------
+
+Both are made available under the MIT license:
+
+  Permission is hereby granted, free of charge, to any person obtaining a
+  copy of this software and associated documentation files (the
+  "Software"), to deal in the Software without restriction, including
+  without limitation the rights to use, copy, modify, merge, publish,
+  distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to
+  the following conditions:
+
+  The above copyright notice and this permission notice shall be included
+  in all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+  CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

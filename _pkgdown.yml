@@ -14,7 +14,7 @@ articles:
     - getting-started
   - title: Integrations
     contents:
-    - ducklake-lineage
+    - articles/ducklake-lineage
   - title: Configuration
     contents:
     - python-integration

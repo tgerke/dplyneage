@@ -1,10 +1,6 @@
 ---
 title: "Column lineage for ducklake pipelines"
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Column lineage for ducklake pipelines}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r, include = FALSE}

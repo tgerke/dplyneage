@@ -1,4 +1,24 @@
-# dplyneage (development version)
+# dplyneage 0.3.0
+
+First CRAN release. No user-facing behavior changed since 0.2.1; the work
+here was packaging.
+
+* dplyneage now declares `R (>= 4.1.0)`, which the examples have required
+  since they started using the native pipe.
+
+* The ducklake integration vignette moved to a website-only article.
+  ducklake is not on CRAN, so shipping it as a vignette meant declaring a
+  dependency CRAN cannot resolve. The article still builds on the pkgdown
+  site, and nothing about ducklake support itself changed.
+
+* Anything that starts Python — the sqlglot examples, the sqlglot tests,
+  and the raw-SQL chunks in `vignette("getting-started")` — is now skipped
+  when `NOT_CRAN` is unset. reticulate provisions its environment over the
+  network on first use, and CRAN checks run offline.
+
+* The copyright and license terms of the bundled React and React Flow
+  JavaScript are recorded in `LICENSE.note`, and their copyright holders
+  are named in `DESCRIPTION`.
 
 # dplyneage 0.2.1
 

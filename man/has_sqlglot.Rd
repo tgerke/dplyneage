@@ -23,9 +23,9 @@ reticulate is not installed. Note that calling it may initialize
 Python.
 }
 \examples{
-\dontrun{
+\dontshow{if (identical(Sys.getenv("NOT_CRAN"), "true")) withAutoprint(\{ # examplesIf}
 has_sqlglot()
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{vignette("python-integration")} for using your own Python

@@ -91,10 +91,8 @@ install_sqlglot <- function(method = "auto", envname = "r-dplyneage") {
 #' @seealso `vignette("python-integration")` for using your own Python
 #'   environment
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf identical(Sys.getenv("NOT_CRAN"), "true")
 #' has_sqlglot()
-#' }
 has_sqlglot <- function() {
   reticulate_available() && reticulate::py_module_available("sqlglot")
 }

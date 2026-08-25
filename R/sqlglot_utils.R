@@ -71,7 +71,7 @@
 #'   `vignette("getting-started")` for a tour from simple pipelines to
 #'   CTEs and multi-source columns.
 #' @export
-#' @examplesIf dplyneage::has_sqlglot()
+#' @examplesIf identical(Sys.getenv("NOT_CRAN"), "true") && dplyneage::has_sqlglot()
 #' # Raw SQL: qualified columns resolve on their own
 #' extract_lineage("SELECT c.id, c.name FROM customers c") |>
 #'   lineage_flow()

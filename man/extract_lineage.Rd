@@ -92,7 +92,7 @@ with intermediate models drawn as orange transform nodes and terminal
 models as green targets.
 }
 \examples{
-\dontshow{if (dplyneage::has_sqlglot()) withAutoprint(\{ # examplesIf}
+\dontshow{if (identical(Sys.getenv("NOT_CRAN"), "true") && dplyneage::has_sqlglot()) withAutoprint(\{ # examplesIf}
 # Raw SQL: qualified columns resolve on their own
 extract_lineage("SELECT c.id, c.name FROM customers c") |>
   lineage_flow()
