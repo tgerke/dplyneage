@@ -1,6 +1,32 @@
 # Changelog
 
-## dplyneage (development version)
+## dplyneage 0.3.0
+
+First CRAN release. Apart from dropping a deprecated function, the work
+here was packaging rather than behavior.
+
+- dplyneage now declares `R (>= 4.1.0)`, which the examples have
+  required since they started using the native pipe.
+
+- `install_sqlglot()` is gone. It had already been reduced to a no-op
+  that warned, and reticulate provisions sqlglot on its own, so there
+  was no reason to carry a deprecated function into a first release.
+
+- The ducklake integration vignette moved to a website-only article.
+  ducklake is not on CRAN, so shipping it as a vignette meant declaring
+  a dependency CRAN cannot resolve. The article still builds on the
+  pkgdown site, and nothing about ducklake support itself changed.
+
+- Anything that starts Python — the sqlglot examples, the sqlglot tests,
+  and the raw-SQL chunks in
+  [`vignette("getting-started")`](https://tgerke.github.io/dplyneage/articles/getting-started.md)
+  — is now skipped when `NOT_CRAN` is unset. reticulate provisions its
+  environment over the network on first use, and CRAN checks run
+  offline.
+
+- The copyright and license terms of the bundled React and React Flow
+  JavaScript are recorded in `LICENSE.note`, and their copyright holders
+  are named in `DESCRIPTION`.
 
 ## dplyneage 0.2.1
 
@@ -178,11 +204,9 @@
   fractions of the source-to-target span, so they hold up when nodes are
   dragged.
 
-- New vignette
-  [`vignette("ducklake-lineage")`](https://tgerke.github.io/dplyneage/articles/ducklake-lineage.md)
-  shows dplyneage working with
-  [ducklake](https://github.com/tgerke/ducklake-r): lineage for lake
-  pipelines, per-layer diagrams, and time-travel queries
+- New vignette `vignette("ducklake-lineage")` shows dplyneage working
+  with [ducklake](https://github.com/tgerke/ducklake-r): lineage for
+  lake pipelines, per-layer diagrams, and time-travel queries
   ([\#1](https://github.com/tgerke/dplyneage/issues/1)).
 
 - New
@@ -251,9 +275,8 @@ First public release.
   PostgreSQL, MySQL, Snowflake, BigQuery, and more).
 - Python dependencies are provisioned automatically through
   [`reticulate::py_require()`](https://rstudio.github.io/reticulate/reference/py_require.html)
-  — no manual setup step.
-  [`install_sqlglot()`](https://tgerke.github.io/dplyneage/reference/install_sqlglot.md)
-  is deprecated and does nothing.
+  — no manual setup step. `install_sqlglot()` is deprecated and does
+  nothing.
 
 ### Notes
 

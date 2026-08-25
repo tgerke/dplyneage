@@ -1,8 +1,8 @@
-# dplyneage: Column Lineage Visualization for dplyr Pipelines
+# dplyneage: Column Lineage Visualization for 'dplyr' Pipelines
 
-Implements column lineage visualizations using React Flow for dplyr and
-dbplyr pipelines. Provides a tidyverse-style interface for tracking data
-transformations through pipeline operations.
+Implements column lineage visualizations using 'React Flow' for 'dplyr'
+and 'dbplyr' pipelines. Provides a tidyverse-style interface for
+tracking data transformations through pipeline operations.
 
 ## See also
 
@@ -16,8 +16,17 @@ The two functions most users need:
 
 ## Author
 
-**Maintainer**: Travis Gerke <tgerke@mail.harvard.edu>
+**Maintainer**: Travis Gerke <travisgerke@gmail.com> \[copyright
+holder\]
 
 Authors:
 
-- Travis Gerke <tgerke@mail.harvard.edu>
+- Travis Gerke <travisgerke@gmail.com> \[copyright holder\]
+
+Other contributors:
+
+- Meta Platforms, Inc. and affiliates (React and scheduler libraries
+  bundled in inst/htmlwidgets/lib/reactflow) \[copyright holder\]
+
+- xyflow GmbH (React Flow library bundled in
+  inst/htmlwidgets/lib/reactflow) \[copyright holder\]

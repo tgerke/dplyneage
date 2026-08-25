@@ -50,11 +50,6 @@ has_sqlglot()
 #> [1] TRUE
 ```
 
-Note:
-[`install_sqlglot()`](https://tgerke.github.io/dplyneage/reference/install_sqlglot.md)
-from earlier development versions is deprecated and does nothing — there
-is no manual installation step anymore.
-
 ## Using Your Own Python Environment
 
 If you manage your own Python environment (a project virtualenv, conda

@@ -32,7 +32,6 @@ for using your own Python environment
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
 has_sqlglot()
-} # }
+#> [1] TRUE
 ```

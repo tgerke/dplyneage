@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">dplyneage</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,8 +39,14 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="development version" id="dplyneage-development-version">dplyneage (development version)<a class="anchor" aria-label="anchor" href="#dplyneage-development-version"></a></h2>
-</div>
+<h2 class="pkg-version" data-toc-text="0.3.0" id="dplyneage-030">dplyneage 0.3.0<a class="anchor" aria-label="anchor" href="#dplyneage-030"></a></h2>
+<p>First CRAN release. Apart from dropping a deprecated function, the work here was packaging rather than behavior.</p>
+<ul><li><p>dplyneage now declares <code>R (&gt;= 4.1.0)</code>, which the examples have required since they started using the native pipe.</p></li>
+<li><p><code>install_sqlglot()</code> is gone. It had already been reduced to a no-op that warned, and reticulate provisions sqlglot on its own, so there was no reason to carry a deprecated function into a first release.</p></li>
+<li><p>The ducklake integration vignette moved to a website-only article. ducklake is not on CRAN, so shipping it as a vignette meant declaring a dependency CRAN cannot resolve. The article still builds on the pkgdown site, and nothing about ducklake support itself changed.</p></li>
+<li><p>Anything that starts Python — the sqlglot examples, the sqlglot tests, and the raw-SQL chunks in <code><a href="../articles/getting-started.html">vignette("getting-started")</a></code> — is now skipped when <code>NOT_CRAN</code> is unset. reticulate provisions its environment over the network on first use, and CRAN checks run offline.</p></li>
+<li><p>The copyright and license terms of the bundled React and React Flow JavaScript are recorded in <code>LICENSE.note</code>, and their copyright holders are named in <code>DESCRIPTION</code>.</p></li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.2.1" id="dplyneage-021">dplyneage 0.2.1<a class="anchor" aria-label="anchor" href="#dplyneage-021"></a></h2>
 <ul><li><p>The pure-R engine now handles both ways dbplyr stores select expressions. Under dbplyr 2.5.x, partial evaluation wraps computed expressions in quosures and leaves <code><a href="https://dplyr.tidyverse.org/reference/sql.html" class="external-link">sql()</a></code> calls unevaluated, so edge labels picked up a leading <code>~</code> and raw-SQL columns were traced as if they had no sources instead of raising the classed error that triggers the sqlglot fallback. dbplyr 2.6.0 stores bare expressions with <code><a href="https://dplyr.tidyverse.org/reference/sql.html" class="external-link">sql()</a></code> already evaluated, which is what the engine was written against. Both layouts now produce identical lineage.</p></li>
@@ -70,7 +76,7 @@
 <li><p><code>metadata$table_count</code> is now <code>metadata$node_count</code>, since it counts all diagram nodes including the output node.</p></li>
 <li><p>The static SVG fallback in <code><a href="../reference/lineage_flow.html">lineage_flow()</a></code> escapes table labels before inserting them into HTML.</p></li>
 <li><p><code><a href="../reference/lineage_flow.html">lineage_flow()</a></code> now routes each target column’s edges through its own vertical lane instead of bending every edge at the same midpoint, so parallel edges no longer draw on top of each other. Edges fanning into the same target column still merge into one lane on purpose. Lanes are fractions of the source-to-target span, so they hold up when nodes are dragged.</p></li>
-<li><p>New vignette <code><a href="../articles/ducklake-lineage.html">vignette("ducklake-lineage")</a></code> shows dplyneage working with <a href="https://github.com/tgerke/ducklake-r" class="external-link">ducklake</a>: lineage for lake pipelines, per-layer diagrams, and time-travel queries (<a href="https://github.com/tgerke/dplyneage/issues/1" class="external-link">#1</a>).</p></li>
+<li><p>New vignette <code>vignette("ducklake-lineage")</code> shows dplyneage working with <a href="https://github.com/tgerke/ducklake-r" class="external-link">ducklake</a>: lineage for lake pipelines, per-layer diagrams, and time-travel queries (<a href="https://github.com/tgerke/dplyneage/issues/1" class="external-link">#1</a>).</p></li>
 <li><p>New <code><a href="../reference/lineage_json.html">lineage_json()</a></code> and <code><a href="../reference/lineage_graphml.html">lineage_graphml()</a></code> export <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> results (or hand-built node/edge lists) to interchange formats: a clean JSON schema for scripting, CI diffs, and data catalogs, and column-level GraphML that loads directly into igraph, Gephi, or yEd for impact analysis.</p></li>
 <li><p><code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> now analyzes dbplyr lazy tables with a pure-R engine that walks the pipeline’s lazy query tree — no Python required. Column provenance is read directly from the tree, so joins (including suffix conflicts and coalesced full-join keys), aggregates, window expressions, and set operations resolve exactly.</p></li>
 <li><p>New <code>engine</code> argument for <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code>: <code>"auto"</code> (the default) uses the R engine for lazy tables and falls back to sqlglot for SQL strings or constructs the R engine cannot trace, such as raw SQL injected with <code><a href="https://dbplyr.tidyverse.org/reference/sql.html" class="external-link">dbplyr::sql()</a></code>; <code>"r"</code> and <code>"sqlglot"</code> force a specific engine. Requires dbplyr &gt;= 2.5.0 for the R engine.</p></li>
@@ -90,7 +96,7 @@
 <code><a href="../reference/create_table_node.html">create_table_node()</a></code> and <code><a href="../reference/create_column_edge.html">create_column_edge()</a></code> for building lineage diagrams manually, plus <code><a href="../reference/lineage_example.html">lineage_example()</a></code> as a built-in demo.</li>
 <li>Shiny bindings via <code><a href="../reference/lineage_flow-shiny.html">lineage_flowOutput()</a></code> and <code><a href="../reference/lineage_flow-shiny.html">renderLineageFlow()</a></code>.</li>
 <li>Multiple SQL dialects supported via sqlglot (DuckDB default; PostgreSQL, MySQL, Snowflake, BigQuery, and more).</li>
-<li>Python dependencies are provisioned automatically through <code><a href="https://rstudio.github.io/reticulate/reference/py_require.html" class="external-link">reticulate::py_require()</a></code> — no manual setup step. <code><a href="../reference/install_sqlglot.html">install_sqlglot()</a></code> is deprecated and does nothing.</li>
+<li>Python dependencies are provisioned automatically through <code><a href="https://rstudio.github.io/reticulate/reference/py_require.html" class="external-link">reticulate::py_require()</a></code> — no manual setup step. <code>install_sqlglot()</code> is deprecated and does nothing.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="notes-0-1-0">Notes<a class="anchor" aria-label="anchor" href="#notes-0-1-0"></a></h3>

@@ -3,10 +3,10 @@ pkgdown: 2.2.1
 pkgdown_sha: ~
 articles:
   building-reactflow: building-reactflow.html
-  ducklake-lineage: ducklake-lineage.html
+  articles/ducklake-lineage: ducklake-lineage.html
   getting-started: getting-started.html
   python-integration: python-integration.html
-last_built: 2026-08-11T18:02Z
+last_built: 2026-08-25T21:09Z
 urls:
   reference: https://tgerke.github.io/dplyneage/reference
   article: https://tgerke.github.io/dplyneage/articles
