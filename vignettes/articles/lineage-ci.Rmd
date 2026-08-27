@@ -1,0 +1,141 @@
+---
+title: "Lineage checks in CI"
+output: rmarkdown::html_vignette
+---
+
+```{r, include = FALSE}
+can_eval <- requireNamespace("dplyr", quietly = TRUE) &&
+  requireNamespace("dbplyr", quietly = TRUE)
+
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = can_eval
+)
+```
+
+A refactor can change where a column's numbers come from without changing the code's shape at all: swap a `sum()` for a `mean()`, point a join at a different table, drop an input nobody remembers. The pipeline still runs. The dashboard still fills in. The numbers mean something else now.
+
+`lineage_check()` turns that class of change into a failed pull request. It diffs two lineage extractions, classifies each change as breaking or non-breaking, and errors when a change crosses the threshold you set. On a GitHub Actions runner the findings also become `::error` and `::warning` annotations, so they show up on the PR itself.
+
+The severity rule comes from `lineage_diff()`: a removed or changed edge is breaking when its target column feeds anything downstream, or lives in a target table, since those columns are what reports and dashboards consume. Pure additions are non-breaking. Details are in `?lineage_diff`.
+
+## Trying it locally
+
+No database needed: `dbplyr::tbl_lazy()` makes a data frame traceable as if it were a warehouse table. Version one of a pipeline:
+
+```{r message = FALSE}
+library(dplyneage)
+library(dplyr)
+
+orders <- dbplyr::tbl_lazy(
+  data.frame(order_id = 1L, customer_id = 1L, amount = 9.99),
+  name = "orders"
+)
+
+v1 <- orders |>
+  group_by(customer_id) |>
+  summarise(total_spent = sum(amount, na.rm = TRUE))
+
+old <- extract_lineage(v1)
+```
+
+A branch that adds a column passes, because additions can't invalidate anything already consuming the output:
+
+```{r}
+v2 <- orders |>
+  group_by(customer_id) |>
+  summarise(
+    total_spent = sum(amount, na.rm = TRUE),
+    max_amount = max(amount, na.rm = TRUE)
+  )
+
+lineage_check(old, extract_lineage(v2), annotate = FALSE)
+```
+
+A branch that quietly redefines `total_spent` does not:
+
+```{r error = TRUE}
+v3 <- orders |>
+  group_by(customer_id) |>
+  summarise(total_spent = mean(amount, na.rm = TRUE))
+
+lineage_check(old, extract_lineage(v3), annotate = FALSE)
+```
+
+We pass `annotate = FALSE` here because this article is itself rendered on an Actions runner, where the default would print workflow commands instead of plain lines. In your CI job you leave the default alone; detection is automatic.
+
+## The extract script
+
+CI needs one thing from you: a script that builds your pipeline's lineage and returns it as its last value. Keep it in the repo, next to the code it describes, so every branch carries its own version.
+
+```r
+# ci/extract-lineage.R
+library(dplyr)
+
+orders <- dbplyr::tbl_lazy(
+  data.frame(order_id = 1L, customer_id = 1L, amount = 9.99),
+  name = "orders"
+)
+
+extract_lineage(list(
+  silver_orders = orders |> filter(amount > 0),
+  gold_totals = orders |>
+    group_by(customer_id) |>
+    summarise(total_spent = sum(amount, na.rm = TRUE))
+))
+```
+
+For a real warehouse, replace the `tbl_lazy()` frames with `tbl(con, ...)` tables. The script only builds lazy queries, so nothing is collected and CI never pulls data.
+
+## The Actions job
+
+The job checks out the PR, adds a second worktree at main, runs both copies of the extract script in one R session, and lets `lineage_check()` decide. A breaking change raises the classed error, `Rscript` exits nonzero, and the check fails.
+
+```yaml
+name: lineage
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  lineage-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out main for comparison
+        run: |
+          git fetch origin main
+          git worktree add ../main-tree origin/main
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+      - name: Install packages
+        run: Rscript -e 'install.packages(c("dplyneage", "dplyr", "dbplyr"))'
+      - name: Lineage check
+        run: |
+          Rscript -e '
+            old <- source("../main-tree/ci/extract-lineage.R", chdir = TRUE)$value
+            new <- source("ci/extract-lineage.R", chdir = TRUE)$value
+            dplyneage::lineage_check(old, new)
+          '
+```
+
+The worktree is what lets both lineages build in one session with no serialization step: main's copy of the script produces `old`, the branch's copy produces `new`. Swap the install step for `r-lib/actions/setup-r-dependencies` or renv if your project already manages packages that way, and adjust the script paths to match your layout.
+
+## Tuning the policy
+
+`fail_on` sets the threshold. The default `"breaking"` lets additive changes merge without ceremony. `"any"` fails on every provenance change, which suits pipelines under regulatory review, where even an added column should be acknowledged. `"none"` never fails and just prints the findings, useful while you calibrate.
+
+For custom reporting, catch the classed condition. It carries the full diff:
+
+```r
+tryCatch(
+  lineage_check(old, new),
+  dplyneage_lineage_check_failure = function(cnd) {
+    write_pr_comment(format_my_way(cnd$diff))
+    stop(cnd)
+  }
+)
+```

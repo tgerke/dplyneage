@@ -40,6 +40,7 @@ lineage_edges(lineage)
 }
 \seealso{
 Other lineage accessors:
+\code{\link[=lineage_check]{lineage_check()}},
 \code{\link[=lineage_diff]{lineage_diff()}},
 \code{\link[=lineage_tables]{lineage_tables()}},
 \code{\link[=lineage_upstream]{lineage_upstream()}}

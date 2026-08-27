@@ -40,9 +40,8 @@ on every element marks it \code{"breaking"} when it could invalidate
 something built on the old lineage, \code{"non-breaking"} otherwise. See
 Details for the rule.
 
-This makes the CI story concrete: extract lineage on both branches
-and fail (or comment) when provenance changed, e.g.
-\code{if (lineage_has_changes(lineage_diff(old, new))) stop("column provenance changed")}.
+\code{\link[=lineage_check]{lineage_check()}} wraps the diff for CI: it prints each change and
+errors when the changes cross a severity threshold.
 
 Severity is judged against \code{old}, the lineage existing consumers were
 built on. A removed or changed edge — and a removed column — is
@@ -82,6 +81,7 @@ lineage_diff(old, new)
 }
 \seealso{
 Other lineage accessors:
+\code{\link[=lineage_check]{lineage_check()}},
 \code{\link[=lineage_edges]{lineage_edges()}},
 \code{\link[=lineage_tables]{lineage_tables()}},
 \code{\link[=lineage_upstream]{lineage_upstream()}}

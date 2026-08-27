@@ -159,6 +159,18 @@ lineage_downstream <- function(lineage, column) {
   traverse_lineage(lineage, column, direction = "downstream")
 }
 
+#' paste0() that returns character(0) when any input is empty. paste0()
+#' recycles zero-length arguments to "", so keying an edge-free data
+#' frame would fabricate a lone "." key instead of no keys.
+#' @noRd
+paste_keys <- function(...) {
+  args <- list(...)
+  if (any(lengths(args) == 0)) {
+    return(character(0))
+  }
+  do.call(paste0, args)
+}
+
 #' Everything reachable from `start` (excluded) along step_from -> step_to
 #' @noRd
 bfs_reachable <- function(step_from, step_to, start) {
@@ -175,11 +187,11 @@ bfs_reachable <- function(step_from, step_to, start) {
 traverse_lineage <- function(lineage, column, direction) {
   check_lineage(lineage)
   edges <- lineage_edges(lineage)
-  from <- paste0(edges$source_table, ".", edges$source_column)
-  to <- paste0(edges$target_table, ".", edges$target_column)
+  from <- paste_keys(edges$source_table, ".", edges$source_column)
+  to <- paste_keys(edges$target_table, ".", edges$target_column)
 
   known <- unique(c(from, to, unlist(lapply(lineage$nodes, function(n) {
-    paste0(n$id, ".", unlist(n$data$columns))
+    paste_keys(n$id, ".", unlist(n$data$columns))
   }))))
   if (!is.character(column) || length(column) != 1 || !column %in% known) {
     stop(
@@ -212,8 +224,8 @@ change_severity <- function(old, tables, columns) {
   }
 
   edges <- lineage_edges(old)
-  from <- paste0(edges$source_table, ".", edges$source_column)
-  to <- paste0(edges$target_table, ".", edges$target_column)
+  from <- paste_keys(edges$source_table, ".", edges$source_column)
+  to <- paste_keys(edges$target_table, ".", edges$target_column)
   uniq <- unique(keys)
   has_downstream <- vapply(
     uniq,
@@ -248,10 +260,8 @@ change_severity <- function(old, tables, columns) {
 #' something built on the old lineage, `"non-breaking"` otherwise. See
 #' Details for the rule.
 #'
-#' This makes the CI story concrete: extract lineage on both branches
-#' and fail (or comment) when provenance changed, e.g.
-#' `if (lineage_has_changes(lineage_diff(old, new))) stop("column
-#' provenance changed")`.
+#' [lineage_check()] wraps the diff for CI: it prints each change and
+#' errors when the changes cross a severity threshold.
 #'
 #' @details
 #' Severity is judged against `old`, the lineage existing consumers were
@@ -311,7 +321,7 @@ lineage_diff <- function(old, new) {
   old_edges <- old_full[edge_cols]
   new_edges <- new_full[edge_cols]
   edge_key <- function(d) {
-    paste0(d$source_table, ".", d$source_column, "->", d$target_table, ".", d$target_column)
+    paste_keys(d$source_table, ".", d$source_column, "->", d$target_table, ".", d$target_column)
   }
 
   # Edges whose endpoints match but whose definition differs
@@ -343,7 +353,7 @@ lineage_diff <- function(old, new) {
   }
   old_cols <- node_columns_df(old)
   new_cols <- node_columns_df(new)
-  col_key <- function(d) paste0(d$table, ".", d$column)
+  col_key <- function(d) paste_keys(d$table, ".", d$column)
 
   reset <- function(d) {
     rownames(d) <- NULL
@@ -385,6 +395,179 @@ lineage_has_changes <- function(diff) {
     stop("`diff` must be the result of lineage_diff().", call. = FALSE)
   }
   sum(vapply(diff, nrow, integer(1))) > 0
+}
+
+#' Gate a CI run on lineage changes
+#'
+#' Compares two lineage extractions and fails when the changes cross a
+#' severity threshold: the one-call version of "diff the lineage and
+#' stop the merge". Findings print one per line, and on GitHub Actions
+#' they become `::error`/`::warning` annotations on the run.
+#'
+#' @details
+#' The failure is a classed condition, so a wrapper can catch it and
+#' report its own way:
+#'
+#' ```r
+#' tryCatch(
+#'   lineage_check(old, new),
+#'   dplyneage_lineage_check_failure = function(cnd) post_comment(cnd$diff)
+#' )
+#' ```
+#'
+#' `vignette("articles/lineage-ci")` on the package site walks through
+#' the full setup, including a GitHub Actions job that extracts lineage
+#' on a pull request branch and on main, then fails the merge on
+#' breaking changes.
+#'
+#' @param old,new Lineage objects from [extract_lineage()] (or lists
+#'   with `nodes` and `edges`), in before/after order — typically main's
+#'   extraction and the branch's.
+#' @param fail_on Which changes fail the check: `"breaking"` (the
+#'   default) stops on breaking changes only, `"any"` stops on any
+#'   change, and `"none"` always passes, printing findings as a report.
+#' @param annotate Print findings as GitHub Actions workflow commands
+#'   (`::error::`/`::warning::`) instead of plain lines. The default
+#'   `NULL` turns annotations on exactly when the `GITHUB_ACTIONS`
+#'   environment variable is `"true"`, as it is on every Actions runner.
+#' @return The [lineage_diff()] of the two lineages, invisibly. When
+#'   the check fails, the error condition (class
+#'   `"dplyneage_lineage_check_failure"`) carries the same diff in its
+#'   `diff` field.
+#' @family lineage accessors
+#' @export
+#' @examples
+#' old <- list(
+#'   nodes = list(
+#'     create_table_node("orders", "amount"),
+#'     create_table_node("out", "total", table_type = "target")
+#'   ),
+#'   edges = list(create_column_edge("orders", "amount", "out", "total"))
+#' )
+#' # an unchanged lineage passes
+#' lineage_check(old, old, annotate = FALSE)
+#'
+#' # removing the edge into a target column is breaking
+#' new <- old
+#' new$edges <- list()
+#' try(lineage_check(old, new, annotate = FALSE))
+#'
+#' # report-only mode never fails
+#' lineage_check(old, new, fail_on = "none", annotate = FALSE)
+lineage_check <- function(old, new, fail_on = c("breaking", "any", "none"),
+                          annotate = NULL) {
+  fail_on <- match.arg(fail_on)
+  if (!is.null(annotate) &&
+    (!is.logical(annotate) || length(annotate) != 1 || is.na(annotate))) {
+    stop("`annotate` must be NULL, TRUE, or FALSE.", call. = FALSE)
+  }
+  annotate <- annotate %||% identical(Sys.getenv("GITHUB_ACTIONS"), "true")
+
+  diff <- lineage_diff(old, new)
+  findings <- check_findings(diff)
+  fails <- switch(fail_on,
+    breaking = findings$severity == "breaking",
+    any = rep(TRUE, nrow(findings)),
+    none = rep(FALSE, nrow(findings))
+  )
+
+  if (nrow(findings)) {
+    lines <- if (annotate) {
+      paste0(
+        ifelse(fails, "::error::", "::warning::"),
+        gha_escape(paste0("lineage: ", findings$message))
+      )
+    } else {
+      paste0("  ", findings$severity, ": ", findings$message)
+    }
+    cat(lines, sep = "\n")
+  }
+
+  if (any(fails)) {
+    n <- if (fail_on == "breaking") {
+      paste0(
+        sum(fails), " breaking lineage change",
+        if (sum(fails) == 1) "" else "s", " (", nrow(findings), " total)"
+      )
+    } else {
+      paste0(
+        nrow(findings), " lineage change", if (nrow(findings) == 1) "" else "s"
+      )
+    }
+    stop(errorCondition(
+      paste0(
+        "Lineage check failed: ", n, ". Inspect with lineage_diff(old, new);",
+        " fail_on = \"none\" reports without failing."
+      ),
+      diff = diff,
+      class = "dplyneage_lineage_check_failure",
+      call = NULL
+    ))
+  }
+
+  if (nrow(findings) == 0) {
+    cat("Lineage check passed: no changes.\n")
+  } else {
+    cat(
+      "Lineage check passed: ", nrow(findings), " change",
+      if (nrow(findings) == 1) "" else "s", ", ",
+      sum(findings$severity == "breaking"), " breaking.\n",
+      sep = ""
+    )
+  }
+  invisible(diff)
+}
+
+#' One row per diff finding: a report line plus its severity
+#' @noRd
+check_findings <- function(diff) {
+  edge_msg <- function(d, verb) {
+    if (nrow(d) == 0) {
+      return(character(0))
+    }
+    paste0(
+      verb, " edge ", d$source_table, ".", d$source_column,
+      " -> ", d$target_table, ".", d$target_column
+    )
+  }
+  col_msg <- function(d, verb) {
+    if (nrow(d) == 0) {
+      return(character(0))
+    }
+    paste0(verb, " column ", d$table, ".", d$column)
+  }
+  changed <- diff$changed_edges
+  changed_msg <- if (nrow(changed) == 0) {
+    character(0)
+  } else {
+    paste0(edge_msg(changed, "changed"), ": ", changed_edge_desc(changed))
+  }
+
+  data.frame(
+    message = c(
+      edge_msg(diff$added_edges, "added"),
+      edge_msg(diff$removed_edges, "removed"),
+      changed_msg,
+      col_msg(diff$added_columns, "added"),
+      col_msg(diff$removed_columns, "removed")
+    ),
+    severity = c(
+      diff$added_edges$severity,
+      diff$removed_edges$severity,
+      diff$changed_edges$severity,
+      diff$added_columns$severity,
+      diff$removed_columns$severity
+    ),
+    stringsAsFactors = FALSE
+  )
+}
+
+#' Escape workflow-command data per GitHub's rules
+#' @noRd
+gha_escape <- function(x) {
+  x <- gsub("%", "%25", x, fixed = TRUE)
+  x <- gsub("\r", "%0D", x, fixed = TRUE)
+  gsub("\n", "%0A", x, fixed = TRUE)
 }
 
 #' NA-safe "values differ": one side NA, or both present and unequal

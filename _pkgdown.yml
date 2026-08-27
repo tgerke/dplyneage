@@ -15,6 +15,7 @@ articles:
   - title: Integrations
     contents:
     - articles/ducklake-lineage
+    - articles/lineage-ci
   - title: Configuration
     contents:
     - python-integration
@@ -38,6 +39,7 @@ reference:
     - lineage_tables
     - lineage_upstream
     - lineage_diff
+    - lineage_check
 
   - title: Manual Lineage Creation
     desc: >

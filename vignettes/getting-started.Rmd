@@ -260,6 +260,7 @@ dbDisconnect(con)
 
 ## Next steps
 
+- The [lineage checks in CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html) article sets up `lineage_check()` as a GitHub Actions gate that fails pull requests on breaking provenance changes
 - `vignette("python-integration")` explains how the Python dependency is managed, and how to use your own environment
 - The [function reference](https://tgerke.github.io/dplyneage/reference/) documents every argument
 - Found a query that traces incorrectly? Please [open an issue](https://github.com/tgerke/dplyneage/issues) with the SQL

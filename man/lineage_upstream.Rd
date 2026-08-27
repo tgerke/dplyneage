@@ -43,6 +43,7 @@ lineage_downstream(lineage, "orders.amount")
 }
 \seealso{
 Other lineage accessors:
+\code{\link[=lineage_check]{lineage_check()}},
 \code{\link[=lineage_diff]{lineage_diff()}},
 \code{\link[=lineage_edges]{lineage_edges()}},
 \code{\link[=lineage_tables]{lineage_tables()}}

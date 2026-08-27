@@ -208,7 +208,7 @@ lineage_edges(lineage)
 lineage_upstream(lineage, "output.total_spent")
 ```
 
-`lineage_diff()` compares two extractions — run it across branches in CI and provenance changes surface before they ship. For interchange, `lineage_json()` gives you a small, stable document you can query with jq, feed to a data catalog, or commit next to your pipeline code:
+`lineage_diff()` compares two extractions and classifies every change by blast radius: breaking when the change reaches columns that anything downstream consumes, non-breaking for pure additions. `lineage_check()` turns that into a one-call CI gate — it errors on breaking changes and annotates the pull request on GitHub Actions ([worked example](https://tgerke.github.io/dplyneage/articles/lineage-ci.html)). For interchange, `lineage_json()` gives you a small, stable document you can query with jq, feed to a data catalog, or commit next to your pipeline code:
 
 ```{r}
 lineage_json(lineage)

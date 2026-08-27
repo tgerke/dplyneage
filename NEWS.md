@@ -14,6 +14,20 @@ filed as tiered issues on GitHub.
   only fail on any change at all. The print method flags breaking
   rows. (#2)
 
+* New `lineage_check(old, new)` turns the diff into a CI gate: one
+  line per finding, a classed error
+  (`dplyneage_lineage_check_failure`, threshold set by `fail_on`) when
+  changes cross it, and `::error`/`::warning` annotations emitted
+  automatically on GitHub Actions runners. A new site article,
+  `vignette("articles/lineage-ci")`, ships a copy-paste Actions job
+  that diffs lineage between a pull request and main. (#3)
+
+* `lineage_diff()` no longer reports a phantom `NA` row when one side
+  of the comparison has no edges. `paste0()` recycles zero-length
+  inputs, so an empty edge frame produced the key `"."` instead of no
+  keys, and the diff invented one added (or removed) edge of `NA`s.
+  The same guard now covers node-free lineages and traversals.
+
 * `extract_lineage()` no longer errors on `copy_inline()` frames. Their
   values are inlined into the SQL as literals, so the columns now trace
   as source-free, matching how the sqlglot engine treats `VALUES`. An

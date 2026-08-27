@@ -153,6 +153,22 @@ test_that("lineage_has_changes answers for CI", {
   expect_error(lineage_has_changes(list()), "lineage_diff")
 })
 
+test_that("diffing against an edge-free lineage adds no phantom rows", {
+  # paste0() recycles zero-length inputs, so an empty edge frame used to
+  # key as "." and fabricate an NA row on the other side of the diff
+  old <- chain_graph()
+  new <- chain_graph()
+  new$edges <- list()
+
+  diff <- lineage_diff(old, new)
+  expect_identical(nrow(diff$added_edges), 0L)
+  expect_identical(nrow(diff$removed_edges), 2L)
+
+  rev <- lineage_diff(new, old)
+  expect_identical(nrow(rev$removed_edges), 0L)
+  expect_identical(nrow(rev$added_edges), 2L)
+})
+
 test_that("removed edges feeding downstream consumers are breaking", {
   old <- chain_graph()
   new <- chain_graph()

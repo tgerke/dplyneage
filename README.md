@@ -261,10 +261,15 @@ lineage_upstream(lineage, "output.total_spent")
 #> [1] "orders.amount"
 ```
 
-`lineage_diff()` compares two extractions — run it across branches in CI
-and provenance changes surface before they ship. For interchange,
-`lineage_json()` gives you a small, stable document you can query with
-jq, feed to a data catalog, or commit next to your pipeline code:
+`lineage_diff()` compares two extractions and classifies every change by
+blast radius: breaking when the change reaches columns that anything
+downstream consumes, non-breaking for pure additions. `lineage_check()`
+turns that into a one-call CI gate — it errors on breaking changes and
+annotates the pull request on GitHub Actions ([worked
+example](https://tgerke.github.io/dplyneage/articles/lineage-ci.html)).
+For interchange, `lineage_json()` gives you a small, stable document you
+can query with jq, feed to a data catalog, or commit next to your
+pipeline code:
 
 ``` r
 lineage_json(lineage)
@@ -345,7 +350,7 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from 861757c:
+#> + 2/6 vertices, named, from 5f3dd8d:
 #> [1] output.total_spent orders.amount
 ```
 
