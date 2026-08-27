@@ -2,25 +2,41 @@
 % Please edit documentation in R/lineage_api.R
 \name{lineage_diff}
 \alias{lineage_diff}
+\alias{lineage_has_changes}
 \title{Compare two lineage extractions}
 \usage{
 lineage_diff(old, new)
+
+lineage_has_changes(diff)
 }
 \arguments{
 \item{old, new}{Lineage objects from \code{\link[=extract_lineage]{extract_lineage()}} (or lists with
 \code{nodes} and \code{edges}), in before/after order.}
+
+\item{diff}{The result of \code{lineage_diff()}.}
 }
 \value{
 A \code{dplyneage_lineage_diff} list with data frame elements
-\code{added_edges}, \code{removed_edges}, \code{added_columns}, and
-\code{removed_columns}. Its print method summarises the changes;
-zero-row elements mean no change.
+\code{added_edges}, \code{removed_edges}, \code{changed_edges}, \code{added_columns},
+and \code{removed_columns}. \code{changed_edges} carries the old and new
+transformation and expression for each edge whose endpoints matched
+but whose definition differs. The print method summarises the
+changes; zero-row elements mean no change.
+\code{lineage_has_changes()} returns \code{TRUE} when any element has rows.
 }
 \description{
-Reports the column-level edges and table columns that were added or
-removed between two lineage objects — typically the same pipeline
-before and after an edit. This makes the CI story concrete: extract
-lineage on both branches and fail (or comment) when provenance changed.
+Reports the column-level edges and table columns that changed between
+two lineage objects — typically the same pipeline before and after an
+edit. Edges are keyed by their endpoints, and an edge present in both
+objects still counts as changed when its transformation classification
+or defining expression differs: rewriting \code{sum(amount)} as
+\code{mean(amount)} changes provenance even though the same columns stay
+connected.
+}
+\details{
+This makes the CI story concrete: extract lineage on both branches
+and fail (or comment) when provenance changed, e.g.
+\code{if (lineage_has_changes(lineage_diff(old, new))) stop("column provenance changed")}.
 }
 \examples{
 old <- list(

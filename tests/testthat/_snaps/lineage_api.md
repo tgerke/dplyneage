@@ -33,3 +33,12 @@
     Output
       No lineage changes.
 
+# lineage_diff reports edges whose definition changed
+
+    Code
+      print(diff)
+    Output
+      <dplyneage lineage diff>
+      Changed edges:
+        ~ orders.amount -> output.total_spent: SUM(amount) => AVG(amount)
+

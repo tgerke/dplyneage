@@ -473,3 +473,25 @@ test_that("lineage_openlineage writes to a file and returns invisibly", {
     "COMPLETE"
   )
 })
+
+test_that("lineage_openlineage leaves the caller's RNG state untouched", {
+  lineage <- list(
+    nodes = list(create_table_node("orders", "amount")),
+    edges = list()
+  )
+
+  set.seed(42)
+  expected <- runif(2)
+  set.seed(42)
+  invisible(lineage_openlineage(lineage))
+  expect_identical(runif(2), expected)
+
+  # Isolation must not make the run ids repeat
+  run_id <- function() {
+    jsonlite::fromJSON(
+      lineage_openlineage(lineage),
+      simplifyVector = FALSE
+    )$run$runId
+  }
+  expect_false(identical(run_id(), run_id()))
+})

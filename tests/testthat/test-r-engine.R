@@ -541,3 +541,85 @@ test_that("filters after summarise resolve through the aggregate", {
     "amount"
   )
 })
+
+test_that("raw SQL in filter/arrange falls back only under include_indirect", {
+  skip_if_no_r_engine()
+
+  filtered <- orders_lf() |>
+    dplyr::filter(dbplyr::sql("amount > 10"))
+
+  # Without indirect collection the clause cannot affect the result, so
+  # the R engine still traces
+  lineage <- extract_lineage(filtered, engine = "r")
+  expect_identical(lineage$metadata$engine, "r")
+
+  # With it, silently dropping the clause would lose edges: signal the
+  # classed condition so engine = "auto" can fall back to sqlglot
+  expect_error(
+    extract_lineage(filtered, engine = "r", include_indirect = TRUE),
+    class = "dplyneage_unsupported_lineage"
+  )
+  expect_error(
+    orders_lf() |>
+      dplyr::arrange(dbplyr::sql("amount DESC")) |>
+      extract_lineage(engine = "r", include_indirect = TRUE),
+    class = "dplyneage_unsupported_lineage"
+  )
+})
+
+test_that("dialect is inferred from the connection when NULL", {
+  skip_if_no_r_engine()
+
+  lf <- dbplyr::lazy_frame(x = 1, .name = "t", con = dbplyr::simulate_postgres())
+  expect_identical(extract_lineage(lf)$metadata$dialect, "postgres")
+  expect_identical(
+    extract_lineage(lf, dialect = "mysql")$metadata$dialect,
+    "mysql"
+  )
+  # Unrecognized connections (lazy_frame's simulate_dbi) keep the
+  # historical default
+  expect_identical(extract_lineage(customers_lf())$metadata$dialect, "duckdb")
+})
+
+test_that("infer_dialect maps driver classes and falls back to duckdb", {
+  fake <- function(cls) structure(list(), class = c(cls, "DBIConnection"))
+  expect_identical(infer_dialect(fake("PqConnection")), "postgres")
+  expect_identical(infer_dialect(fake("Snowflake")), "snowflake")
+  expect_identical(infer_dialect(fake("Microsoft SQL Server")), "tsql")
+  expect_identical(infer_dialect(fake("SomethingElse")), "duckdb")
+})
+
+test_that("tbl_lazy frames trace without any database", {
+  skip_if_no_r_engine()
+
+  lineage <- dbplyr::tbl_lazy(
+    data.frame(customer_id = 1, amount = 10),
+    name = "sales"
+  ) |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total = sum(amount, na.rm = TRUE)) |>
+    extract_lineage()
+
+  expect_edges(lineage, c(
+    "sales.customer_id -> customer_id",
+    "sales.amount -> total"
+  ))
+  expect_identical(lineage$metadata$engine, "r")
+})
+
+test_that("rewriting an aggregate surfaces as a changed edge in lineage_diff", {
+  skip_if_no_r_engine()
+
+  old <- orders_lf() |>
+    dplyr::summarise(total = sum(amount, na.rm = TRUE)) |>
+    extract_lineage()
+  new <- orders_lf() |>
+    dplyr::summarise(total = mean(amount, na.rm = TRUE)) |>
+    extract_lineage()
+
+  diff <- lineage_diff(old, new)
+  expect_identical(nrow(diff$changed_edges), 1L)
+  expect_identical(diff$changed_edges$old_expression, "sum(amount, na.rm = TRUE)")
+  expect_identical(diff$changed_edges$new_expression, "mean(amount, na.rm = TRUE)")
+  expect_true(lineage_has_changes(diff))
+})

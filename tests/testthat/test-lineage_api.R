@@ -126,3 +126,29 @@ test_that("identical lineages diff to no changes", {
   expect_identical(sum(vapply(diff, nrow, integer(1))), 0L)
   expect_snapshot(print(diff))
 })
+
+test_that("lineage_diff reports edges whose definition changed", {
+  old <- api_fixture_graph()
+  altered <- fixture_lineage()
+  altered$columns[[2]]$expression <- "AVG(amount)"
+  new <- convert_lineage_to_graph(altered)
+
+  diff <- lineage_diff(old, new)
+  expect_identical(nrow(diff$added_edges), 0L)
+  expect_identical(nrow(diff$removed_edges), 0L)
+  expect_identical(nrow(diff$changed_edges), 1L)
+  expect_identical(diff$changed_edges$old_expression, "SUM(amount)")
+  expect_identical(diff$changed_edges$new_expression, "AVG(amount)")
+  expect_snapshot(print(diff))
+})
+
+test_that("lineage_has_changes answers for CI", {
+  old <- api_fixture_graph()
+  altered <- fixture_lineage()
+  altered$columns[[2]]$expression <- "AVG(amount)"
+  new <- convert_lineage_to_graph(altered)
+
+  expect_true(lineage_has_changes(lineage_diff(old, new)))
+  expect_false(lineage_has_changes(lineage_diff(old, old)))
+  expect_error(lineage_has_changes(list()), "lineage_diff")
+})

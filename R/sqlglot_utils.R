@@ -40,12 +40,17 @@
 #'   instead, its database connection is used to harvest table schemas
 #'   automatically. Plain data frames are not accepted — dplyr executes
 #'   each verb on them immediately, leaving no query tree to read. Wrap
-#'   the data with [dbplyr::memdb_frame()] (or copy an existing frame
-#'   with `copy_to(dbplyr::memdb(), df, name = "df")`) and the same
-#'   pipeline becomes traceable; see `vignette("getting-started")`.
-#' @param dialect SQL dialect the query is written in, e.g. `"duckdb"`
-#'   (the default), `"postgres"`, `"mysql"`, `"snowflake"`, `"bigquery"`.
-#'   Any dialect sqlglot understands works here.
+#'   the frame first: `dbplyr::tbl_lazy(df, name = "df")` builds a lazy
+#'   table with no database at all, which is enough for lineage;
+#'   [dbplyr::memdb_frame()] (or `copy_to(dbplyr::memdb(), df, name =
+#'   "df")`) additionally makes the pipeline collectable. See
+#'   `vignette("getting-started")`.
+#' @param dialect SQL dialect the query is written in, e.g. `"duckdb"`,
+#'   `"postgres"`, `"mysql"`, `"snowflake"`, `"bigquery"`. Any dialect
+#'   sqlglot understands works here. The default `NULL` infers the
+#'   dialect from a lazy table's database connection (falling back to
+#'   `"duckdb"` for connections it does not recognize); SQL strings are
+#'   parsed as `"duckdb"` unless a dialect is given.
 #' @param schema Optional table schema used by the sqlglot engine to
 #'   attribute unqualified columns to the right table and to expand
 #'   `SELECT *`: a named list mapping table names to character vectors of
@@ -115,7 +120,7 @@
 #'   lineage_flow()
 #'
 #' DBI::dbDisconnect(con)
-extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = FALSE,
+extract_lineage <- function(sql, dialect = NULL, schema = NULL, show_sql = FALSE,
                             engine = c("auto", "sqlglot", "r"),
                             include_indirect = FALSE) {
   engine <- match.arg(engine)
@@ -127,9 +132,10 @@ extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = F
     stop(
       "extract_lineage() reads lineage from a lazy query tree, which a ",
       "plain data frame doesn't have. Wrap it first: ",
-      "dbplyr::memdb_frame() for new data, or ",
-      "copy_to(dbplyr::memdb(), df, name = \"df\") for an existing frame. ",
-      "See vignette(\"getting-started\").",
+      "dbplyr::tbl_lazy(df, name = \"df\") needs no database and is ",
+      "enough for lineage; dbplyr::memdb_frame() or ",
+      "copy_to(dbplyr::memdb(), df, name = \"df\") make the same ",
+      "pipeline also collectable. See vignette(\"getting-started\").",
       call. = FALSE
     )
   }
@@ -157,6 +163,12 @@ extract_lineage <- function(sql, dialect = "duckdb", schema = NULL, show_sql = F
 extract_lineage_data <- function(sql, dialect, schema, show_sql, engine,
                                  include_indirect = FALSE) {
   is_lazy <- inherits(sql, "tbl_lazy")
+
+  # Resolve dialect = NULL here rather than in extract_lineage() so each
+  # model of a multi-model pipeline infers from its own connection
+  if (is.null(dialect)) {
+    dialect <- if (is_lazy) infer_dialect(dbplyr::remote_con(sql)) else "duckdb"
+  }
 
   if (engine == "r") {
     if (!is_lazy) {
@@ -285,6 +297,41 @@ get_sql_from_dplyr <- function(query) {
 
   # Convert to character
   as.character(sql_obj)
+}
+
+#' Infer the sqlglot dialect a DBI connection speaks
+#'
+#' Maps the connection classes of the common DBI drivers (including the
+#' odbc subclasses and dbplyr's simulate_*() connections, which share
+#' class names with the real drivers) to sqlglot dialect names.
+#' Unrecognized connections fall back to "duckdb", the historical
+#' default.
+#'
+#' @param con A DBI connection
+#' @return A sqlglot dialect string
+#' @noRd
+infer_dialect <- function(con) {
+  map <- c(
+    duckdb_connection = "duckdb",
+    PqConnection = "postgres",
+    PostgreSQLConnection = "postgres",
+    RedshiftConnection = "redshift",
+    MariaDBConnection = "mysql",
+    MySQLConnection = "mysql",
+    SQLiteConnection = "sqlite",
+    BigQueryConnection = "bigquery",
+    Snowflake = "snowflake",
+    `Microsoft SQL Server` = "tsql",
+    Oracle = "oracle",
+    OraConnection = "oracle",
+    Teradata = "teradata",
+    `Spark SQL` = "spark",
+    Hive = "hive",
+    PrestoConnection = "presto",
+    TrinoConnection = "trino"
+  )
+  hit <- intersect(class(con), names(map))
+  if (length(hit) == 0) "duckdb" else unname(map[[hit[[1]]]])
 }
 
 #' Harvest Table Schemas from a Database Connection

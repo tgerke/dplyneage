@@ -24,12 +24,12 @@ extract_lineage_pipeline <- function(models, dialect, schema, show_sql, engine,
     extract_lineage_data(model, dialect, schema, show_sql, engine, include_indirect)
   })
 
-  convert_pipeline_to_graph(model_data, dialect)
+  convert_pipeline_to_graph(model_data)
 }
 
 #' Stitch per-model lineage_data into one multi-hop graph
 #' @noRd
-convert_pipeline_to_graph <- function(model_data, dialect) {
+convert_pipeline_to_graph <- function(model_data) {
   model_names <- names(model_data)
 
   model_outputs <- lapply(model_data, function(d) {
@@ -90,6 +90,8 @@ convert_pipeline_to_graph <- function(model_data, dialect) {
     }
   }
 
+  warn_unstitched_models(base_cols, model_names, model_outputs, model_extra)
+
   # Longest-path layering: base tables sit in layer 0, every model at
   # least one layer right of everything it reads from
   base_names <- names(base_cols)
@@ -136,13 +138,18 @@ convert_pipeline_to_graph <- function(model_data, dialect) {
     function(d) d$engine %||% "sqlglot",
     character(1)
   )
+  dialects <- vapply(
+    model_data,
+    function(d) d$dialect %||% "duckdb",
+    character(1)
+  )
 
   structure(
     list(
       nodes = nodes,
       edges = edges,
       metadata = list(
-        dialect = dialect,
+        dialect = if (length(unique(dialects)) == 1) unique(dialects) else "mixed",
         engine = if (length(unique(engines)) == 1) unique(engines) else "mixed",
         models = lapply(model_data, function(d) {
           list(sql = d$sql, engine = d$engine %||% "sqlglot")
@@ -153,6 +160,44 @@ convert_pipeline_to_graph <- function(model_data, dialect) {
     ),
     class = "dplyneage_lineage"
   )
+}
+
+#' Warn when a base table resembles a model it did not stitch to
+#'
+#' Stitching matches the engine's source-table name to model names by
+#' exact string, so `main.silver` or `SILVER` never links to a model
+#' named `silver` — the graph silently renders disconnected. When an
+#' unstitched base table shares a model's final name component
+#' (case-insensitively) and reads only columns that model carries, it is
+#' probably that model's materialization, so say so.
+#' @noRd
+warn_unstitched_models <- function(base_cols, model_names, model_outputs,
+                                   model_extra) {
+  last_component <- function(x) {
+    parts <- strsplit(x, ".", fixed = TRUE)[[1]]
+    parts[[length(parts)]]
+  }
+  pairs <- character()
+  for (bt in names(base_cols)) {
+    for (m in model_names) {
+      if (tolower(last_component(bt)) != tolower(last_component(m))) next
+      if (!all(base_cols[[bt]] %in% c(model_outputs[[m]], model_extra[[m]]))) next
+      pairs <- c(pairs, paste0("'", bt, "' (model '", m, "')"))
+    }
+  }
+  if (length(pairs) == 0) {
+    return(invisible(NULL))
+  }
+  warning(
+    "Some source tables were not stitched to similarly named models: ",
+    paste(pairs, collapse = ", "),
+    ". Stitching matches names exactly. If a table is a model's ",
+    "materialization, give the model the table's full name, e.g. ",
+    "extract_lineage(list(\"main.silver\" = ...)), or reference the ",
+    "table by the model's exact name.",
+    call. = FALSE
+  )
+  invisible(NULL)
 }
 
 #' Build one lineage edge from a column's source, carrying classification

@@ -111,7 +111,6 @@ function renderReactFlow(el, x, width, height, state) {
   var Controls = window.ReactFlowBundle.Controls;
   var applyNodeChanges = window.ReactFlowBundle.applyNodeChanges;
   var applyEdgeChanges = window.ReactFlowBundle.applyEdgeChanges;
-  var addEdge = window.ReactFlowBundle.addEdge;
   var TableNode = window.ReactFlowBundle.TableNode;
   var LineageEdge = window.ReactFlowBundle.LineageEdge;
   // Older cached bundles don't export LineageEdge; fall back to smoothstep
@@ -243,13 +242,6 @@ function renderReactFlow(el, x, width, height, state) {
         });
       }, []);
       
-      // Handle new edge connections
-      var onConnect = useCallback(function(connection) {
-        setEdges(function(eds) {
-          return addEdge(connection, eds);
-        });
-      }, []);
-      
       return React.createElement(
         ReactFlow,
         {
@@ -257,7 +249,6 @@ function renderReactFlow(el, x, width, height, state) {
           edges: styledEdges,
           onNodesChange: onNodesChange,
           onEdgesChange: onEdgesChange,
-          onConnect: onConnect,
           nodeTypes: nodeTypes,
           edgeTypes: edgeTypes,
           onInit: function(flow) {
@@ -268,11 +259,12 @@ function renderReactFlow(el, x, width, height, state) {
           minZoom: 0.1,
           maxZoom: 4,
           nodesDraggable: true,
-          nodesConnectable: true,
+          // A lineage diagram states provenance; viewers must not be able
+          // to draw new edges into it
+          nodesConnectable: false,
           elementsSelectable: true,
           snapToGrid: true,
           snapGrid: [15, 15],
-          connectionLineStyle: { stroke: '#64748b', strokeWidth: 2 },
           defaultEdgeOptions: {
             type: defaultEdgeType,
             animated: false,

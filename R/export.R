@@ -269,9 +269,31 @@ ol_transformation <- function(transformation, expression = NULL) {
   out
 }
 
+ol_uuid_state <- new.env(parent = emptyenv())
+
 #' RFC 4122 version-4 UUID from R's RNG (no dependency needed)
+#'
+#' Draws under a private seed built from the clock, the process id, and a
+#' per-session counter, then restores the caller's `.Random.seed`, so
+#' exporting lineage neither advances nor creates the user's RNG stream.
 #' @noRd
 ol_uuid <- function() {
+  old_seed <- get0(".Random.seed", envir = globalenv(), inherits = FALSE)
+  on.exit(
+    if (is.null(old_seed)) {
+      if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+        rm(".Random.seed", envir = globalenv())
+      }
+    } else {
+      assign(".Random.seed", old_seed, envir = globalenv())
+    }
+  )
+  ol_uuid_state$n <- (ol_uuid_state$n %||% 0L) + 1L
+  set.seed(as.integer(
+    (as.numeric(Sys.time()) * 1000 + Sys.getpid() + ol_uuid_state$n * 7919) %%
+      .Machine$integer.max
+  ))
+
   hex <- function(n) {
     paste(sample(c(0:9, letters[1:6]), n, replace = TRUE), collapse = "")
   }

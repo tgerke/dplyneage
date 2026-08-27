@@ -185,3 +185,45 @@ test_that("extract_lineage output pipes into lineage_flow", {
   expect_length(w$x$nodes, 2)
   expect_length(w$x$edges, 2)
 })
+
+skip_if_no_duckdb_stack <- function() {
+  testthat::skip_if_not_installed("dplyr")
+  testthat::skip_if_not_installed("dbplyr", "2.5.0")
+  testthat::skip_if_not_installed("duckdb")
+  testthat::skip_if_not_installed("DBI")
+  testthat::skip_if_not_installed("withr")
+}
+
+test_that("copy_inline() frames trace as sourceless values", {
+  skip_if_no_duckdb_stack()
+  con <- local_duckdb()
+
+  inline <- dbplyr::copy_inline(
+    con,
+    data.frame(customer_id = 1, region = "a", stringsAsFactors = FALSE)
+  )
+
+  # Bare values table: the columns are inlined literals with no base
+  # table, matching how the sqlglot engine treats VALUES
+  lineage <- extract_lineage(inline)
+  expect_identical(lineage$metadata$engine, "r")
+  expect_identical(edge_set(lineage), character(0))
+  expect_identical(node_columns(lineage, "output"), c("customer_id", "region"))
+
+  # Joined onto a real table, the real columns still trace and the
+  # values columns stay sourceless instead of crashing the walk
+  joined <- dplyr::tbl(con, "orders") |>
+    dplyr::select(order_id, customer_id) |>
+    dplyr::left_join(inline, by = "customer_id")
+  lineage <- extract_lineage(joined)
+  expect_identical(lineage$metadata$engine, "r")
+  expect_edges(lineage, c(
+    "orders.order_id -> order_id",
+    "orders.customer_id -> customer_id"
+  ))
+
+  # The values-side join key has no sources; indirect collection must
+  # cope rather than error
+  lineage <- extract_lineage(joined, include_indirect = TRUE)
+  expect_identical(lineage$metadata$engine, "r")
+})

@@ -132,6 +132,28 @@ all_expr_vars <- function(exprs) {
   unique(unlist(lapply(exprs, all.vars)))
 }
 
+#' Refuse raw SQL in clauses that feed indirect lineage
+#'
+#' `all.vars()` sees nothing inside a `sql("...")` string, so a filter,
+#' grouping, or ordering clause written as raw SQL would silently
+#' contribute no indirect edges. Only checked while a collector is
+#' active: without `include_indirect`, these clauses never create edges,
+#' so raw SQL there cannot make the result wrong.
+#' @noRd
+check_indirect_raw_sql <- function(collector, exprs, verb) {
+  if (is.null(collector)) {
+    return(invisible(NULL))
+  }
+  for (e in exprs) {
+    if (uses_raw_sql(strip_quosure(e))) {
+      unsupported_lineage(
+        paste0("raw SQL in ", verb, " with `include_indirect = TRUE`")
+      )
+    }
+  }
+  invisible(NULL)
+}
+
 #' Drop duplicate (table, column, kind) triples
 #' @noRd
 dedupe_indirect <- function(sources) {
@@ -176,10 +198,19 @@ lineage_walk.lazy_base_query <- function(qry, con, collector = NULL) {
     unsupported_lineage("tables defined by raw SQL (`tbl(con, sql(...))`)")
   }
   # Keep schema/catalog qualifiers so same-named tables in different
-  # schemas stay distinct nodes (matches the sqlglot engine's naming)
-  table <- paste(
-    unlist(dbplyr::table_path_components(path, con)),
-    collapse = "."
+  # schemas stay distinct nodes (matches the sqlglot engine's naming).
+  # A path this can't resolve must signal the classed condition, or the
+  # sqlglot fallback in extract_lineage() never triggers.
+  table <- tryCatch(
+    paste(
+      unlist(dbplyr::table_path_components(path, con)),
+      collapse = "."
+    ),
+    error = function(cnd) {
+      unsupported_lineage(
+        paste0("base tables of class <", class(qry)[[1]], ">")
+      )
+    }
   )
   cols <- lapply(qry$vars, function(v) {
     list(
@@ -189,6 +220,19 @@ lineage_walk.lazy_base_query <- function(qry, con, collector = NULL) {
     )
   })
   names(cols) <- qry$vars
+  cols
+}
+
+# copy_inline() frames: the values are inlined into the SQL as literals,
+# so like other constants they trace to no base table (the sqlglot engine
+# drops VALUES leaves the same way)
+#' @exportS3Method
+lineage_walk.lazy_base_values_query <- function(qry, con, collector = NULL) {
+  vars <- qry$vars %||% colnames(qry$x)
+  cols <- lapply(vars, function(v) {
+    list(expression = v, type = "identity", sources = list())
+  })
+  names(cols) <- vars
   cols
 }
 
@@ -239,6 +283,10 @@ uses_raw_sql <- function(e) {
 #' @exportS3Method
 lineage_walk.lazy_select_query <- function(qry, con, collector = NULL) {
   inner <- lineage_walk(qry$x, con, collector)
+  check_indirect_raw_sql(collector, qry$where, "filter()")
+  check_indirect_raw_sql(collector, qry$having, "filter()")
+  check_indirect_raw_sql(collector, qry$group_by, "group_by()")
+  check_indirect_raw_sql(collector, qry$order_by, "arrange()")
   note_indirect(collector, "filter", all_expr_vars(qry$where), inner)
   note_indirect(collector, "filter", all_expr_vars(qry$having), inner)
   note_indirect(collector, "group_by", all_expr_vars(qry$group_by), inner)

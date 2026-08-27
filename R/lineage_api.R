@@ -197,17 +197,28 @@ traverse_lineage <- function(lineage, column, direction) {
 
 #' Compare two lineage extractions
 #'
-#' Reports the column-level edges and table columns that were added or
-#' removed between two lineage objects — typically the same pipeline
-#' before and after an edit. This makes the CI story concrete: extract
-#' lineage on both branches and fail (or comment) when provenance changed.
+#' Reports the column-level edges and table columns that changed between
+#' two lineage objects — typically the same pipeline before and after an
+#' edit. Edges are keyed by their endpoints, and an edge present in both
+#' objects still counts as changed when its transformation classification
+#' or defining expression differs: rewriting `sum(amount)` as
+#' `mean(amount)` changes provenance even though the same columns stay
+#' connected.
+#'
+#' This makes the CI story concrete: extract lineage on both branches
+#' and fail (or comment) when provenance changed, e.g.
+#' `if (lineage_has_changes(lineage_diff(old, new))) stop("column
+#' provenance changed")`.
 #'
 #' @param old,new Lineage objects from [extract_lineage()] (or lists with
 #'   `nodes` and `edges`), in before/after order.
 #' @return A `dplyneage_lineage_diff` list with data frame elements
-#'   `added_edges`, `removed_edges`, `added_columns`, and
-#'   `removed_columns`. Its print method summarises the changes;
-#'   zero-row elements mean no change.
+#'   `added_edges`, `removed_edges`, `changed_edges`, `added_columns`,
+#'   and `removed_columns`. `changed_edges` carries the old and new
+#'   transformation and expression for each edge whose endpoints matched
+#'   but whose definition differs. The print method summarises the
+#'   changes; zero-row elements mean no change.
+#'   `lineage_has_changes()` returns `TRUE` when any element has rows.
 #' @family lineage accessors
 #' @export
 #' @examples
@@ -234,11 +245,30 @@ lineage_diff <- function(old, new) {
   check_lineage(new)
 
   edge_cols <- c("source_table", "source_column", "target_table", "target_column")
-  old_edges <- lineage_edges(old)[edge_cols]
-  new_edges <- lineage_edges(new)[edge_cols]
+  old_full <- lineage_edges(old)
+  new_full <- lineage_edges(new)
+  old_edges <- old_full[edge_cols]
+  new_edges <- new_full[edge_cols]
   edge_key <- function(d) {
     paste0(d$source_table, ".", d$source_column, "->", d$target_table, ".", d$target_column)
   }
+
+  # Edges whose endpoints match but whose definition differs
+  old_keys <- edge_key(old_edges)
+  new_keys <- edge_key(new_edges)
+  common <- intersect(old_keys, new_keys)
+  oi <- match(common, old_keys)
+  ni <- match(common, new_keys)
+  chg <- field_differs(old_full$transformation[oi], new_full$transformation[ni]) |
+    field_differs(old_full$expression[oi], new_full$expression[ni])
+  changed_edges <- data.frame(
+    old_full[oi[chg], edge_cols, drop = FALSE],
+    old_transformation = old_full$transformation[oi][chg],
+    new_transformation = new_full$transformation[ni][chg],
+    old_expression = old_full$expression[oi][chg],
+    new_expression = new_full$expression[ni][chg],
+    stringsAsFactors = FALSE
+  )
 
   node_columns_df <- function(lineage) {
     rows <- lapply(lineage$nodes, function(n) {
@@ -261,13 +291,30 @@ lineage_diff <- function(old, new) {
 
   structure(
     list(
-      added_edges = reset(new_edges[!edge_key(new_edges) %in% edge_key(old_edges), ]),
-      removed_edges = reset(old_edges[!edge_key(old_edges) %in% edge_key(new_edges), ]),
+      added_edges = reset(new_edges[!new_keys %in% old_keys, ]),
+      removed_edges = reset(old_edges[!old_keys %in% new_keys, ]),
+      changed_edges = reset(changed_edges),
       added_columns = reset(new_cols[!col_key(new_cols) %in% col_key(old_cols), ]),
       removed_columns = reset(old_cols[!col_key(old_cols) %in% col_key(new_cols), ])
     ),
     class = "dplyneage_lineage_diff"
   )
+}
+
+#' @rdname lineage_diff
+#' @param diff The result of `lineage_diff()`.
+#' @export
+lineage_has_changes <- function(diff) {
+  if (!inherits(diff, "dplyneage_lineage_diff")) {
+    stop("`diff` must be the result of lineage_diff().", call. = FALSE)
+  }
+  sum(vapply(diff, nrow, integer(1))) > 0
+}
+
+#' NA-safe "values differ": one side NA, or both present and unequal
+#' @noRd
+field_differs <- function(a, b) {
+  xor(is.na(a), is.na(b)) | (!is.na(a) & !is.na(b) & a != b)
 }
 
 #' @export
@@ -291,6 +338,19 @@ print.dplyneage_lineage_diff <- function(x, ...) {
   }
   if (nrow(x$removed_edges)) {
     cat("Removed edges:\n", paste(edge_lines(x$removed_edges, "-"), collapse = "\n"), "\n", sep = "")
+  }
+  if (nrow(x$changed_edges)) {
+    d <- x$changed_edges
+    desc <- ifelse(
+      field_differs(d$old_expression, d$new_expression),
+      paste0(d$old_expression, " => ", d$new_expression),
+      paste0(d$old_transformation, " => ", d$new_transformation)
+    )
+    lines <- paste0(
+      "  ~ ", d$source_table, ".", d$source_column,
+      " -> ", d$target_table, ".", d$target_column, ": ", desc
+    )
+    cat("Changed edges:\n", paste(lines, collapse = "\n"), "\n", sep = "")
   }
   if (nrow(x$added_columns)) {
     cat("Added columns:\n", paste(col_lines(x$added_columns, "+"), collapse = "\n"), "\n", sep = "")

@@ -6,7 +6,7 @@
 \usage{
 extract_lineage(
   sql,
-  dialect = "duckdb",
+  dialect = NULL,
   schema = NULL,
   show_sql = FALSE,
   engine = c("auto", "sqlglot", "r"),
@@ -22,13 +22,17 @@ tree (the SQL recorded in \code{metadata} still comes from
 instead, its database connection is used to harvest table schemas
 automatically. Plain data frames are not accepted — dplyr executes
 each verb on them immediately, leaving no query tree to read. Wrap
-the data with \code{\link[dbplyr:memdb_frame]{dbplyr::memdb_frame()}} (or copy an existing frame
-with \code{copy_to(dbplyr::memdb(), df, name = "df")}) and the same
-pipeline becomes traceable; see \code{vignette("getting-started")}.}
+the frame first: \code{dbplyr::tbl_lazy(df, name = "df")} builds a lazy
+table with no database at all, which is enough for lineage;
+\code{\link[dbplyr:memdb_frame]{dbplyr::memdb_frame()}} (or \code{copy_to(dbplyr::memdb(), df, name = "df")}) additionally makes the pipeline collectable. See
+\code{vignette("getting-started")}.}
 
-\item{dialect}{SQL dialect the query is written in, e.g. \code{"duckdb"}
-(the default), \code{"postgres"}, \code{"mysql"}, \code{"snowflake"}, \code{"bigquery"}.
-Any dialect sqlglot understands works here.}
+\item{dialect}{SQL dialect the query is written in, e.g. \code{"duckdb"},
+\code{"postgres"}, \code{"mysql"}, \code{"snowflake"}, \code{"bigquery"}. Any dialect
+sqlglot understands works here. The default \code{NULL} infers the
+dialect from a lazy table's database connection (falling back to
+\code{"duckdb"} for connections it does not recognize); SQL strings are
+parsed as \code{"duckdb"} unless a dialect is given.}
 
 \item{schema}{Optional table schema used by the sqlglot engine to
 attribute unqualified columns to the right table and to expand

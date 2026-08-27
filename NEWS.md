@@ -1,3 +1,62 @@
+# dplyneage (development version)
+
+Correctness fixes from an August 2026 audit of the package against the
+current column-level lineage tooling landscape (SQLMesh, dbt, sqlglot,
+OpenLineage). The roadmap items that came out of the same audit are
+filed as tiered issues on GitHub.
+
+* `extract_lineage()` no longer errors on `copy_inline()` frames. Their
+  values are inlined into the SQL as literals, so the columns now trace
+  as source-free, matching how the sqlglot engine treats `VALUES`. An
+  unexpected base-table shape now signals the classed condition that
+  triggers the sqlglot fallback, instead of an unclassed error that
+  defeated it.
+
+* Multi-model stitching warns when a source table resembles a model it
+  did not link to. Stitching matches names exactly, so a model named
+  `silver` read back as `main.silver` or `SILVER` used to render a
+  silently disconnected graph with no hint why. Naming the model with
+  the table's full name (`list("main.silver" = ...)`) has always
+  stitched, and the warning points there.
+
+* `lineage_diff()` now compares edge definitions, not just endpoints.
+  An edge whose transformation or expression changed (say
+  `sum(amount)` rewritten to `mean(amount)`) previously printed "No
+  lineage changes"; it is now reported in the new `changed_edges`
+  element. The new `lineage_has_changes()` answers the CI question in
+  one call.
+
+* With `include_indirect = TRUE`, raw SQL inside `filter()`,
+  `group_by()`, or `arrange()` falls back to the sqlglot engine. The R
+  engine cannot see the columns inside an `sql()` string and previously
+  dropped such clauses without warning, losing indirect edges.
+
+* `dialect` now defaults to `NULL`, which infers the dialect from a
+  lazy table's database connection. A Postgres `tbl()` that fell back
+  to sqlglot used to be parsed as `"duckdb"` unless you remembered to
+  pass `dialect = "postgres"` yourself. SQL strings and unrecognized
+  connections keep the `"duckdb"` default.
+
+* `lineage_openlineage()` no longer advances the caller's RNG state.
+  Run ids draw under a private seed and `.Random.seed` is restored, so
+  exporting lineage mid-analysis cannot change a later `set.seed()`
+  sequence's results.
+
+* Diagrams no longer let viewers draw new edges between columns. A
+  lineage diagram states provenance; a hand-drawn edge could only
+  misstate it.
+
+* Local data frames gained a lighter route: `dbplyr::tbl_lazy(df,
+  name = "df")` makes a pipeline traceable with no database at all,
+  which is how the package's own test suite has always run.
+  `memdb_frame()` remains the route when the pipeline should also be
+  collectable. The data-frame error message, README, and
+  getting-started vignette now describe both.
+
+* Removed the pre-rewrite demo scripts in `inst/examples/`, which
+  still called the deleted `install_sqlglot()` and described a
+  heuristic attribution design the engines replaced.
+
 # dplyneage 0.3.0
 
 First CRAN release. Apart from dropping a deprecated function, the work

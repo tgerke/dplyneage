@@ -202,3 +202,71 @@ test_that("indirect edges stitch across models and extend traversal", {
     lineage_upstream(lineage, "gold.customer_id")
   )
 })
+
+test_that("a qualified source resembling a model warns instead of silently disconnecting", {
+  skip_if_no_r_engine()
+
+  models <- pipeline_fixture()
+  gold_qualified <- dbplyr::lazy_frame(
+    customer_id = 1L, total_spent = 1,
+    .name = "main.silver"
+  ) |>
+    dplyr::mutate(big_spender = total_spent > 100)
+
+  expect_warning(
+    extract_lineage(list(silver = models$silver, gold = gold_qualified)),
+    "main.silver"
+  )
+})
+
+test_that("a case-mismatched source resembling a model warns", {
+  skip_if_no_r_engine()
+
+  models <- pipeline_fixture()
+  gold_upper <- dbplyr::lazy_frame(
+    customer_id = 1L, total_spent = 1,
+    .name = "SILVER"
+  ) |>
+    dplyr::mutate(big_spender = total_spent > 100)
+
+  expect_warning(
+    extract_lineage(list(silver = models$silver, gold = gold_upper)),
+    "SILVER"
+  )
+})
+
+test_that("qualified model names stitch by exact match, without warning", {
+  skip_if_no_r_engine()
+
+  models <- pipeline_fixture()
+  gold_qualified <- dbplyr::lazy_frame(
+    customer_id = 1L, total_spent = 1,
+    .name = "main.silver"
+  ) |>
+    dplyr::mutate(big_spender = total_spent > 100)
+
+  expect_no_warning(
+    lineage <- extract_lineage(
+      list("main.silver" = models$silver, gold = gold_qualified)
+    )
+  )
+  expect_in("main.silver", node_ids(lineage))
+  expect_in(
+    "orders.amount",
+    lineage_upstream(lineage, "gold.big_spender")
+  )
+})
+
+test_that("raw-vs-model name overlap does not warn when the columns differ", {
+  skip_if_no_r_engine()
+
+  # The canonical raw -> model pattern: a model named for the entity it
+  # cleans, reading a qualified raw table with different columns
+  clean <- dbplyr::lazy_frame(
+    order_id = 1L, amount = 1,
+    .name = "raw.orders"
+  ) |>
+    dplyr::summarise(total = sum(amount, na.rm = TRUE))
+
+  expect_no_warning(extract_lineage(list(orders = clean)))
+})
