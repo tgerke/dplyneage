@@ -47,10 +47,11 @@ report its own way:
 )
 }\if{html}{\out{</div>}}
 
-\code{vignette("articles/lineage-ci")} on the package site walks through
-the full setup, including a GitHub Actions job that extracts lineage
-on a pull request branch and on main, then fails the merge on
-breaking changes.
+The package site's
+\href{https://tgerke.github.io/dplyneage/articles/lineage-ci.html}{lineage checks in CI}
+article walks through the full setup, including a GitHub Actions job
+that extracts lineage on a pull request branch and on main, then
+fails the merge on breaking changes.
 }
 \examples{
 old <- list(

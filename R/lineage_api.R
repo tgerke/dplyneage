@@ -415,10 +415,11 @@ lineage_has_changes <- function(diff) {
 #' )
 #' ```
 #'
-#' `vignette("articles/lineage-ci")` on the package site walks through
-#' the full setup, including a GitHub Actions job that extracts lineage
-#' on a pull request branch and on main, then fails the merge on
-#' breaking changes.
+#' The package site's
+#' [lineage checks in CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html)
+#' article walks through the full setup, including a GitHub Actions job
+#' that extracts lineage on a pull request branch and on main, then
+#' fails the merge on breaking changes.
 #'
 #' @param old,new Lineage objects from [extract_lineage()] (or lists
 #'   with `nodes` and `edges`), in before/after order — typically main's

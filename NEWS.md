@@ -19,8 +19,10 @@ filed as tiered issues on GitHub.
   (`dplyneage_lineage_check_failure`, threshold set by `fail_on`) when
   changes cross it, and `::error`/`::warning` annotations emitted
   automatically on GitHub Actions runners. A new site article,
-  `vignette("articles/lineage-ci")`, ships a copy-paste Actions job
-  that diffs lineage between a pull request and main. (#3)
+  [lineage checks in
+  CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html),
+  ships a copy-paste Actions job that diffs lineage between a pull
+  request and main. (#3)
 
 * `lineage_diff()` no longer reports a phantom `NA` row when one side
   of the comparison has no edges. `paste0()` recycles zero-length
