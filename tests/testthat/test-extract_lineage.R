@@ -24,7 +24,10 @@ test_that("simple single-table select", {
     "customers.customer_id -> customer_id",
     "customers.name -> name"
   ))
-  expect_identical(lineage$metadata$sql, "SELECT customer_id, name FROM customers")
+  expect_identical(
+    lineage$metadata$models$output$sql,
+    "SELECT customer_id, name FROM customers"
+  )
   expect_identical(lineage$metadata$dialect, "duckdb")
 })
 

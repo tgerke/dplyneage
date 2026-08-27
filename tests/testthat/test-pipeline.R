@@ -97,6 +97,7 @@ test_that("pipeline metadata records per-model sql and engines", {
   expect_identical(lineage$metadata$engine, "r")
   expect_named(lineage$metadata$models, c("silver", "gold"))
   expect_match(lineage$metadata$models$silver$sql, "SUM")
+  expect_identical(lineage$metadata$models$silver$dialect, "duckdb")
   expect_identical(lineage$metadata$node_count, 3L)
   expect_identical(lineage$metadata$edge_count, 5L)
 })

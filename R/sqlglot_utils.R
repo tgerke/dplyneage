@@ -70,8 +70,10 @@
 #'   in the diagram, connected by dashed edges (see Details). Default:
 #'   `FALSE`, matching most lineage tools.
 #' @return A list with `nodes` and `edges` ready to pass to
-#'   [lineage_flow()], plus `metadata` recording the analyzed SQL, the
-#'   dialect, the engine used, and node/edge counts.
+#'   [lineage_flow()], plus `metadata` recording the dialect, the engine
+#'   used, node/edge counts, and a `models` map holding each model's
+#'   analyzed SQL, engine, and dialect (one entry, keyed by the output
+#'   table, for a single query).
 #' @seealso [lineage_flow()] to render the result;
 #'   `vignette("getting-started")` for a tour from simple pipelines to
 #'   CTEs and multi-source columns.
@@ -519,14 +521,25 @@ convert_lineage_to_graph <- function(lineage_data) {
     }
   }
 
+  # Metadata takes the same shape as multi-model pipelines: a one-entry
+  # models map keyed by the output table, so consumers of the committed
+  # JSON artifact read per-model SQL one way for both
+  engine <- if (is.null(lineage_data$engine)) "sqlglot" else lineage_data$engine
+  models <- list(list(
+    sql = lineage_data$sql,
+    engine = engine,
+    dialect = lineage_data$dialect
+  ))
+  names(models) <- output_table
+
   structure(
     list(
       nodes = nodes,
       edges = edges,
       metadata = list(
-        sql = lineage_data$sql,
         dialect = lineage_data$dialect,
-        engine = if (is.null(lineage_data$engine)) "sqlglot" else lineage_data$engine,
+        engine = engine,
+        models = models,
         node_count = length(nodes),
         edge_count = length(edges)
       )

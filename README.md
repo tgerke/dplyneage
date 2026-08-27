@@ -274,10 +274,17 @@ pipeline code:
 ``` r
 lineage_json(lineage)
 #> {
+#>   "format_version": 1,
 #>   "metadata": {
-#>     "sql": "SELECT customer_id, first_name, SUM(amount) AS total_spent\nFROM (\n  SELECT orders.*, first_name, last_name, email\n  FROM orders\n  LEFT JOIN customers\n    ON (orders.customer_id = customers.customer_id)\n) AS q01\nGROUP BY customer_id, first_name",
 #>     "dialect": "duckdb",
 #>     "engine": "r",
+#>     "models": {
+#>       "output": {
+#>         "sql": "SELECT customer_id, first_name, SUM(amount) AS total_spent\nFROM (\n  SELECT orders.*, first_name, last_name, email\n  FROM orders\n  LEFT JOIN customers\n    ON (orders.customer_id = customers.customer_id)\n) AS q01\nGROUP BY customer_id, first_name",
+#>         "engine": "r",
+#>         "dialect": "duckdb"
+#>       }
+#>     },
 #>     "node_count": 3,
 #>     "edge_count": 3
 #>   },
@@ -350,7 +357,7 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from 5f3dd8d:
+#> + 2/6 vertices, named, from 852b175:
 #> [1] output.total_spent orders.amount
 ```
 

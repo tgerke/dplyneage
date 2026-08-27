@@ -14,11 +14,25 @@
 #'   string is returned invisibly.
 #' @param pretty If `TRUE` (the default), indent the output for
 #'   readability. Use `FALSE` for a single-line document.
-#' @return A JSON string. With `metadata` (present on [extract_lineage()]
-#'   results), `nodes` (objects with `id`, `type`, and `columns`), and
-#'   `edges` (objects with `source`, `source_column`, `target`, and
-#'   `target_column`; edges produced by [extract_lineage()] also carry
-#'   `transformation` and `expression`).
+#' @return A JSON string; see the Document shape section.
+#' @section Document shape:
+#' The top-level keys, in order:
+#'
+#' * `format_version`: integer version of this document shape, currently
+#'   1. It bumps only when a change would break an existing consumer;
+#'   added fields do not bump it.
+#' * `metadata`: present on [extract_lineage()] results. Carries
+#'   `dialect`, `engine`, `models`, `node_count`, and `edge_count`.
+#'   `models` maps each model name to its `sql`, `engine`, and
+#'   `dialect`; a single-query extraction is a one-model map keyed by
+#'   the output table's name, so consumers read per-model SQL the same
+#'   way for both shapes. The top-level `dialect` and `engine` collapse
+#'   across models, to `"mixed"` when models disagree.
+#' * `nodes`: objects with `id`, `type` (`"source"`, `"transform"`, or
+#'   `"target"`), and `columns`.
+#' * `edges`: objects with `source`, `source_column`, `target`, and
+#'   `target_column`. Edges from [extract_lineage()] also carry
+#'   `transformation` and, on direct edges, `expression`.
 #' @family lineage exporters
 #' @seealso [extract_lineage()] to compute lineage automatically
 #' @export
@@ -43,12 +57,16 @@
 #'   lineage_json()
 lineage_json <- function(lineage, path = NULL, pretty = TRUE) {
   out <- jsonlite::toJSON(
-    lineage_semantics(lineage),
+    c(list(format_version = lineage_json_version), lineage_semantics(lineage)),
     auto_unbox = TRUE,
     pretty = pretty
   )
   write_export(out, path)
 }
+
+# Version of the lineage_json() document shape. Bump only when a change
+# would break an existing consumer; added fields do not bump it.
+lineage_json_version <- 1L
 
 #' Export lineage as GraphML
 #'

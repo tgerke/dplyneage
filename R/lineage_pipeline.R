@@ -152,7 +152,11 @@ convert_pipeline_to_graph <- function(model_data) {
         dialect = if (length(unique(dialects)) == 1) unique(dialects) else "mixed",
         engine = if (length(unique(engines)) == 1) unique(engines) else "mixed",
         models = lapply(model_data, function(d) {
-          list(sql = d$sql, engine = d$engine %||% "sqlglot")
+          list(
+            sql = d$sql,
+            engine = d$engine %||% "sqlglot",
+            dialect = d$dialect %||% "duckdb"
+          )
         }),
         node_count = length(nodes),
         edge_count = length(edges)

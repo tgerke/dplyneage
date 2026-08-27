@@ -28,6 +28,15 @@ filed as tiered issues on GitHub.
   keys, and the diff invented one added (or removed) edge of `NA`s.
   The same guard now covers node-free lineages and traversals.
 
+* The `lineage_json()` document is now versioned: a top-level
+  `format_version` key (currently 1) leads the artifact, bumping only
+  when a change would break an existing consumer. Metadata also takes
+  one shape for single queries and pipelines: both carry a `models`
+  map of per-model `sql`, `engine`, and `dialect`, with a single query
+  keyed by its output table. The top-level `sql` key is gone, so
+  readers of a committed 0.3.0 artifact should take SQL from `models`
+  instead. (#4)
+
 * `extract_lineage()` no longer errors on `copy_inline()` frames. Their
   values are inlined into the SQL as literals, so the columns now trace
   as source-free, matching how the sqlglot engine treats `VALUES`. An

@@ -25,7 +25,7 @@ test_that("lineage_json emits the semantic schema", {
     simplifyVector = FALSE
   )
 
-  expect_named(parsed, c("metadata", "nodes", "edges"))
+  expect_named(parsed, c("format_version", "metadata", "nodes", "edges"))
 
   ids <- vapply(parsed$nodes, function(n) n$id, character(1))
   types <- vapply(parsed$nodes, function(n) n$type, character(1))
@@ -72,9 +72,12 @@ test_that("lineage_json passes metadata through", {
     simplifyVector = FALSE
   )
 
-  expect_identical(parsed$metadata$sql, "SELECT ...")
+  expect_identical(parsed$format_version, 1L)
   expect_identical(parsed$metadata$dialect, "duckdb")
   expect_identical(parsed$metadata$engine, "sqlglot")
+  expect_named(parsed$metadata$models, "output")
+  expect_identical(parsed$metadata$models$output$sql, "SELECT ...")
+  expect_identical(parsed$metadata$models$output$dialect, "duckdb")
   expect_identical(parsed$metadata$edge_count, 2L)
 })
 
@@ -112,7 +115,7 @@ test_that("manual node/edge lists export without a metadata key", {
     simplifyVector = FALSE
   )
 
-  expect_named(parsed, c("nodes", "edges"))
+  expect_named(parsed, c("format_version", "nodes", "edges"))
   expect_identical(parsed$edges[[1]]$source, "orders")
   expect_identical(parsed$edges[[1]]$target_column, "total")
 })

@@ -18,11 +18,7 @@ string is returned invisibly.}
 readability. Use \code{FALSE} for a single-line document.}
 }
 \value{
-A JSON string. With \code{metadata} (present on \code{\link[=extract_lineage]{extract_lineage()}}
-results), \code{nodes} (objects with \code{id}, \code{type}, and \code{columns}), and
-\code{edges} (objects with \code{source}, \code{source_column}, \code{target}, and
-\code{target_column}; edges produced by \code{\link[=extract_lineage]{extract_lineage()}} also carry
-\code{transformation} and \code{expression}).
+A JSON string; see the Document shape section.
 }
 \description{
 Serializes a lineage object to a small, stable JSON document: node ids
@@ -32,6 +28,30 @@ deliberately dropped, so the output is suitable for scripting with jq,
 committing to version control (a CI diff catches accidental provenance
 changes when a pipeline is edited), or feeding to a data catalog.
 }
+\section{Document shape}{
+
+The top-level keys, in order:
+\itemize{
+\item \code{format_version}: integer version of this document shape, currently
+\enumerate{
+\item It bumps only when a change would break an existing consumer;
+added fields do not bump it.
+}
+\item \code{metadata}: present on \code{\link[=extract_lineage]{extract_lineage()}} results. Carries
+\code{dialect}, \code{engine}, \code{models}, \code{node_count}, and \code{edge_count}.
+\code{models} maps each model name to its \code{sql}, \code{engine}, and
+\code{dialect}; a single-query extraction is a one-model map keyed by
+the output table's name, so consumers read per-model SQL the same
+way for both shapes. The top-level \code{dialect} and \code{engine} collapse
+across models, to \code{"mixed"} when models disagree.
+\item \code{nodes}: objects with \code{id}, \code{type} (\code{"source"}, \code{"transform"}, or
+\code{"target"}), and \code{columns}.
+\item \code{edges}: objects with \code{source}, \code{source_column}, \code{target}, and
+\code{target_column}. Edges from \code{\link[=extract_lineage]{extract_lineage()}} also carry
+\code{transformation} and, on direct edges, \code{expression}.
+}
+}
+
 \examples{
 lineage <- list(
   nodes = list(

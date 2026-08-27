@@ -58,8 +58,10 @@ in the diagram, connected by dashed edges (see Details). Default:
 }
 \value{
 A list with \code{nodes} and \code{edges} ready to pass to
-\code{\link[=lineage_flow]{lineage_flow()}}, plus \code{metadata} recording the analyzed SQL, the
-dialect, the engine used, and node/edge counts.
+\code{\link[=lineage_flow]{lineage_flow()}}, plus \code{metadata} recording the dialect, the engine
+used, node/edge counts, and a \code{models} map holding each model's
+analyzed SQL, engine, and dialect (one entry, keyed by the output
+table, for a single query).
 }
 \description{
 \code{extract_lineage()} traces every output column of a query back to the

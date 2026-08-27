@@ -93,11 +93,14 @@ test_that("columns without sources still appear in the output node", {
   expect_edges(graph, "customers.customer_id -> customer_id")
 })
 
-test_that("metadata records the analyzed SQL and counts", {
+test_that("metadata records the models map and counts", {
   graph <- convert_lineage_to_graph(fixture_lineage())
 
-  expect_identical(graph$metadata$sql, "SELECT ...")
   expect_identical(graph$metadata$dialect, "duckdb")
+  expect_named(graph$metadata$models, "output")
+  expect_identical(graph$metadata$models$output$sql, "SELECT ...")
+  expect_identical(graph$metadata$models$output$engine, "sqlglot")
+  expect_identical(graph$metadata$models$output$dialect, "duckdb")
   expect_identical(graph$metadata$node_count, 3L)
   expect_identical(graph$metadata$edge_count, 2L)
 })
