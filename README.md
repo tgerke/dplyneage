@@ -357,14 +357,44 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from 852b175:
+#> + 2/6 vertices, named, from 144acfa:
 #> [1] output.total_spent orders.amount
 ```
+
+## How it compares
+
+No other maintained R package extracts column-level lineage:
+[dtrackr](https://cran.r-project.org/package=dtrackr) documents pipeline
+*steps*, lineager tracks row provenance, and
+[rdtLite](https://cran.r-project.org/package=rdtLite) records execution
+history. None answer “which source columns feed this output column?”
+Outside R, that question is well served for SQL text but not for
+dataframe code, which is the corner dplyneage sits in: dbplyr renders
+dplyr pipelines as SQL, so the same lineage machinery covers your R code
+and your warehouse queries alike.
+
+|  | dplyneage | [sqlglot.lineage](https://sqlglot.com/) | [sqllineage](https://sqllineage.readthedocs.io/) | [dbt](https://www.getdbt.com/) | [SQLMesh](https://sqlmesh.com/) |
+|----|----|----|----|----|----|
+| Column-level lineage | dual engine (R + sqlglot) | SELECT projections | broader DML | Enterprise (Fusion: free in local dev) | free UI |
+| dplyr / dbplyr pipelines | native | — | — | — | — |
+| Indirect (filter/join/group/sort) columns | opt-in | — | — | excluded | — |
+| Breaking-change classification | `lineage_check()` CI gate | — | — | Advanced CI (paid) | semantic diff |
+| OpenLineage export | built in | — | — | external integration | — |
+| Free and local | yes | yes | yes | partly | yes |
+
+The scope has edges on purpose: orchestration, materialization,
+dashboard-level lineage, and catalog UIs belong to the platforms.
+dplyneage aims to be the extraction and artifact layer — the lineage
+itself, as a diagram you can read and a document you can commit, diff,
+and hand to the tools that do the rest. (Comparison as of August 2026.)
 
 ## Learn more
 
 - `vignette("getting-started")` walks from a first diagram through CTEs,
   multi-source columns, and schemas
+- The [lineage checks in
+  CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html)
+  article sets up the provenance gate on GitHub Actions
 - `vignette("python-integration")` covers how the Python dependency is
   managed
 - Full function reference at
