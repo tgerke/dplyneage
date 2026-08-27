@@ -18,10 +18,11 @@ lineage_has_changes(diff)
 \value{
 A \code{dplyneage_lineage_diff} list with data frame elements
 \code{added_edges}, \code{removed_edges}, \code{changed_edges}, \code{added_columns},
-and \code{removed_columns}. \code{changed_edges} carries the old and new
-transformation and expression for each edge whose endpoints matched
-but whose definition differs. The print method summarises the
-changes; zero-row elements mean no change.
+and \code{removed_columns}, each carrying a \code{severity} column
+(\code{"breaking"} or \code{"non-breaking"}). \code{changed_edges} also records
+the old and new transformation and expression for each edge whose
+endpoints matched but whose definition differs. The print method
+summarises the changes; zero-row elements mean no change.
 \code{lineage_has_changes()} returns \code{TRUE} when any element has rows.
 }
 \description{
@@ -34,9 +35,30 @@ or defining expression differs: rewriting \code{sum(amount)} as
 connected.
 }
 \details{
+Each change is also classified by blast radius: a \code{severity} column
+on every element marks it \code{"breaking"} when it could invalidate
+something built on the old lineage, \code{"non-breaking"} otherwise. See
+Details for the rule.
+
 This makes the CI story concrete: extract lineage on both branches
 and fail (or comment) when provenance changed, e.g.
 \code{if (lineage_has_changes(lineage_diff(old, new))) stop("column provenance changed")}.
+
+Severity is judged against \code{old}, the lineage existing consumers were
+built on. A removed or changed edge — and a removed column — is
+\code{"breaking"} when its target column fed other columns downstream, or
+belonged to a target node: target columns are the pipeline's consumed
+surface, and the graph cannot see the dashboards and jobs reading
+them, so changing one is assumed to break something. Nodes without a
+declared type get the same cautious treatment. Everything else is
+\code{"non-breaking"}: additions cannot invalidate an existing consumer,
+and neither can removing an intermediate column nothing consumed.
+
+One caveat for hand-built lineages whose edges carry no expressions:
+there, adding a source to an existing column shows up only in
+\code{added_edges}, which is always non-breaking. Engine-extracted lineage
+also reports the column's surviving edges in \code{changed_edges}, because
+its defining expression changed, and those get the breaking check.
 }
 \examples{
 old <- list(

@@ -18,13 +18,13 @@
       Added edges:
         + customers.email -> output.email
       Removed edges:
-        - orders.amount -> output.total_spent
+        - orders.amount -> output.total_spent [breaking]
       Added columns:
         + customers.email
         + output.email
       Removed columns:
-        - orders.amount
-        - output.total_spent
+        - orders.amount [breaking]
+        - output.total_spent [breaking]
 
 # identical lineages diff to no changes
 
@@ -40,5 +40,5 @@
     Output
       <dplyneage lineage diff>
       Changed edges:
-        ~ orders.amount -> output.total_spent: SUM(amount) => AVG(amount)
+        ~ orders.amount -> output.total_spent: SUM(amount) => AVG(amount) [breaking]
 

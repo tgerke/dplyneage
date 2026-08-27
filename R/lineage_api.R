@@ -159,6 +159,18 @@ lineage_downstream <- function(lineage, column) {
   traverse_lineage(lineage, column, direction = "downstream")
 }
 
+#' Everything reachable from `start` (excluded) along step_from -> step_to
+#' @noRd
+bfs_reachable <- function(step_from, step_to, start) {
+  seen <- character()
+  frontier <- start
+  while (length(frontier) > 0) {
+    frontier <- setdiff(unique(step_to[step_from %in% frontier]), seen)
+    seen <- c(seen, frontier)
+  }
+  sort(seen)
+}
+
 #' @noRd
 traverse_lineage <- function(lineage, column, direction) {
   check_lineage(lineage)
@@ -185,14 +197,40 @@ traverse_lineage <- function(lineage, column, direction) {
     step_from <- from
     step_to <- to
   }
+  bfs_reachable(step_from, step_to, column)
+}
 
-  seen <- character()
-  frontier <- column
-  while (length(frontier) > 0) {
-    frontier <- setdiff(unique(step_to[step_from %in% frontier]), seen)
-    seen <- c(seen, frontier)
+#' Severity of changing/removing each `table.column`, judged in `old` —
+#' the lineage existing consumers were built on. Breaking when the column
+#' fed anything downstream, or sat on a target node (the graph cannot see
+#' outside consumers of the final surface; unknown types stay cautious).
+#' @noRd
+change_severity <- function(old, tables, columns) {
+  keys <- paste0(tables, ".", columns)
+  if (length(keys) == 0) {
+    return(character(0))
   }
-  sort(seen)
+
+  edges <- lineage_edges(old)
+  from <- paste0(edges$source_table, ".", edges$source_column)
+  to <- paste0(edges$target_table, ".", edges$target_column)
+  uniq <- unique(keys)
+  has_downstream <- vapply(
+    uniq,
+    function(key) length(bfs_reachable(from, to, key)) > 0,
+    logical(1)
+  )[match(keys, uniq)]
+
+  node_types <- vapply(
+    old$nodes,
+    function(n) n$data$tableType %||% NA_character_,
+    character(1)
+  )
+  names(node_types) <- vapply(old$nodes, function(n) n$id, character(1))
+  type <- unname(node_types[tables])
+  on_target <- is.na(type) | type == "target"
+
+  ifelse(has_downstream | on_target, "breaking", "non-breaking")
 }
 
 #' Compare two lineage extractions
@@ -205,19 +243,42 @@ traverse_lineage <- function(lineage, column, direction) {
 #' `mean(amount)` changes provenance even though the same columns stay
 #' connected.
 #'
+#' Each change is also classified by blast radius: a `severity` column
+#' on every element marks it `"breaking"` when it could invalidate
+#' something built on the old lineage, `"non-breaking"` otherwise. See
+#' Details for the rule.
+#'
 #' This makes the CI story concrete: extract lineage on both branches
 #' and fail (or comment) when provenance changed, e.g.
 #' `if (lineage_has_changes(lineage_diff(old, new))) stop("column
 #' provenance changed")`.
 #'
+#' @details
+#' Severity is judged against `old`, the lineage existing consumers were
+#' built on. A removed or changed edge — and a removed column — is
+#' `"breaking"` when its target column fed other columns downstream, or
+#' belonged to a target node: target columns are the pipeline's consumed
+#' surface, and the graph cannot see the dashboards and jobs reading
+#' them, so changing one is assumed to break something. Nodes without a
+#' declared type get the same cautious treatment. Everything else is
+#' `"non-breaking"`: additions cannot invalidate an existing consumer,
+#' and neither can removing an intermediate column nothing consumed.
+#'
+#' One caveat for hand-built lineages whose edges carry no expressions:
+#' there, adding a source to an existing column shows up only in
+#' `added_edges`, which is always non-breaking. Engine-extracted lineage
+#' also reports the column's surviving edges in `changed_edges`, because
+#' its defining expression changed, and those get the breaking check.
+#'
 #' @param old,new Lineage objects from [extract_lineage()] (or lists with
 #'   `nodes` and `edges`), in before/after order.
 #' @return A `dplyneage_lineage_diff` list with data frame elements
 #'   `added_edges`, `removed_edges`, `changed_edges`, `added_columns`,
-#'   and `removed_columns`. `changed_edges` carries the old and new
-#'   transformation and expression for each edge whose endpoints matched
-#'   but whose definition differs. The print method summarises the
-#'   changes; zero-row elements mean no change.
+#'   and `removed_columns`, each carrying a `severity` column
+#'   (`"breaking"` or `"non-breaking"`). `changed_edges` also records
+#'   the old and new transformation and expression for each edge whose
+#'   endpoints matched but whose definition differs. The print method
+#'   summarises the changes; zero-row elements mean no change.
 #'   `lineage_has_changes()` returns `TRUE` when any element has rows.
 #' @family lineage accessors
 #' @export
@@ -289,13 +350,28 @@ lineage_diff <- function(old, new) {
     d
   }
 
+  added_edges <- reset(new_edges[!new_keys %in% old_keys, ])
+  removed_edges <- reset(old_edges[!old_keys %in% new_keys, ])
+  changed_edges <- reset(changed_edges)
+  added_columns <- reset(new_cols[!col_key(new_cols) %in% col_key(old_cols), ])
+  removed_columns <- reset(old_cols[!col_key(old_cols) %in% col_key(new_cols), ])
+
+  added_edges$severity <- rep("non-breaking", nrow(added_edges))
+  removed_edges$severity <-
+    change_severity(old, removed_edges$target_table, removed_edges$target_column)
+  changed_edges$severity <-
+    change_severity(old, changed_edges$target_table, changed_edges$target_column)
+  added_columns$severity <- rep("non-breaking", nrow(added_columns))
+  removed_columns$severity <-
+    change_severity(old, removed_columns$table, removed_columns$column)
+
   structure(
     list(
-      added_edges = reset(new_edges[!new_keys %in% old_keys, ]),
-      removed_edges = reset(old_edges[!old_keys %in% new_keys, ]),
-      changed_edges = reset(changed_edges),
-      added_columns = reset(new_cols[!col_key(new_cols) %in% col_key(old_cols), ]),
-      removed_columns = reset(old_cols[!col_key(old_cols) %in% col_key(new_cols), ])
+      added_edges = added_edges,
+      removed_edges = removed_edges,
+      changed_edges = changed_edges,
+      added_columns = added_columns,
+      removed_columns = removed_columns
     ),
     class = "dplyneage_lineage_diff"
   )
@@ -317,6 +393,22 @@ field_differs <- function(a, b) {
   xor(is.na(a), is.na(b)) | (!is.na(a) & !is.na(b) & a != b)
 }
 
+#' One "old => new" description per changed edge: the expression rewrite
+#' when it changed, else the reclassification
+#' @noRd
+changed_edge_desc <- function(d) {
+  ifelse(
+    field_differs(d$old_expression, d$new_expression),
+    paste0(d$old_expression, " => ", d$new_expression),
+    paste0(d$old_transformation, " => ", d$new_transformation)
+  )
+}
+
+#' @noRd
+breaking_flag <- function(d) {
+  ifelse(d$severity == "breaking", " [breaking]", "")
+}
+
 #' @export
 print.dplyneage_lineage_diff <- function(x, ...) {
   if (sum(vapply(x, nrow, integer(1))) == 0) {
@@ -327,10 +419,12 @@ print.dplyneage_lineage_diff <- function(x, ...) {
   edge_lines <- function(d, sign) {
     paste0(
       "  ", sign, " ", d$source_table, ".", d$source_column,
-      " -> ", d$target_table, ".", d$target_column
+      " -> ", d$target_table, ".", d$target_column, breaking_flag(d)
     )
   }
-  col_lines <- function(d, sign) paste0("  ", sign, " ", d$table, ".", d$column)
+  col_lines <- function(d, sign) {
+    paste0("  ", sign, " ", d$table, ".", d$column, breaking_flag(d))
+  }
 
   cat("<dplyneage lineage diff>\n")
   if (nrow(x$added_edges)) {
@@ -341,14 +435,10 @@ print.dplyneage_lineage_diff <- function(x, ...) {
   }
   if (nrow(x$changed_edges)) {
     d <- x$changed_edges
-    desc <- ifelse(
-      field_differs(d$old_expression, d$new_expression),
-      paste0(d$old_expression, " => ", d$new_expression),
-      paste0(d$old_transformation, " => ", d$new_transformation)
-    )
     lines <- paste0(
       "  ~ ", d$source_table, ".", d$source_column,
-      " -> ", d$target_table, ".", d$target_column, ": ", desc
+      " -> ", d$target_table, ".", d$target_column, ": ",
+      changed_edge_desc(d), breaking_flag(d)
     )
     cat("Changed edges:\n", paste(lines, collapse = "\n"), "\n", sep = "")
   }

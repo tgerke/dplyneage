@@ -1,9 +1,18 @@
 # dplyneage (development version)
 
-Correctness fixes from an August 2026 audit of the package against the
-current column-level lineage tooling landscape (SQLMesh, dbt, sqlglot,
-OpenLineage). The roadmap items that came out of the same audit are
+Correctness fixes and the first feature tier from an August 2026 audit
+of the package against current column-level lineage tooling (SQLMesh,
+dbt, sqlglot, OpenLineage). The remaining roadmap from the audit is
 filed as tiered issues on GitHub.
+
+* `lineage_diff()` now classifies every change by blast radius. Each
+  element gains a `severity` column: `"breaking"` when the change's
+  target column fed anything downstream in the old lineage, or sat on
+  a target node, whose columns are the consumed surface;
+  `"non-breaking"` for pure additions and edits to columns nothing
+  consumed. All changes previously looked alike, so a CI gate could
+  only fail on any change at all. The print method flags breaking
+  rows. (#2)
 
 * `extract_lineage()` no longer errors on `copy_inline()` frames. Their
   values are inlined into the SQL as literals, so the columns now trace

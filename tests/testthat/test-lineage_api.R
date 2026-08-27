@@ -152,3 +152,74 @@ test_that("lineage_has_changes answers for CI", {
   expect_false(lineage_has_changes(lineage_diff(old, old)))
   expect_error(lineage_has_changes(list()), "lineage_diff")
 })
+
+test_that("removed edges feeding downstream consumers are breaking", {
+  old <- chain_graph()
+  new <- chain_graph()
+  new$edges <- new$edges[2] # drop a.x -> b.y, keep b.y -> c.z
+
+  diff <- lineage_diff(old, new)
+  expect_named(
+    diff$removed_edges,
+    c("source_table", "source_column", "target_table", "target_column", "severity")
+  )
+  expect_identical(diff$removed_edges$severity, "breaking")
+})
+
+test_that("changes to terminal target columns are breaking", {
+  old <- api_fixture_graph()
+  altered <- fixture_lineage()
+  altered$columns[[2]]$expression <- "AVG(amount)"
+  diff <- lineage_diff(old, convert_lineage_to_graph(altered))
+
+  expect_identical(diff$changed_edges$severity, "breaking")
+})
+
+test_that("removing a dead intermediate column's edge is non-breaking", {
+  old <- list(
+    nodes = list(
+      create_table_node("a", "x"),
+      create_table_node("b", "tmp", table_type = "transform")
+    ),
+    edges = list(create_column_edge("a", "x", "b", "tmp"))
+  )
+  new <- old
+  new$edges <- list()
+
+  diff <- lineage_diff(old, new)
+  expect_identical(diff$removed_edges$severity, "non-breaking")
+})
+
+test_that("pure additions are non-breaking", {
+  old <- api_fixture_graph()
+  new_lineage <- fixture_lineage()
+  new_lineage$columns[[3]] <- list(
+    output_name = "email",
+    expression = "email",
+    type = "identity",
+    sources = list(list(table = "customers", column_name = "email"))
+  )
+  diff <- lineage_diff(old, convert_lineage_to_graph(new_lineage))
+
+  expect_identical(unique(diff$added_edges$severity), "non-breaking")
+  expect_identical(unique(diff$added_columns$severity), "non-breaking")
+  expect_identical(nrow(diff$removed_edges), 0L)
+})
+
+test_that("removed columns are classified by their consumers", {
+  # a source-free target column has no removed edge to carry the change
+  old <- list(
+    nodes = list(create_table_node("out", c("total", "note"), table_type = "target")),
+    edges = list()
+  )
+  new <- list(
+    nodes = list(create_table_node("out", "total", table_type = "target")),
+    edges = list()
+  )
+  expect_identical(lineage_diff(old, new)$removed_columns$severity, "breaking")
+
+  # an isolated source column nothing consumed
+  old <- list(nodes = list(create_table_node("a", c("x", "unused"))), edges = list())
+  new <- list(nodes = list(create_table_node("a", "x")), edges = list())
+  expect_identical(lineage_diff(old, new)$removed_columns$severity, "non-breaking")
+})
