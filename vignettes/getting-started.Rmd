@@ -168,13 +168,15 @@ extract_lineage(query, dialect = "snowflake")
 
 `extract_lineage()` reads lineage from a *lazy* query — the tree dbplyr builds up before anything touches the database. A pipeline on a plain tibble has no such tree: dplyr executes each verb immediately, so by the time you could ask about lineage, only the result is left.
 
-The workaround is one line. `dbplyr::memdb_frame()` puts the data in a throwaway in-memory SQLite database (install the RSQLite package once) and hands back a lazy table, so the identical pipeline becomes traceable:
+The lightest fix is `dbplyr::tbl_lazy()`, which wraps the frame in a lazy table backed by no database at all. Such a pipeline can't be collected, but lineage never runs the query, so a diagram doesn't need it to be:
 
-```{r, eval = can_eval && requireNamespace("RSQLite", quietly = TRUE)}
-sales <- dbplyr::memdb_frame(
-  customer_id = c(1, 1, 2),
-  amount = c(100, 250, 40),
-  .name = "sales"
+```{r, eval = can_eval}
+sales <- dbplyr::tbl_lazy(
+  data.frame(
+    customer_id = c(1, 1, 2),
+    amount = c(100, 250, 40)
+  ),
+  name = "sales"
 )
 
 sales |>
@@ -184,9 +186,9 @@ sales |>
   lineage_flow(height = "300px")
 ```
 
-For a data frame you already have, `copy_to(dbplyr::memdb(), df, name = "df")` does the same copy. Lineage depends only on the pipeline's structure, never on the data, so for large frames copying a slice is enough — `copy_to(dbplyr::memdb(), head(df), name = "df")` yields the same diagram as copying every row.
+When the pipeline should stay runnable, use a real (if throwaway) database instead. `dbplyr::memdb_frame()` builds the data in in-memory SQLite (install the RSQLite package once), and `copy_to(dbplyr::memdb(), df, name = "df")` does the same copy for a frame you already have. Lineage depends only on the pipeline's structure, never on the data, so for large frames copying a slice is enough — `copy_to(dbplyr::memdb(), head(df), name = "df")` yields the same diagram as copying every row.
 
-The duckdb connection from earlier in this vignette works just as well (`copy_to(con, df)`); `memdb_frame()` is simply the fastest route when no connection exists yet.
+The duckdb connection from earlier in this vignette works just as well (`copy_to(con, df)`); `tbl_lazy()` is simply the fastest route when no connection exists and none is needed.
 
 ## Building diagrams by hand
 

@@ -99,15 +99,17 @@ aggregation edges animate.
 Lineage extraction needs the lazy query tree that dbplyr builds before
 anything executes. A pipeline on a plain tibble has no such tree — dplyr
 runs each verb immediately — so `extract_lineage()` can’t trace it. The
-workaround is one line: `dbplyr::memdb_frame()` puts the data in a
-throwaway in-memory SQLite database and hands back a lazy table, and the
-identical pipeline becomes traceable.
+fix is one line: `dbplyr::tbl_lazy()` wraps the frame in a lazy table
+with no database behind it, and the identical pipeline becomes
+traceable.
 
 ``` r
-sales <- memdb_frame(
-  customer_id = c(1, 1, 2),
-  amount = c(100, 250, 40),
-  .name = "sales"
+sales <- tbl_lazy(
+  data.frame(
+    customer_id = c(1, 1, 2),
+    amount = c(100, 250, 40)
+  ),
+  name = "sales"
 )
 
 sales |>
@@ -119,11 +121,13 @@ sales |>
 
 <img src="man/figures/README-unnamed-chunk-4-1.png" alt="Column-level lineage diagram tracing the summarised output table's total column back to the amount column of the sales source table"  />
 
-For a data frame you already have,
-`copy_to(dbplyr::memdb(), df, name = "df")` does the same copy. Lineage
-depends only on the pipeline’s structure, never on the data, so for
-large frames copying a slice is enough —
-`copy_to(dbplyr::memdb(), head(df), name = "df")` yields the same
+A `tbl_lazy()` pipeline can’t be collected, since there is no database
+to run it against; lineage never runs the query, so a diagram doesn’t
+need one. To keep the pipeline runnable too, `dbplyr::memdb_frame()`
+builds the data in throwaway in-memory SQLite instead, and
+`copy_to(dbplyr::memdb(), df, name = "df")` does the same for a frame
+you already have. Lineage depends only on the pipeline’s structure,
+never on the data, so copying a slice with `head(df)` yields the same
 diagram as copying every row. See the [Local data
 frames](https://tgerke.github.io/dplyneage/articles/getting-started.html#local-data-frames)
 section of the getting-started vignette for more.
@@ -341,7 +345,7 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from fb656f2:
+#> + 2/6 vertices, named, from 861757c:
 #> [1] output.total_spent orders.amount
 ```
 

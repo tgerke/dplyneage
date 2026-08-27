@@ -120,10 +120,10 @@ Without a schema, fully qualified columns still resolve correctly; unqualified o
 
 ## SQL Dialects
 
-sqlglot supports many SQL dialects. Specify the dialect when extracting lineage:
+sqlglot supports many SQL dialects. A dbplyr pipeline that reaches the sqlglot engine infers its dialect from the database connection; for SQL strings, pass it explicitly:
 
 ```{r}
-extract_lineage(query, dialect = "duckdb")     # default
+extract_lineage(query, dialect = "duckdb")     # default for SQL strings
 extract_lineage(query, dialect = "postgres")
 extract_lineage(query, dialect = "snowflake")
 extract_lineage(query, dialect = "bigquery")
