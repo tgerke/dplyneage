@@ -357,7 +357,7 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from 144acfa:
+#> + 2/6 vertices, named, from 86bc0f5:
 #> [1] output.total_spent orders.amount
 ```
 
@@ -386,7 +386,10 @@ The scope has edges on purpose: orchestration, materialization,
 dashboard-level lineage, and catalog UIs belong to the platforms.
 dplyneage aims to be the extraction and artifact layer — the lineage
 itself, as a diagram you can read and a document you can commit, diff,
-and hand to the tools that do the rest. (Comparison as of August 2026.)
+and hand to the tools that do the rest. The longer form of this
+comparison, with per-tool notes and the roadmap rationale, is in
+[POSITIONING.md](https://github.com/tgerke/dplyneage/blob/main/.github/POSITIONING.md).
+(Comparison as of August 2026.)
 
 ## Learn more
 
