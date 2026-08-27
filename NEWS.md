@@ -37,6 +37,15 @@ filed as tiered issues on GitHub.
   readers of a committed 0.3.0 artifact should take SQL from `models`
   instead. (#4)
 
+* The R engine now reads window partition and ordering state from the
+  lazy tree, so the two engines agree on window functions. A windowed
+  expression's grouping columns and its ordering columns
+  (`window_order()`, ranking arguments, `order_by =`) previously
+  created no edges at all; they are now direct sources of the windowed
+  column, matching the `OVER` clause the sqlglot engine parses, and
+  window ordering columns draw dashed `sort` edges under
+  `include_indirect = TRUE`. (#5)
+
 * `extract_lineage()` no longer errors on `copy_inline()` frames. Their
   values are inlined into the SQL as literals, so the columns now trace
   as source-free, matching how the sqlglot engine treats `VALUES`. An

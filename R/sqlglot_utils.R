@@ -17,12 +17,16 @@
 #'
 #' Both engines trace select-list lineage by default: columns used only in
 #' `filter()`, join conditions, or `arrange()` do not create lineage
-#' edges. Set `include_indirect = TRUE` to add them as dashed edges — a
-#' column that only filters the result still breaks the pipeline if it is
-#' dropped, so impact analysis usually wants them. Indirect edges connect
-#' each filter/join/group/sort column to every output column, since these
-#' conditions shape the whole result, and are classified by how the column
-#' is used (`"filter"`, `"join"`, `"group_by"`, `"sort"`).
+#' edges. A window function's partition and ordering columns do — they sit
+#' inside the expression's `OVER` clause, so `row_number()` under
+#' `group_by(g)` and `window_order(d)` draws direct edges from both `g`
+#' and `d`. Set `include_indirect = TRUE` to add the rest as dashed
+#' edges — a column that only filters the result still breaks the
+#' pipeline if it is dropped, so impact analysis usually wants them.
+#' Indirect edges connect each filter/join/group/sort column (window
+#' `ORDER BY` columns included) to every output column, since these
+#' conditions shape the whole result, and are classified by how the
+#' column is used (`"filter"`, `"join"`, `"group_by"`, `"sort"`).
 #'
 #' A named list stitches a multi-model pipeline into one graph. Each
 #' element (lazy table or SQL string) is analyzed on its own, and any

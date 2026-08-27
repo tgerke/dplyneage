@@ -82,12 +82,16 @@ a construct the R engine cannot trace (e.g. raw SQL injected with
 
 Both engines trace select-list lineage by default: columns used only in
 \code{filter()}, join conditions, or \code{arrange()} do not create lineage
-edges. Set \code{include_indirect = TRUE} to add them as dashed edges — a
-column that only filters the result still breaks the pipeline if it is
-dropped, so impact analysis usually wants them. Indirect edges connect
-each filter/join/group/sort column to every output column, since these
-conditions shape the whole result, and are classified by how the column
-is used (\code{"filter"}, \code{"join"}, \code{"group_by"}, \code{"sort"}).
+edges. A window function's partition and ordering columns do — they sit
+inside the expression's \code{OVER} clause, so \code{row_number()} under
+\code{group_by(g)} and \code{window_order(d)} draws direct edges from both \code{g}
+and \code{d}. Set \code{include_indirect = TRUE} to add the rest as dashed
+edges — a column that only filters the result still breaks the
+pipeline if it is dropped, so impact analysis usually wants them.
+Indirect edges connect each filter/join/group/sort column (window
+\verb{ORDER BY} columns included) to every output column, since these
+conditions shape the whole result, and are classified by how the
+column is used (\code{"filter"}, \code{"join"}, \code{"group_by"}, \code{"sort"}).
 
 A named list stitches a multi-model pipeline into one graph. Each
 element (lazy table or SQL string) is analyzed on its own, and any

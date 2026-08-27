@@ -117,6 +117,56 @@ test_that("the R and sqlglot engines agree on real pipelines", {
   }
 })
 
+test_that("the engines agree on window functions with include_indirect", {
+  skip_if_no_db_stack()
+  con <- local_duckdb()
+
+  # Single-SELECT shapes only. Two known asymmetries are out of scope:
+  # dbplyr-generated subqueries hit the sqlglot engine's derived-table
+  # skip in _indirect_refs, and median()/quantile() render
+  # WITHIN GROUP (ORDER BY x), which sqlglot counts as a sort ref even
+  # in a plain summarise. Transformation kinds are not compared either:
+  # sqlglot classifies from rendered SQL (LAG and cumulative SUM are
+  # AggFunc there) while the R engine classifies from the dplyr verb.
+  queries <- list(
+    windowed = dplyr::tbl(con, "orders") |>
+      dplyr::group_by(customer_id) |>
+      dbplyr::window_order(order_date) |>
+      dplyr::transmute(
+        rn = dplyr::row_number(),
+        total = sum(amount, na.rm = TRUE)
+      ),
+    filtered_window = dplyr::tbl(con, "orders") |>
+      dplyr::filter(amount > 10) |>
+      dplyr::group_by(customer_id) |>
+      dbplyr::window_order(order_date) |>
+      dplyr::transmute(rn = dplyr::row_number()),
+    desc_lag = dplyr::tbl(con, "orders") |>
+      dplyr::group_by(customer_id) |>
+      dbplyr::window_order(dplyr::desc(order_date)) |>
+      dplyr::mutate(prev = dplyr::lag(amount)),
+    ungrouped_cumsum = dplyr::tbl(con, "orders") |>
+      dbplyr::window_order(order_date) |>
+      dplyr::transmute(cum = cumsum(amount)),
+    no_window_control = dplyr::tbl(con, "orders") |>
+      dplyr::group_by(customer_id) |>
+      dplyr::mutate(bumped = amount + 1)
+  )
+
+  for (nm in names(queries)) {
+    r_lineage <- extract_lineage(
+      queries[[nm]],
+      engine = "r", include_indirect = TRUE
+    )
+    sqlglot_lineage <- extract_lineage(
+      queries[[nm]],
+      engine = "sqlglot", include_indirect = TRUE
+    )
+    expect_identical(edge_set(r_lineage), edge_set(sqlglot_lineage), label = nm)
+    expect_identical(node_ids(r_lineage), node_ids(sqlglot_lineage), label = nm)
+  }
+})
+
 test_that("schema-qualified duckdb tables trace identically in both engines", {
   skip_if_no_db_stack()
   con <- local_duckdb()

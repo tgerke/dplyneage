@@ -4,7 +4,9 @@
 # extract_lineage_from_sql() so convert_lineage_to_graph() is shared.
 #
 # lazy_query internals are not exported dbplyr API; every structure handled
-# here was verified against dbplyr 2.5+/2.6 and is exercised by
+# here was verified against dbplyr 2.5+/2.6 — including the per-row
+# group_vars/order_vars window state on select tibbles, which is what the
+# SQL generator renders OVER clauses from — and is exercised by
 # test-r-engine.R so upstream changes fail loudly. Unknown node classes
 # signal a classed condition that extract_lineage() can catch to fall back
 # to sqlglot.
@@ -51,13 +53,17 @@ unsupported_lineage <- function(what) {
 #' `list(output_name, expression, sources)`), `sql`, `dialect`, plus
 #' `engine = "r"`. Only select-list lineage creates sources — columns used
 #' solely in `filter()`, join conditions, or `arrange()` do not, matching
-#' sqlglot's lineage semantics.
+#' sqlglot's lineage semantics. A windowed expression's partition and
+#' ordering columns are part of its rendered `OVER` clause, so they count
+#' as select-list sources too.
 #'
 #' With `include_indirect = TRUE` the walk also collects the columns used
 #' in `filter()`, join keys, `group_by()`, and `arrange()` — the ones that
 #' shape the result without appearing in it — and returns them as
 #' `indirect`: a list of `list(table, column_name, kind)` where `kind` is
-#' one of `"filter"`, `"join"`, `"group_by"`, `"sort"`.
+#' one of `"filter"`, `"join"`, `"group_by"`, `"sort"`. Window ordering
+#' columns (`window_order()`, ranking arguments, `order_by =`) contribute
+#' `"sort"` entries alongside `arrange()`.
 #'
 #' @param tbl A dbplyr lazy table (`tbl_lazy`)
 #' @param dialect Dialect label recorded in the result metadata
@@ -249,6 +255,121 @@ classify_r_expression <- function(e) {
   if (any(all.names(e) %in% r_aggregate_funs)) "aggregation" else "transformation"
 }
 
+# The base translation env's window functions, for connections whose
+# sql_translation() method errors. cumall/cumany translate outside the
+# window env, and anyNA renders OVER () with no partition, so neither
+# may contribute partition or ordering sources.
+r_window_funs_fallback <- c(
+  "all", "any", "cor", "cov", "cume_dist", "cummax", "cummean", "cummin",
+  "cumsum", "dense_rank", "first", "lag", "last", "lead", "max", "mean",
+  "median", "min", "min_rank", "n", "n_distinct", "nth", "ntile",
+  "order_by", "percent_rank", "quantile", "rank", "row_number", "sd",
+  "sum", "var"
+)
+
+#' Function names dbplyr renders as windows on this backend
+#'
+#' sql_translation() is the exported backend API and the same lookup the
+#' SQL generator uses, so backend-added window functions are covered.
+#' Works on lazy_frame()'s simulated connections too.
+#' @noRd
+window_fun_names <- function(con) {
+  funs <- tryCatch(
+    ls(dbplyr::sql_translation(con)$window),
+    error = function(cnd) r_window_funs_fallback
+  )
+  setdiff(funs, "anyNA")
+}
+
+# Rank functions consume window_order() state only when called with no
+# arguments; given an argument, they order by the argument instead
+r_rank_funs <- c(
+  "row_number", "min_rank", "rank", "dense_rank", "percent_rank",
+  "cume_dist"
+)
+
+# Functions whose OVER clause orders by window_order()/arrange() state
+# unless an order_by = argument overrides it
+r_order_consuming_funs <- c(
+  "lag", "lead", "first", "last", "nth", "cumsum", "cummean", "cummax",
+  "cummin"
+)
+
+#' How an expression's window calls consume partition and ordering
+#'
+#' Recursive AST walk. `windowed`: the expression contains a call that
+#' renders with OVER, so the node's partition columns are among its
+#' sources. `uses_order_vars`: some call renders ORDER BY from the
+#' node's window_order()/arrange() state. `order_arg_vars`: columns a
+#' call orders by through its own arguments — `min_rank(x)`,
+#' `ntile(x, n)`, `lag(x, order_by = y)`, or the inline `order_by(o, )`
+#' wrapper — which reach OVER (ORDER BY ...) without being node state.
+#' Rendering rules verified against dbplyr 2.6.
+#' @noRd
+analyze_window_calls <- function(e, window_funs, order_overridden = FALSE) {
+  out <- list(
+    windowed = FALSE,
+    uses_order_vars = FALSE,
+    order_arg_vars = character()
+  )
+  if (!is.call(e)) {
+    return(out)
+  }
+
+  fn <- e[[1]]
+  if (is.call(fn) && identical(fn[[1]], as.name("::"))) {
+    fn <- fn[[3]]
+  }
+  fn_name <- if (is.name(fn)) as.character(fn) else ""
+  args <- as.list(e)[-1]
+  arg_names <- names(args) %||% rep("", length(args))
+
+  merge_sub <- function(a, overridden) {
+    sub <- analyze_window_calls(a, window_funs, overridden)
+    out$windowed <<- out$windowed || sub$windowed
+    out$uses_order_vars <<- out$uses_order_vars || sub$uses_order_vars
+    out$order_arg_vars <<- c(out$order_arg_vars, sub$order_arg_vars)
+  }
+
+  if (fn_name == "order_by" && length(args) >= 1) {
+    # order_by(o, expr): o supplies ORDER BY for the windows inside expr
+    out$order_arg_vars <- all.vars(args[[1]])
+    for (a in args[-1]) {
+      merge_sub(a, TRUE)
+    }
+    return(out)
+  }
+
+  if (fn_name %in% window_funs) {
+    out$windowed <- TRUE
+    if (fn_name %in% r_rank_funs) {
+      if (length(args) == 0) {
+        out$uses_order_vars <- !order_overridden
+      } else {
+        out$order_arg_vars <- all.vars(args[[1]])
+      }
+    } else if (fn_name == "ntile") {
+      x_arg <- if ("x" %in% arg_names) {
+        args[["x"]]
+      } else if (any(arg_names == "")) {
+        args[[which(arg_names == "")[[1]]]]
+      }
+      out$order_arg_vars <- all.vars(x_arg)
+    } else if (fn_name %in% r_order_consuming_funs) {
+      if ("order_by" %in% arg_names) {
+        out$order_arg_vars <- all.vars(args[["order_by"]])
+      } else {
+        out$uses_order_vars <- !order_overridden
+      }
+    }
+  }
+
+  for (a in args) {
+    merge_sub(a, order_overridden)
+  }
+  out
+}
+
 #' Normalize a stored select expression to a bare expression
 #'
 #' dbplyr 2.5.x's partial evaluation wraps computed select expressions in
@@ -292,6 +413,27 @@ lineage_walk.lazy_select_query <- function(qry, con, collector = NULL) {
   note_indirect(collector, "group_by", all_expr_vars(qry$group_by), inner)
   note_indirect(collector, "sort", all_expr_vars(qry$order_by), inner)
   sel <- qry$select
+
+  # Window state lives on the select rows (uniform within a node); the
+  # SQL generator renders PARTITION BY/ORDER BY from these, never from
+  # the node-level group_by/order_by. Summarise rows carry empty state,
+  # which keeps GROUP BY aggregates window-free here. The vocabulary is
+  # also needed with a bare collector: min_rank(x) windows with no
+  # group/order state at all and must still emit its sort columns.
+  node_gv <- sel$group_vars %||% list()
+  node_ov <- sel$order_vars %||% list()
+  gv_at <- function(i) {
+    if (length(node_gv) >= i) node_gv[[i]] %||% character() else character()
+  }
+  ov_at <- function(i) {
+    if (length(node_ov) >= i) node_ov[[i]] %||% list() else list()
+  }
+  has_window_state <- any(lengths(node_gv) > 0) || any(lengths(node_ov) > 0)
+  win_funs <- if (has_window_state || !is.null(collector)) {
+    window_fun_names(con)
+  }
+  window_sort_vars <- character()
+
   cols <- vector("list", nrow(sel))
   names(cols) <- sel$name
   for (i in seq_len(nrow(sel))) {
@@ -308,12 +450,28 @@ lineage_walk.lazy_select_query <- function(qry, con, collector = NULL) {
       next
     }
     vars <- intersect(all.vars(e), names(inner))
+    if (!is.null(win_funs)) {
+      win <- analyze_window_calls(e, win_funs)
+      if (win$windowed) {
+        # Partition and ordering columns are part of the rendered OVER
+        # clause, so they are direct sources of the windowed column,
+        # matching what the sqlglot engine reads from the SQL
+        vars <- union(vars, intersect(gv_at(i), names(inner)))
+        if (win$uses_order_vars) {
+          ov <- all_expr_vars(ov_at(i))
+          vars <- union(vars, intersect(ov, names(inner)))
+          window_sort_vars <- c(window_sort_vars, ov)
+        }
+        window_sort_vars <- c(window_sort_vars, win$order_arg_vars)
+      }
+    }
     cols[[i]] <- list(
       expression = deparse1(e),
       type = classify_r_expression(e),
       sources = combine_sources(lapply(vars, function(v) inner[[v]]$sources))
     )
   }
+  note_indirect(collector, "sort", unique(window_sort_vars), inner)
   cols
 }
 

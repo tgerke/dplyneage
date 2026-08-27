@@ -128,7 +128,7 @@ test_that("n() yields a column with no incoming edges", {
   expect_identical(node_columns(lineage, "output"), c("customer_id", "n_orders"))
 })
 
-test_that("grouped (window) mutates trace like any other expression", {
+test_that("window partition and ordering columns are direct sources", {
   skip_if_no_r_engine()
 
   lineage <- orders_lf() |>
@@ -137,10 +137,108 @@ test_that("grouped (window) mutates trace like any other expression", {
     dplyr::transmute(running = cumsum(amount)) |>
     extract_lineage(engine = "r")
 
+  # cumsum renders OVER (PARTITION BY customer_id ORDER BY order_date),
+  # so both clause columns feed `running` alongside amount, exactly as
+  # the sqlglot engine reads them out of the rendered SQL
   expect_edges(lineage, c(
     "orders.customer_id -> customer_id",
-    "orders.amount -> running"
+    "orders.amount -> running",
+    "orders.customer_id -> running",
+    "orders.order_date -> running"
   ))
+})
+
+test_that("windows classify by function and desc() ordering resolves", {
+  skip_if_no_r_engine()
+
+  lineage <- orders_lf() |>
+    dplyr::group_by(customer_id) |>
+    dbplyr::window_order(dplyr::desc(order_date)) |>
+    dplyr::transmute(
+      rn = dplyr::row_number(),
+      total = sum(amount, na.rm = TRUE)
+    ) |>
+    extract_lineage(engine = "r")
+
+  edges <- lineage_edges(lineage)
+  rn <- edges[edges$target_column == "rn", ]
+  expect_setequal(rn$source_column, c("customer_id", "order_date"))
+  expect_identical(unique(rn$transformation), "transformation")
+
+  # a plain aggregate windows without ORDER BY: no order_date source
+  total <- edges[edges$target_column == "total", ]
+  expect_setequal(total$source_column, c("amount", "customer_id"))
+  expect_identical(unique(total$transformation), "aggregation")
+})
+
+test_that("grouped mutates without window functions gain no sources", {
+  skip_if_no_r_engine()
+
+  lineage <- orders_lf() |>
+    dplyr::group_by(customer_id) |>
+    dplyr::mutate(bumped = amount + 1) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  edges <- lineage_edges(lineage)
+  bumped <- edges[edges$target_column == "bumped", ]
+  expect_identical(bumped$source_column, "amount")
+  expect_false(any(edges$transformation %in% c("sort", "group_by")))
+})
+
+test_that("explicit ordering arguments override window_order()", {
+  skip_if_no_r_engine()
+
+  lineage <- orders_lf() |>
+    dplyr::group_by(customer_id) |>
+    dbplyr::window_order(order_date) |>
+    dplyr::transmute(prev = dplyr::lag(amount, order_by = order_id)) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  edges <- lineage_edges(lineage)
+  prev <- edges[edges$target_column == "prev" & edges$transformation != "sort", ]
+  expect_setequal(prev$source_column, c("amount", "order_id", "customer_id"))
+  expect_false("order_date" %in% edges$source_column)
+  expect_setequal(
+    edges[edges$transformation == "sort", ]$source_column,
+    "order_id"
+  )
+})
+
+test_that("window ordering emits indirect sort edges with fan-out", {
+  skip_if_no_r_engine()
+
+  lineage <- orders_lf() |>
+    dplyr::group_by(customer_id) |>
+    dbplyr::window_order(order_date) |>
+    dplyr::transmute(
+      rn = dplyr::row_number(),
+      total = sum(amount, na.rm = TRUE)
+    ) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  edges <- lineage_edges(lineage)
+  sort_edges <- edges[edges$transformation == "sort", ]
+  # order_date -> rn is already direct, so the indirect fan-out reaches
+  # only the other outputs
+  expect_setequal(
+    paste0(sort_edges$source_column, "->", sort_edges$target_column),
+    c("order_date->customer_id", "order_date->total")
+  )
+})
+
+test_that("rank functions with an argument order by the argument", {
+  skip_if_no_r_engine()
+
+  lineage <- orders_lf() |>
+    dplyr::transmute(rnk = dplyr::min_rank(amount)) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  edges <- lineage_edges(lineage)
+  rnk <- edges[edges$target_column == "rnk" & edges$transformation != "sort", ]
+  expect_identical(rnk$source_column, "amount")
+  # OVER (ORDER BY amount) with no partition; transmute keeps only rnk
+  # and amount -> rnk is direct, so no indirect edge survives dedupe
+  expect_false(any(edges$transformation == "sort"))
 })
 
 test_that("left joins attribute columns to the correct side", {
@@ -482,6 +580,9 @@ test_that("group keys and sort columns are classified by use", {
   # aggregate column gains the indirect group_by edge
   expect_identical(group_by$source_column, "customer_id")
   expect_identical(group_by$target_column, "total_spent")
+  # summarise rows carry no window state: GROUP BY aggregates must not
+  # pick up window partition or ordering sources
+  expect_false(any(edges$transformation == "sort"))
 
   sorted <- orders_lf() |>
     dplyr::arrange(dplyr::desc(order_date)) |>
