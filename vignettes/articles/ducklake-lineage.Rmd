@@ -153,7 +153,7 @@ get_ducklake_table_version("orders", first_version) |>
 
 One implementation detail surfaces here. `get_ducklake_table_version()` builds its query from raw SQL (`AT (VERSION => ...)` under the hood), which the pure-R engine can't see inside — so `extract_lineage()` falls back to the sqlglot engine, with a message. sqlglot parses DuckDB's time-travel syntax and traces the columns identically; the only practical difference is that this path uses dplyneage's Python dependency (provisioned automatically — see `vignette("python-integration")`).
 
-The diagram is the same at every version, and that's the point: snapshots change what the data *was*, not where the columns *come from*. If a refactor ever does change provenance, `lineage_json()` gives you a stable document you can commit and diff in CI — see `vignette("getting-started")`.
+The diagram is the same at every version, and that's the point: snapshots change what the data *was*, not where the columns *come from*. If a refactor ever does change provenance, `lineage_check()` can fail the pull request that introduced it — the [lineage checks in CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html) article has a copy-paste GitHub Actions job.
 
 ```{r, include = FALSE}
 detach_ducklake()

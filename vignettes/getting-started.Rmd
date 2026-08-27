@@ -225,7 +225,7 @@ Nodes come in three types — `"source"` (blue), `"transform"` (orange), and `"t
 
 Diagrams answer questions interactively; sometimes you need the same lineage as plain data. Two exporters cover the common cases.
 
-`lineage_json()` serializes the nodes, edges, and metadata to a small, stable JSON document. Because the output is deterministic, you can commit it alongside your pipeline code and let CI diff it: if a refactor silently changes where a column comes from, the diff shows it before it ships. It is also the natural handoff format for data catalogs or anything scriptable with jq.
+`lineage_json()` serializes the nodes, edges, and metadata to a small, stable JSON document, stamped with a `format_version` so consumers can rely on its shape (see `?lineage_json` for the full schema). Because the output is deterministic, you can commit it alongside your pipeline code and let CI diff it: if a refactor silently changes where a column comes from, the diff shows it before it ships — the [lineage checks in CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html) article turns that into a one-call gate with `lineage_check()`. It is also the natural handoff format for data catalogs or anything scriptable with jq.
 
 ```{r}
 lineage <- tbl(con, "customers") |>

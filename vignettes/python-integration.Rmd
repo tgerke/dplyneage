@@ -84,7 +84,7 @@ Both engines emit the same lineage metadata, so everything downstream is shared.
 ### Key Components
 
 1. **R/lineage_r_engine.R**: The pure-R engine
-   - Walks dbplyr's lazy query tree, reading exact column provenance through selects, mutates, joins, and set operations — no SQL parsing, no Python
+   - Walks dbplyr's lazy query tree, reading exact column provenance through selects, mutates, window functions, joins, and set operations — no SQL parsing, no Python
 
 2. **R/zzz.R**: Package initialization
    - `.onLoad()`: declares the sqlglot requirement via `py_require()` and imports the bundled Python module with `delay_load` (Python does not start until first use)
