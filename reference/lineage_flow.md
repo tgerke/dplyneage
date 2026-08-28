@@ -88,6 +88,13 @@ clicking the background, or pressing Escape releases it. In Shiny, the
 traced column is reported as `input$<outputId>_selected`, a list with
 `table` and `column` entries (`NULL` when nothing is traced).
 
+Hovering a column shows a small card with its captured type and label
+(see
+[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)'s
+`schema` and `labels` arguments); columns with neither stay quiet. The
+static SVG fallback shows the same information through native browser
+tooltips.
+
 ## See also
 
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)

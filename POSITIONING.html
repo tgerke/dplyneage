@@ -62,6 +62,7 @@
 <ul><li>Indirect lineage: <code>include_indirect = TRUE</code> draws filter, join, group, and sort columns (window ordering included, since #5). dbt Catalog explicitly excludes these; sqlglot and sqllineage trace SELECT projections only.</li>
 <li>OpenLineage emission with the <code>transformations[]</code> facet: sqlglot, sqllineage, and dbt-colibri emit no OpenLineage at all.</li>
 <li>Lineage as a merge gate: <code><a href="reference/lineage_diff.html">lineage_diff()</a></code> classifies every change as breaking or non-breaking by downstream blast radius, and <code><a href="reference/lineage_check.html">lineage_check()</a></code> fails CI on it (#2, #3). This is SQLMesh’s semantic-diff idea at dplyneage’s scale; dbt’s equivalent is paid Advanced CI.</li>
+<li>Column descriptions from R metadata: haven/labelled <code>label</code> attributes and database column comments become diagram tooltips and OpenLineage schema-facet descriptions, propagated along identity edges (#15). The propagation matches dbt Catalog; reading labels off R frames is something no SQL-text tool can do.</li>
 </ul></div>
 <div class="section level2">
 <h2 id="per-tool-reference-august-2026">Per-tool reference (August 2026)<a class="anchor" aria-label="anchor" href="#per-tool-reference-august-2026"></a></h2>
@@ -87,7 +88,7 @@
 <li>
 <strong>Tier 3</strong> (#10–#13, visualization and API parity: click-to-trace cone, widget chrome — minimap, PNG export, dark mode, legend, Shiny input — table-level impact queries and the <code><a href="reference/lineage_unused.html">lineage_unused()</a></code> dead-column report, column-level SVG fallback): shipped in 0.3.0.9000.</li>
 <li>
-<strong>Tier 4</strong> (#14–#16): strategic bets — arrow/dtplyr/duckplyr engines, label and description propagation, targets integration.</li>
+<strong>Tier 4</strong> (#14–#16): strategic bets. Label and description propagation shipped in 0.3.0.9000 (#15): <code>label</code> attributes and database column comments carried on nodes, propagated along identity edges, shown in widget tooltips, and emitted as OpenLineage schema-facet descriptions. arrow/dtplyr/duckplyr engines (#14) and targets integration (#16) remain open.</li>
 </ul></div>
 <div class="section level2">
 <h2 id="non-goals">Non-goals<a class="anchor" aria-label="anchor" href="#non-goals"></a></h2>

@@ -13,6 +13,7 @@ extract_lineage(
   sql,
   dialect = NULL,
   schema = NULL,
+  labels = NULL,
   show_sql = FALSE,
   engine = c("auto", "sqlglot", "r"),
   include_indirect = FALSE
@@ -57,6 +58,23 @@ extract_lineage(
   strings — the R engine reads exact provenance from the lazy query
   tree, and a lazy table that falls back to sqlglot harvests its schema
   from the database connection automatically.
+
+- labels:
+
+  Optional human-readable column labels: a named list mapping node ids
+  to named character vectors, e.g.
+  `list(orders = c(amount = "Order amount in USD"))`. Node ids are base
+  table names, pipeline model names, or `"output"` for a single query's
+  result. Labels ride on the matching nodes, show in
+  [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
+  tooltips, land in
+  [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md),
+  and become each schema-facet field's `description` in
+  [`lineage_openlineage()`](https://tgerke.github.io/dplyneage/reference/lineage_openlineage.md).
+  Entries here win over the two automatic sources: `label` attributes on
+  a local frame's columns (the haven/labelled convention), and column
+  comments read from the table's live database connection (duckdb and
+  postgres; other backends are skipped quietly).
 
 - show_sql:
 
@@ -170,7 +188,7 @@ library(dplyr)
 
 con <- DBI::dbConnect(duckdb::duckdb())
 #> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/RtmparfIgK/duckdb
+#> ℹ /tmp/RtmpoQQeK4/duckdb
 #> This is removed when the R session ends.
 #> • Extensions are re-downloaded each session.
 #> • Secrets are lost.

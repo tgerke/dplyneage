@@ -24,7 +24,7 @@ library(dplyr, warn.conflicts = FALSE)
 
 con <- DBI::dbConnect(duckdb::duckdb())
 #> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/RtmpMZREHD/duckdb
+#> ℹ /tmp/RtmpavPAaQ/duckdb
 #> This is removed when the R session ends.
 #> • Extensions are re-downloaded each session.
 #> • Secrets are lost.
@@ -107,7 +107,8 @@ lineage_openlineage(
 #>           "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
 #>           "fields": [
 #>             {
-#>               "name": "customer_id"
+#>               "name": "customer_id",
+#>               "type": "INTEGER"
 #>             },
 #>             {
 #>               "name": "total"
@@ -176,14 +177,20 @@ have no data store, so their datasets keep the `dplyneage` default.
 Passing `namespace =` overrides all of it. URI-shaped namespaces also
 appear in each dataset’s `dataSource` facet.
 
-**Schema facets carry types when they are known.** Two ways to get them:
-on the sqlglot engine, extraction harvests names and types from the
-connection with a zero-row probe per table; on any engine, a `schema`
-argument with named entries (as above) supplies them directly. The R
-engine never queries the database, so extractions that stay on it report
-types only when you pass them. Whatever is captured also lands in
+**Schema facets carry types and descriptions when they are known.**
+Types arrive two ways: on the sqlglot engine, extraction harvests names
+and types from the connection with a zero-row probe per table; on any
+engine, a `schema` argument with named entries (as above) supplies them
+directly. The R engine skips the probe, so extractions that stay on it
+report types only when you pass them. Field descriptions come from
+column labels, which every engine collects: the `label` attributes haven
+and labelled put on imported columns, column comments read from a live
+connection’s catalog (duckdb and postgres; one small metadata query per
+base table), or a `labels` argument like
+`labels = list(orders = c(amount = "Order amount in USD"))`, which wins
+over both. Whatever is captured also lands in
 [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
-as a per-node `types` map.
+as per-node `types` and `labels` maps.
 
 **Indirect lineage sits at the dataset level.** With
 `extract_lineage(include_indirect = TRUE)`, filter, join, group and sort

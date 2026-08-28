@@ -7,6 +7,26 @@ package against current column-level lineage tooling (SQLMesh, dbt,
 sqlglot, OpenLineage). The remaining roadmap from the audit is filed as
 tiered issues on GitHub.
 
+- Column labels now travel through lineage.
+  [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
+  reads `label` attributes from local frames (the haven/labelled
+  convention), reads column comments from a live duckdb or postgres
+  connection on any engine, and takes a `labels` argument —
+  `list(orders = c(amount = "Order amount in USD"))` — that wins over
+  both. Labels and column types then propagate along identity edges, the
+  way dbt Catalog carries descriptions through passthrough columns: a
+  renamed or selected-through column reports its source’s metadata,
+  aggregations stay bare, and a column fed conflicting values inherits
+  nothing. Hovering a column in
+  [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
+  shows a themed card with its type and label (native tooltips in the
+  SVG fallback),
+  [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+  adds a per-node `labels` map, and OpenLineage schema-facet fields gain
+  a `description`. Note `labels` sits after `schema` in the signature,
+  so positional `show_sql`/`engine`/ `include_indirect` arguments shift
+  by one. ([\#15](https://github.com/tgerke/dplyneage/issues/15))
+
 - [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
   grows its widget chrome: `theme = "dark"` (or `"auto"`, following the
   viewer’s OS preference) redraws the whole diagram on a dark palette;
@@ -40,6 +60,17 @@ tiered issues on GitHub.
   able to edit it, matching the earlier `nodesConnectable` fix), and
   re-rendering the widget — as Shiny does — now unmounts the previous
   React tree instead of leaking it.
+
+- [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
+  diagrams no longer stick at minimum zoom when the initial fit races
+  the embedding page’s layout. React Flow computes its first fit on
+  mount, and a container measured at an interim size (an embedding pane
+  still settling) passed the existing nonzero-size guard, clamped the
+  viewport to minZoom, and stayed there: the htmlwidgets resize hook
+  only hears window resizes, not element reflows. The widget now
+  observes its own element and re-fits when the element’s size changes,
+  which also makes the 0.2.1 resize behavior work in hosts that resize
+  elements without a window resize event.
 
 - The static SVG fallback — drawn when the bundled React Flow assets
   cannot load — is now a real lineage diagram: table boxes with their

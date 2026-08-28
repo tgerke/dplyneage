@@ -220,7 +220,12 @@ event carries job facets: <code>jobType</code> (<code>BATCH</code>/<code>DPLYNEA
 for single-model lineage, <code>sql</code> with the analyzed query and its
 dialect. Schema facet fields include a <code>type</code> when column types were
 captured — from a live connection's tables, or a <code>schema</code> argument
-with named entries like <code>list(orders = list(amount = "DOUBLE"))</code>.
+with named entries like <code>list(orders = list(amount = "DOUBLE"))</code> —
+and a <code>description</code> when column labels were: from <code>label</code> attributes
+on a local frame (the haven/labelled convention), database column
+comments, or <code><a href="extract_lineage.html">extract_lineage()</a></code>'s <code>labels</code> argument. Both propagate
+along identity edges, so an output dataset's passthrough columns
+report their source columns' types and descriptions.
 Indirect edges land in the <code>columnLineage</code> facet's dataset-level
 <code>dataset</code> array rather than under individual output columns: filter,
 join, group and sort columns shape the whole result, which is exactly

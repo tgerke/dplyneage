@@ -288,11 +288,51 @@ well (<code>copy_to(con, df)</code>); <code><a href="https://dbplyr.tidyverse.or
 the fastest route when no connection exists and none is needed.</p>
 </div>
 <div class="section level2">
+<h2 id="column-labels">Column labels<a class="anchor" aria-label="anchor" href="#column-labels"></a>
+</h2>
+<p>Column names say what a thing is called; labels say what it means. R
+data often has them already: haven and labelled store a
+<code>label</code> attribute on every column imported from SAS, SPSS, or
+Stata, and database tables keep the same idea as column comments.
+<code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> collects both — <code>label</code>
+attributes from local frames, comments from a live duckdb or postgres
+connection — and a <code>labels</code> argument covers everything else,
+winning over the automatic sources:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">sales_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  customer_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span>,</span>
+<span>  amount <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">100</span>, <span class="fl">250</span>, <span class="fl">40</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">sales_df</span><span class="op">$</span><span class="va">amount</span>, <span class="st">"label"</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="st">"Order amount in USD"</span></span>
+<span></span>
+<span><span class="va">lineage</span> <span class="op">&lt;-</span> <span class="fu">dbplyr</span><span class="fu">::</span><span class="fu"><a href="https://dbplyr.tidyverse.org/reference/tbl_lazy.html" class="external-link">tbl_lazy</a></span><span class="op">(</span><span class="va">sales_df</span>, name <span class="op">=</span> <span class="st">"sales"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">customer_id</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/summarise.html" class="external-link">summarise</a></span><span class="op">(</span>total <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">amount</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">jsonlite</span><span class="fu">::</span><span class="fu"><a href="https://jeroen.r-universe.dev/jsonlite/reference/fromJSON.html" class="external-link">fromJSON</a></span><span class="op">(</span><span class="fu"><a href="../reference/lineage_json.html">lineage_json</a></span><span class="op">(</span><span class="va">lineage</span><span class="op">)</span>, simplifyVector <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">$</span><span class="va">nodes</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">labels</span></span>
+<span><span class="co">#&gt; $amount</span></span>
+<span><span class="co">#&gt; [1] "Order amount in USD"</span></span></code></pre></div>
+<p>Labels follow the data through the graph. A column that passes
+through a <code><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select()</a></code>, <code><a href="https://dplyr.tidyverse.org/reference/rename.html" class="external-link">rename()</a></code>, or join
+unchanged carries its label (and its type, when one was captured) to the
+downstream node, the way dbt Catalog carries descriptions through
+passthrough columns. Aggregated and computed columns stay unlabeled
+unless you label them yourself — a <code>labels</code> entry keyed by a
+model’s name, or by <code>"output"</code> for a single query, does
+that.</p>
+<p>In <code><a href="../reference/lineage_flow.html">lineage_flow()</a></code>, hovering a labeled column shows a
+card with the label and type. <code><a href="../reference/lineage_json.html">lineage_json()</a></code> records them
+as per-node <code>labels</code> and <code>types</code> maps, and each
+OpenLineage schema-facet field gains a <code>description</code> — the <a href="https://tgerke.github.io/dplyneage/articles/openlineage.html">OpenLineage
+article</a> covers that side.</p>
+</div>
+<div class="section level2">
 <h2 id="building-diagrams-by-hand">Building diagrams by hand<a class="anchor" aria-label="anchor" href="#building-diagrams-by-hand"></a>
 </h2>
 <p>For documentation or design sketches, skip extraction entirely and
 build the diagram yourself:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">nodes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="../reference/create_table_node.html">create_table_node</a></span><span class="op">(</span></span>
 <span>    table_name <span class="op">=</span> <span class="st">"customers"</span>,</span>
@@ -338,7 +378,7 @@ diff shows it before it ships — the <a href="https://tgerke.github.io/dplyneag
 checks in CI</a> article turns that into a one-call gate with
 <code><a href="../reference/lineage_check.html">lineage_check()</a></code>. It is also the natural handoff format for
 data catalogs or anything scriptable with jq.</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">lineage</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"customers"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"orders"</span><span class="op">)</span>, by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"id"</span> <span class="op">=</span> <span class="st">"customer_id"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">id</span>, <span class="va">name</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -413,7 +453,7 @@ possible. The classic one is impact analysis — “if
 <code>orders.amount</code> changes, which outputs are affected?” — or
 its reverse, tracing an output back to every source column that feeds
 it:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".graphml"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/lineage_graphml.html">lineage_graphml</a></span><span class="op">(</span><span class="va">lineage</span>, <span class="va">path</span><span class="op">)</span></span>
 <span></span>
@@ -421,12 +461,12 @@ it:</p>
 <span></span>
 <span><span class="co"># Everything upstream of total_spent</span></span>
 <span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"output.total_spent"</span>, mode <span class="op">=</span> <span class="st">"in"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; + 2/6 vertices, named, from 0eacf3c:</span></span>
+<span><span class="co">#&gt; + 2/6 vertices, named, from 8731c9d:</span></span>
 <span><span class="co">#&gt; [1] output.total_spent orders.amount</span></span>
 <span></span>
 <span><span class="co"># Everything downstream of orders.amount</span></span>
 <span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"orders.amount"</span>, mode <span class="op">=</span> <span class="st">"out"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; + 2/6 vertices, named, from 0eacf3c:</span></span>
+<span><span class="co">#&gt; + 2/6 vertices, named, from 8731c9d:</span></span>
 <span><span class="co">#&gt; [1] orders.amount      output.total_spent</span></span></code></pre></div>
 <p>Both functions return the serialized string when called without
 <code>path</code>, so they compose in pipes and tests.</p>

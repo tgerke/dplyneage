@@ -105,10 +105,13 @@ namespace URI inferred from that connection. The top-level
 <code>dialect</code> and <code>engine</code> collapse across models, to <code>"mixed"</code> when
 models disagree.</p></li>
 <li><p><code>nodes</code>: objects with <code>id</code>, <code>type</code> (<code>"source"</code>, <code>"transform"</code>, or
-<code>"target"</code>), and <code>columns</code>. A source node whose column types were
-captured (from a live connection's schema, or a typed <code>schema</code>
-argument) also carries <code>types</code>, a column-to-type map covering the
-typed subset of its columns.</p></li>
+<code>"target"</code>), and <code>columns</code>. A node whose columns carry types (from
+a live connection's schema, or a typed <code>schema</code> argument) adds
+<code>types</code>, a column-to-type map over that subset; one whose columns
+carry labels (<code>label</code> attributes on a local frame, database column
+comments, or a <code>labels</code> argument) adds <code>labels</code>, shaped the same
+way. Both spread along identity edges, so a passthrough column
+reports its source column's type and label.</p></li>
 <li><p><code>edges</code>: objects with <code>source</code>, <code>source_column</code>, <code>target</code>, and
 <code>target_column</code>. Edges from <code><a href="extract_lineage.html">extract_lineage()</a></code> also carry
 <code>transformation</code> and, on direct edges, <code>expression</code>. An indirect

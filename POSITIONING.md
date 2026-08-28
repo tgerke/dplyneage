@@ -65,6 +65,11 @@ package stands:
   [`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md)
   fails CI on it (#2, \#3). This is SQLMesh’s semantic-diff idea at
   dplyneage’s scale; dbt’s equivalent is paid Advanced CI.
+- Column descriptions from R metadata: haven/labelled `label` attributes
+  and database column comments become diagram tooltips and OpenLineage
+  schema-facet descriptions, propagated along identity edges (#15). The
+  propagation matches dbt Catalog; reading labels off R frames is
+  something no SQL-text tool can do.
 
 ## Per-tool reference (August 2026)
 
@@ -105,8 +110,12 @@ package stands:
   input — table-level impact queries and the
   [`lineage_unused()`](https://tgerke.github.io/dplyneage/reference/lineage_unused.md)
   dead-column report, column-level SVG fallback): shipped in 0.3.0.9000.
-- **Tier 4** (#14–#16): strategic bets — arrow/dtplyr/duckplyr engines,
-  label and description propagation, targets integration.
+- **Tier 4** (#14–#16): strategic bets. Label and description
+  propagation shipped in 0.3.0.9000 (#15): `label` attributes and
+  database column comments carried on nodes, propagated along identity
+  edges, shown in widget tooltips, and emitted as OpenLineage
+  schema-facet descriptions. arrow/dtplyr/duckplyr engines (#14) and
+  targets integration (#16) remain open.
 
 ## Non-goals
 

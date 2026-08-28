@@ -113,7 +113,7 @@
 <li>walks the pipeline’s lazy query tree in pure R, tracing every output column to its source columns (joins, aggregations, unions, and multi-source computed columns all resolve exactly)</li>
 <li>falls back to sqlglot’s lineage engine when the pipeline injects raw SQL with <code><a href="https://dbplyr.tidyverse.org/reference/sql.html" class="external-link">dbplyr::sql()</a></code>, or when you pass a SQL string directly (that path handles aliases, CTEs, and subqueries, and reads table schemas from your connection so unqualified columns attribute correctly)</li>
 </ul>
-<p>The resulting diagram is fully interactive: drag tables to rearrange, zoom and pan, and hover columns to highlight their connections. Click a column and the diagram isolates its trace cone — everything upstream and downstream of that column — until you click again or press Escape. Computed columns carry their defining expression as an edge label, and aggregation edges animate. <code><a href="reference/lineage_flow.html">lineage_flow()</a></code> also takes <code>theme = "dark"</code> (or <code>"auto"</code>), <code>minimap = TRUE</code> for an overview map, and a PNG download button lives in the zoom controls.</p>
+<p>The resulting diagram is fully interactive: drag tables to rearrange, zoom and pan, and hover columns to highlight their connections — when a column’s type or label was captured, the hover also shows a small card with both. Click a column and the diagram isolates its trace cone — everything upstream and downstream of that column — until you click again or press Escape. Computed columns carry their defining expression as an edge label, and aggregation edges animate. <code><a href="reference/lineage_flow.html">lineage_flow()</a></code> also takes <code>theme = "dark"</code> (or <code>"auto"</code>), <code>minimap = TRUE</code> for an overview map, and a PNG download button lives in the zoom controls.</p>
 </div>
 <div class="section level2">
 <h2 id="local-data-frames">Local data frames<a class="anchor" aria-label="anchor" href="#local-data-frames"></a>
@@ -134,7 +134,7 @@
 <span>  <span class="fu"><a href="reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"350px"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="reference/figures/README-unnamed-chunk-4-1.png" alt="Column-level lineage diagram tracing the summarised output table's total column back to the amount column of the sales source table"></p>
-<p>A <code><a href="https://dbplyr.tidyverse.org/reference/tbl_lazy.html" class="external-link">tbl_lazy()</a></code> pipeline can’t be collected, since there is no database to run it against; lineage never runs the query, so a diagram doesn’t need one. To keep the pipeline runnable too, <code><a href="https://dbplyr.tidyverse.org/reference/memdb.html" class="external-link">dbplyr::memdb_frame()</a></code> builds the data in throwaway in-memory SQLite instead, and <code>copy_to(dbplyr::memdb(), df, name = "df")</code> does the same for a frame you already have. Lineage depends only on the pipeline’s structure, never on the data, so copying a slice with <code>head(df)</code> yields the same diagram as copying every row. See the <a href="https://tgerke.github.io/dplyneage/articles/getting-started.html#local-data-frames">Local data frames</a> section of the getting-started vignette for more.</p>
+<p>A <code><a href="https://dbplyr.tidyverse.org/reference/tbl_lazy.html" class="external-link">tbl_lazy()</a></code> pipeline can’t be collected, since there is no database to run it against; lineage never runs the query, so a diagram doesn’t need one. To keep the pipeline runnable too, <code><a href="https://dbplyr.tidyverse.org/reference/memdb.html" class="external-link">dbplyr::memdb_frame()</a></code> builds the data in throwaway in-memory SQLite instead, and <code>copy_to(dbplyr::memdb(), df, name = "df")</code> does the same for a frame you already have. Lineage depends only on the pipeline’s structure, never on the data, so copying a slice with <code>head(df)</code> yields the same diagram as copying every row. Column <code>label</code> attributes on the frame — the convention haven and labelled use for imported SAS, SPSS, and Stata data — ride along too: they show as hover cards in the diagram, propagate to downstream columns along identity edges, and become field <code>description</code>s in the OpenLineage export. Database column comments (duckdb, postgres) and a <code>labels</code> argument feed the same machinery. See the <a href="https://tgerke.github.io/dplyneage/articles/getting-started.html#local-data-frames">Local data frames</a> section of the getting-started vignette for more.</p>
 </div>
 <div class="section level2">
 <h2 id="multi-model-pipelines">Multi-model pipelines<a class="anchor" aria-label="anchor" href="#multi-model-pipelines"></a>
@@ -333,9 +333,9 @@
 <span></span>
 <span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/read_graph.html" class="external-link">read_graph</a></span><span class="op">(</span><span class="va">path</span>, format <span class="op">=</span> <span class="st">"graphml"</span><span class="op">)</span></span>
 <span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"output.total_spent"</span>, mode <span class="op">=</span> <span class="st">"in"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; + 2/6 vertices, named, from 219589f:</span></span>
+<span><span class="co">#&gt; + 2/6 vertices, named, from f8a2fa3:</span></span>
 <span><span class="co">#&gt; [1] output.total_spent orders.amount</span></span></code></pre></div>
-<p>For data catalogs, <code><a href="reference/lineage_openlineage.html">lineage_openlineage()</a></code> emits <a href="https://openlineage.io/" class="external-link">OpenLineage</a> events, the interchange format Marquez, DataHub, and OpenMetadata ingest. Dataset namespaces come from the table’s actual connection, schema facets carry column types, and <code>events = "job"</code> produces the spec’s run-less design-time events, one per model. <code><a href="reference/lineage_emit.html">lineage_emit()</a></code> POSTs any of it to a running backend:</p>
+<p>For data catalogs, <code><a href="reference/lineage_openlineage.html">lineage_openlineage()</a></code> emits <a href="https://openlineage.io/" class="external-link">OpenLineage</a> events, the interchange format Marquez, DataHub, and OpenMetadata ingest. Dataset namespaces come from the table’s actual connection, schema facets carry column types and descriptions (from <code>label</code> attributes, database comments, or a <code>labels</code> argument), and <code>events = "job"</code> produces the spec’s run-less design-time events, one per model. <code><a href="reference/lineage_emit.html">lineage_emit()</a></code> POSTs any of it to a running backend:</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="reference/lineage_openlineage.html">lineage_openlineage</a></span><span class="op">(</span><span class="va">lineage</span>, events <span class="op">=</span> <span class="st">"job"</span><span class="op">)</span>          <span class="co"># run-less JobEvents, NDJSON</span></span>
 <span><span class="fu"><a href="reference/lineage_emit.html">lineage_emit</a></span><span class="op">(</span><span class="va">lineage</span>, url <span class="op">=</span> <span class="st">"http://localhost:5000"</span><span class="op">)</span>  <span class="co"># straight into Marquez</span></span></code></pre></div>
@@ -395,6 +395,15 @@
 <td>—</td>
 <td>Advanced CI (paid)</td>
 <td>semantic diff</td>
+</tr>
+<tr>
+<td>Column labels / descriptions</td>
+<td>
+<code>label</code> attributes + DB comments, propagated</td>
+<td>—</td>
+<td>—</td>
+<td>Catalog (Enterprise)</td>
+<td>—</td>
 </tr>
 <tr>
 <td>OpenLineage export</td>

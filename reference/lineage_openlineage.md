@@ -165,12 +165,18 @@ event carries job facets: `jobType` (`BATCH`/`DPLYNEAGE`/`QUERY`) and,
 for single-model lineage, `sql` with the analyzed query and its dialect.
 Schema facet fields include a `type` when column types were captured —
 from a live connection's tables, or a `schema` argument with named
-entries like `list(orders = list(amount = "DOUBLE"))`. Indirect edges
-land in the `columnLineage` facet's dataset-level `dataset` array rather
-than under individual output columns: filter, join, group and sort
-columns shape the whole result, which is exactly what that array
-expresses. Optional run facets (`nominalTime`, `parent`) attach through
-the matching arguments.
+entries like `list(orders = list(amount = "DOUBLE"))` — and a
+`description` when column labels were: from `label` attributes on a
+local frame (the haven/labelled convention), database column comments,
+or
+[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)'s
+`labels` argument. Both propagate along identity edges, so an output
+dataset's passthrough columns report their source columns' types and
+descriptions. Indirect edges land in the `columnLineage` facet's
+dataset-level `dataset` array rather than under individual output
+columns: filter, join, group and sort columns shape the whole result,
+which is exactly what that array expresses. Optional run facets
+(`nominalTime`, `parent`) attach through the matching arguments.
 
 ## See also
 

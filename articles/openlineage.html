@@ -88,7 +88,7 @@ document. The fixture here is a small duckdb warehouse with an
 <span></span>
 <span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbConnect.html" class="external-link">dbConnect</a></span><span class="op">(</span><span class="fu">duckdb</span><span class="fu">::</span><span class="fu"><a href="https://r.duckdb.org/reference/duckdb.html" class="external-link">duckdb</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; duckdb keeps downloaded extensions and secrets in a temporary directory:</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> /tmp/RtmpMZREHD/duckdb</span></span>
+<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> /tmp/RtmpavPAaQ/duckdb</span></span>
 <span><span class="co">#&gt; This is removed when the R session ends.</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Extensions are re-downloaded each session.</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Secrets are lost.</span></span>
@@ -171,7 +171,8 @@ document. The fixture here is a small duckdb warehouse with an
 <span><span class="co">#&gt;           "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",</span></span>
 <span><span class="co">#&gt;           "fields": [</span></span>
 <span><span class="co">#&gt;             {</span></span>
-<span><span class="co">#&gt;               "name": "customer_id"</span></span>
+<span><span class="co">#&gt;               "name": "customer_id",</span></span>
+<span><span class="co">#&gt;               "type": "INTEGER"</span></span>
 <span><span class="co">#&gt;             },</span></span>
 <span><span class="co">#&gt;             {</span></span>
 <span><span class="co">#&gt;               "name": "total"</span></span>
@@ -237,14 +238,21 @@ store, so their datasets keep the <code>dplyneage</code> default.
 Passing <code>namespace =</code> overrides all of it. URI-shaped
 namespaces also appear in each dataset’s <code>dataSource</code>
 facet.</p>
-<p><strong>Schema facets carry types when they are known.</strong> Two
-ways to get them: on the sqlglot engine, extraction harvests names and
-types from the connection with a zero-row probe per table; on any
-engine, a <code>schema</code> argument with named entries (as above)
-supplies them directly. The R engine never queries the database, so
-extractions that stay on it report types only when you pass them.
-Whatever is captured also lands in <code><a href="../reference/lineage_json.html">lineage_json()</a></code> as a
-per-node <code>types</code> map.</p>
+<p><strong>Schema facets carry types and descriptions when they are
+known.</strong> Types arrive two ways: on the sqlglot engine, extraction
+harvests names and types from the connection with a zero-row probe per
+table; on any engine, a <code>schema</code> argument with named entries
+(as above) supplies them directly. The R engine skips the probe, so
+extractions that stay on it report types only when you pass them. Field
+descriptions come from column labels, which every engine collects: the
+<code>label</code> attributes haven and labelled put on imported
+columns, column comments read from a live connection’s catalog (duckdb
+and postgres; one small metadata query per base table), or a
+<code>labels</code> argument like
+<code>labels = list(orders = c(amount = "Order amount in USD"))</code>,
+which wins over both. Whatever is captured also lands in
+<code><a href="../reference/lineage_json.html">lineage_json()</a></code> as per-node <code>types</code> and
+<code>labels</code> maps.</p>
 <p><strong>Indirect lineage sits at the dataset level.</strong> With
 <code>extract_lineage(include_indirect = TRUE)</code>, filter, join,
 group and sort columns shape every row of the result rather than any one

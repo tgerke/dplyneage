@@ -130,6 +130,10 @@ downstream subgraph — and dims everything else; clicking it again,
 clicking the background, or pressing Escape releases it. In Shiny, the
 traced column is reported as <code>input$&lt;outputId&gt;_selected</code>, a list with
 <code>table</code> and <code>column</code> entries (<code>NULL</code> when nothing is traced).</p>
+<p>Hovering a column shows a small card with its captured type and label
+(see <code><a href="extract_lineage.html">extract_lineage()</a></code>'s <code>schema</code> and <code>labels</code> arguments); columns
+with neither stay quiet. The static SVG fallback shows the same
+information through native browser tooltips.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>

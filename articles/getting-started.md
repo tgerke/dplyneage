@@ -247,6 +247,53 @@ The duckdb connection from earlier in this vignette works just as well
 [`tbl_lazy()`](https://dbplyr.tidyverse.org/reference/tbl_lazy.html) is
 simply the fastest route when no connection exists and none is needed.
 
+## Column labels
+
+Column names say what a thing is called; labels say what it means. R
+data often has them already: haven and labelled store a `label`
+attribute on every column imported from SAS, SPSS, or Stata, and
+database tables keep the same idea as column comments.
+[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
+collects both — `label` attributes from local frames, comments from a
+live duckdb or postgres connection — and a `labels` argument covers
+everything else, winning over the automatic sources:
+
+``` r
+
+sales_df <- data.frame(
+  customer_id = c(1, 1, 2),
+  amount = c(100, 250, 40)
+)
+attr(sales_df$amount, "label") <- "Order amount in USD"
+
+lineage <- dbplyr::tbl_lazy(sales_df, name = "sales") |>
+  group_by(customer_id) |>
+  summarise(total = sum(amount, na.rm = TRUE)) |>
+  extract_lineage()
+
+jsonlite::fromJSON(lineage_json(lineage), simplifyVector = FALSE)$nodes[[1]]$labels
+#> $amount
+#> [1] "Order amount in USD"
+```
+
+Labels follow the data through the graph. A column that passes through a
+[`select()`](https://dplyr.tidyverse.org/reference/select.html),
+[`rename()`](https://dplyr.tidyverse.org/reference/rename.html), or join
+unchanged carries its label (and its type, when one was captured) to the
+downstream node, the way dbt Catalog carries descriptions through
+passthrough columns. Aggregated and computed columns stay unlabeled
+unless you label them yourself — a `labels` entry keyed by a model’s
+name, or by `"output"` for a single query, does that.
+
+In
+[`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md),
+hovering a labeled column shows a card with the label and type.
+[`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+records them as per-node `labels` and `types` maps, and each OpenLineage
+schema-facet field gains a `description` — the [OpenLineage
+article](https://tgerke.github.io/dplyneage/articles/openlineage.html)
+covers that side.
+
 ## Building diagrams by hand
 
 For documentation or design sketches, skip extraction entirely and build
@@ -392,12 +439,12 @@ g <- igraph::read_graph(path, format = "graphml")
 
 # Everything upstream of total_spent
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from 0eacf3c:
+#> + 2/6 vertices, named, from 8731c9d:
 #> [1] output.total_spent orders.amount
 
 # Everything downstream of orders.amount
 igraph::subcomponent(g, "orders.amount", mode = "out")
-#> + 2/6 vertices, named, from 0eacf3c:
+#> + 2/6 vertices, named, from 8731c9d:
 #> [1] orders.amount      output.total_spent
 ```
 
