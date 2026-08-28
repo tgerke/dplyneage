@@ -16,6 +16,7 @@ articles:
     contents:
     - articles/ducklake-lineage
     - articles/lineage-ci
+    - articles/openlineage
   - title: Configuration
     contents:
     - python-integration
@@ -57,6 +58,7 @@ reference:
     - lineage_graphml
     - lineage_mermaid
     - lineage_openlineage
+    - lineage_emit
 
   - title: Python Integration
     desc: >

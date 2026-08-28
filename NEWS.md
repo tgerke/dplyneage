@@ -48,6 +48,16 @@ filed as tiered issues on GitHub.
   format `FileTransport` writes, so a committed events file can be
   replayed into any backend later. (#8)
 
+* New `lineage_emit()` sends OpenLineage events to a backend over
+  HTTP, one POST per event, with `url` and `api_key` falling back to
+  the `OPENLINEAGE_URL` and `OPENLINEAGE_API_KEY` environment
+  variables and failures raising a classed `dplyneage_emit_failure`
+  condition. Requires the httr2 package. A new site article,
+  [OpenLineage export and catalog
+  round-trips](https://tgerke.github.io/dplyneage/articles/openlineage.html),
+  documents the event surface and a verified round-trip into a Marquez
+  quickstart, column-level lineage included. (#9)
+
 * The sqlglot engine no longer counts the `ORDER BY` inside
   `WITHIN GROUP` as a result ordering. On dialects where dbplyr renders
   `median()`/`quantile()` as ordered-set aggregates, the ordered column

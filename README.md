@@ -282,7 +282,8 @@ lineage_json(lineage)
 #>       "output": {
 #>         "sql": "SELECT customer_id, first_name, SUM(amount) AS total_spent\nFROM (\n  SELECT orders.*, first_name, last_name, email\n  FROM orders\n  LEFT JOIN customers\n    ON (orders.customer_id = customers.customer_id)\n) AS q01\nGROUP BY customer_id, first_name",
 #>         "engine": "r",
-#>         "dialect": "duckdb"
+#>         "dialect": "duckdb",
+#>         "namespace": "duckdb"
 #>       }
 #>     },
 #>     "node_count": 3,
@@ -357,9 +358,26 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from 86bc0f5:
+#> + 2/6 vertices, named, from bd0a791:
 #> [1] output.total_spent orders.amount
 ```
+
+For data catalogs, `lineage_openlineage()` emits
+[OpenLineage](https://openlineage.io/) events, the interchange format
+Marquez, DataHub, and OpenMetadata ingest. Dataset namespaces come from
+the table’s actual connection, schema facets carry column types, and
+`events = "job"` produces the spec’s run-less design-time events, one
+per model. `lineage_emit()` POSTs any of it to a running backend:
+
+``` r
+lineage_openlineage(lineage, events = "job")          # run-less JobEvents, NDJSON
+lineage_emit(lineage, url = "http://localhost:5000")  # straight into Marquez
+```
+
+The [OpenLineage
+article](https://tgerke.github.io/dplyneage/articles/openlineage.html)
+covers the event contents and a verified round-trip into a Marquez
+quickstart.
 
 ## How it compares
 
@@ -398,6 +416,9 @@ comparison, with per-tool notes and the roadmap rationale, is in
 - The [lineage checks in
   CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html)
   article sets up the provenance gate on GitHub Actions
+- The [OpenLineage
+  article](https://tgerke.github.io/dplyneage/articles/openlineage.html)
+  sends lineage into a data catalog
 - `vignette("python-integration")` covers how the Python dependency is
   managed
 - Full function reference at

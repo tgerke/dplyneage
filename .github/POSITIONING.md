@@ -89,10 +89,10 @@ package stands:
   lineage as decision input: diff severity, `lineage_check()` + CI
   recipe, versioned JSON schema, window parity between engines):
   shipped in 0.3.0.9000.
-- **Tier 2** (#6–#9): OpenLineage producer fidelity — scheme-URI
-  namespaces, sql/job/run facets, static DatasetEvent/JobEvent
-  emission, `lineage_emit()` over HTTP with a verified catalog
-  round-trip.
+- **Tier 2** (#6–#9, OpenLineage producer fidelity: scheme-URI
+  namespaces, sql/job/run facets and schema types, static
+  DatasetEvent/JobEvent emission, `lineage_emit()` over HTTP with a
+  verified Marquez round-trip): shipped in 0.3.0.9000.
 - **Tier 3** (#10–#13): visualization and API parity — click-to-trace
   cone, widget chrome (minimap, PNG export, dark mode, Shiny input),
   table-level impact queries and a dead-column report, column-level

@@ -239,6 +239,15 @@ g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
 ```
 
+For data catalogs, `lineage_openlineage()` emits [OpenLineage](https://openlineage.io/) events, the interchange format Marquez, DataHub, and OpenMetadata ingest. Dataset namespaces come from the table's actual connection, schema facets carry column types, and `events = "job"` produces the spec's run-less design-time events, one per model. `lineage_emit()` POSTs any of it to a running backend:
+
+```{r, eval = FALSE}
+lineage_openlineage(lineage, events = "job")          # run-less JobEvents, NDJSON
+lineage_emit(lineage, url = "http://localhost:5000")  # straight into Marquez
+```
+
+The [OpenLineage article](https://tgerke.github.io/dplyneage/articles/openlineage.html) covers the event contents and a verified round-trip into a Marquez quickstart.
+
 ## How it compares
 
 No other maintained R package extracts column-level lineage: [dtrackr](https://cran.r-project.org/package=dtrackr) documents pipeline *steps*, lineager tracks row provenance, and [rdtLite](https://cran.r-project.org/package=rdtLite) records execution history. None answer "which source columns feed this output column?" Outside R, that question is well served for SQL text but not for dataframe code, which is the corner dplyneage sits in: dbplyr renders dplyr pipelines as SQL, so the same lineage machinery covers your R code and your warehouse queries alike.
@@ -258,5 +267,6 @@ The scope has edges on purpose: orchestration, materialization, dashboard-level 
 
 - `vignette("getting-started")` walks from a first diagram through CTEs, multi-source columns, and schemas
 - The [lineage checks in CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html) article sets up the provenance gate on GitHub Actions
+- The [OpenLineage article](https://tgerke.github.io/dplyneage/articles/openlineage.html) sends lineage into a data catalog
 - `vignette("python-integration")` covers how the Python dependency is managed
 - Full function reference at [tgerke.github.io/dplyneage](https://tgerke.github.io/dplyneage/)

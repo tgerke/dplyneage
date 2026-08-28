@@ -50,6 +50,7 @@ cat("```mermaid\n", lineage_mermaid(lineage), "```\n", sep = "")
 \code{\link[=extract_lineage]{extract_lineage()}} to compute lineage automatically
 
 Other lineage exporters:
+\code{\link[=lineage_emit]{lineage_emit()}},
 \code{\link[=lineage_graphml]{lineage_graphml()}},
 \code{\link[=lineage_json]{lineage_json()}},
 \code{\link[=lineage_openlineage]{lineage_openlineage()}}
