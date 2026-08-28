@@ -68,8 +68,8 @@ The build process creates:
 
 This bundle includes:
 
-- React 18.2.0
-- ReactDOM 18.2.0
+- React 18.3.1
+- ReactDOM 18.3.1
 - @xyflow/react (React Flow) 12.10.0
 - html-to-image (for the PNG export button)
 - All necessary CSS, light and dark (injected automatically)

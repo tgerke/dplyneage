@@ -36,8 +36,8 @@ package stands:
 - Extraction fidelity: dual engine (pure-R lazy-tree walk, sqlglot SQL
   parse), schema-aware, with a classed-condition fallback from the R
   engine to sqlglot.
-- Interactive column tracing: hover-highlight in the React Flow widget
-  (click-to-isolate is #10).
+- Interactive column tracing: hover-highlight and a click-to-isolate
+  trace cone in the React Flow widget (#10).
 - Transformation classification: identity / aggregation /
   transformation on every direct edge.
 - Impact analysis: `lineage_upstream()` / `lineage_downstream()`,
