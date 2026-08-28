@@ -124,6 +124,18 @@
 #'   extract_lineage() |>
 #'   lineage_flow()
 #'
+#' # Column labels ride along: database comments are read automatically,
+#' # propagate to passthrough output columns, and a labels argument
+#' # documents the computed ones. Hover a column in the diagram to see them.
+#' invisible(DBI::dbExecute(
+#'   con, "COMMENT ON COLUMN orders.customer_id IS 'Customer surrogate key'"
+#' ))
+#' tbl(con, "orders") |>
+#'   group_by(customer_id) |>
+#'   summarise(total = sum(amount, na.rm = TRUE)) |>
+#'   extract_lineage(labels = list(output = c(total = "Total spent"))) |>
+#'   lineage_flow()
+#'
 #' # Multi-model pipelines: name each step and pass a named list; source
 #' # tables matching a model name stitch the layers into one DAG
 #' silver <- tbl(con, "orders") |>
