@@ -5,9 +5,13 @@ HTMLWidgets.widget({
   type: 'output',
   factory: function(el, width, height) {
     // flow is set by renderReactFlow's onInit; observer waits out hidden
-    // containers before the first render; root/container track the React
-    // mount so re-renders can unmount it first
-    var state = { flow: null, observer: null, root: null, container: null };
+    // containers before the first render; fitObserver/fitRaf re-fit the
+    // mounted graph when the container's size changes; root/container
+    // track the React mount so re-renders can unmount it first
+    var state = {
+      flow: null, observer: null, fitObserver: null, fitRaf: null,
+      root: null, container: null
+    };
 
     function render(x) {
       if (typeof window.ReactFlowBundle !== 'undefined') {
@@ -22,6 +26,14 @@ HTMLWidgets.widget({
         if (state.observer) {
           state.observer.disconnect();
           state.observer = null;
+        }
+        if (state.fitObserver) {
+          state.fitObserver.disconnect();
+          state.fitObserver = null;
+        }
+        if (state.fitRaf) {
+          cancelAnimationFrame(state.fitRaf);
+          state.fitRaf = null;
         }
         // Unmount the previous React tree (Shiny re-renders call
         // renderValue again) so its effects — the Escape listener — are
@@ -749,11 +761,61 @@ function renderReactFlow(el, x, width, height, state) {
     } else {
       ReactDOM.render(React.createElement(FlowComponent), container);
     }
+    watchContainerSize(el, state);
   } catch (e) {
     console.error('React Flow rendering error:', e);
     // Fallback to SVG on error
     renderSVG(el, x, width, height);
   }
+}
+
+// React Flow computes the initial fit when it mounts, which can be while
+// the embedding page is still settling its layout: the container passes
+// the nonzero-size guard at an interim size, the fitted zoom clamps to
+// minZoom, and nothing corrects it later because htmlwidgets' resize
+// hook only hears window resizes, not element reflows. Watch the element
+// itself and re-fit whenever its size changes; the observer's initial
+// fire doubles as a post-layout verification of React Flow's own first
+// fit. The flow instance and node measurements can lag a fire by a few
+// frames, so a blocked fit retries briefly on animation frames rather
+// than fitting a graph with no measured dimensions.
+function watchContainerSize(el, state) {
+  if (typeof ResizeObserver === 'undefined') {
+    return;
+  }
+  var lastSize = null;
+  function tryFit(retries) {
+    state.fitRaf = null;
+    var w = el.offsetWidth;
+    var h = el.offsetHeight;
+    if (w === 0 || h === 0) {
+      return;
+    }
+    if (lastSize && lastSize.w === w && lastSize.h === h) {
+      return;
+    }
+    var nodes = state.flow ? state.flow.getNodes() : [];
+    var measured = nodes.length > 0 && nodes.every(function(node) {
+      return node.measured && node.measured.width > 0;
+    });
+    if (!measured) {
+      if (retries > 0) {
+        state.fitRaf = requestAnimationFrame(function() {
+          tryFit(retries - 1);
+        });
+      }
+      return;
+    }
+    lastSize = { w: w, h: h };
+    state.flow.fitView(FIT_VIEW_OPTIONS);
+  }
+  state.fitObserver = new ResizeObserver(function() {
+    if (state.fitRaf) {
+      cancelAnimationFrame(state.fitRaf);
+    }
+    tryFit(60);
+  });
+  state.fitObserver.observe(el);
 }
 
 // Removed manual helper functions - now using from bundle

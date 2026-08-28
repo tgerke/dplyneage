@@ -34,6 +34,17 @@ filed as tiered issues on GitHub.
   as Shiny does — now unmounts the previous React tree instead of
   leaking it.
 
+* `lineage_flow()` diagrams no longer stick at minimum zoom when the
+  initial fit races the embedding page's layout. React Flow computes
+  its first fit on mount, and a container measured at an interim size
+  (an embedding pane still settling) passed the existing nonzero-size
+  guard, clamped the viewport to minZoom, and stayed there: the
+  htmlwidgets resize hook only hears window resizes, not element
+  reflows. The widget now observes its own element and re-fits when
+  the element's size changes, which also makes the 0.2.1 resize
+  behavior work in hosts that resize elements without a window
+  resize event.
+
 * The static SVG fallback — drawn when the bundled React Flow assets
   cannot load — is now a real lineage diagram: table boxes with their
   headers, colors, and column rows; edges anchored to the columns they
