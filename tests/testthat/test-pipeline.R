@@ -357,3 +357,31 @@ test_that("pipeline models keep one indirect edge per pair with all kinds", {
     edge[[1]]$data$transformations[[1]]
   )
 })
+
+test_that("labels propagate across stitched models, hop by hop", {
+  skip_if_no_r_engine()
+
+  lineage <- extract_lineage(
+    pipeline_fixture(),
+    labels = list(
+      orders = c(customer_id = "Customer id"),
+      gold = c(big_spender = "Spent over 100")
+    )
+  )
+
+  by_id <- stats::setNames(
+    lineage$nodes,
+    vapply(lineage$nodes, function(n) n$id, character(1))
+  )
+  # orders -> silver -> gold, two identity hops
+  expect_identical(
+    by_id$silver$data$columnLabels,
+    list(customer_id = "Customer id")
+  )
+  # gold's own labels= entry covers the computed column propagation
+  # can't reach; total_spent is aggregated upstream and stays bare
+  expect_identical(
+    by_id$gold$data$columnLabels,
+    list(big_spender = "Spent over 100", customer_id = "Customer id")
+  )
+})

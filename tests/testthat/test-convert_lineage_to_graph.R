@@ -122,3 +122,21 @@ test_that("a column with several indirect kinds keeps one edge with all of them"
     expect_identical(e$data$transformations, c("filter", "sort"))
   }
 })
+
+test_that("propagation fills identity targets from injected metadata", {
+  data <- fixture_lineage()
+  data$column_types <- list(
+    customers = c(customer_id = "INTEGER"),
+    orders = c(amount = "DOUBLE")
+  )
+  data$column_labels <- list(customers = c(customer_id = "Customer id"))
+
+  lineage <- convert_lineage_to_graph(data)
+
+  output <- Filter(function(n) n$id == "output", lineage$nodes)[[1]]
+  expect_identical(output$data$columnTypes, list(customer_id = "INTEGER"))
+  expect_identical(output$data$columnLabels, list(customer_id = "Customer id"))
+  # total_spent aggregates orders.amount, so nothing crosses that edge
+  expect_null(output$data$columnTypes$total_spent)
+  expect_null(output$data$columnLabels$total_spent)
+})

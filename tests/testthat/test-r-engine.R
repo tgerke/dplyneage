@@ -827,3 +827,38 @@ test_that("semi-join filter sides stay unwalked without include_indirect", {
     "customers.email -> email"
   ))
 })
+
+test_that("types and labels propagate along identity edges only", {
+  skip_if_no_r_engine()
+
+  lineage <- dbplyr::lazy_frame(customer_id = 1L, amount = 1, .name = "orders") |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total = sum(amount, na.rm = TRUE)) |>
+    extract_lineage(
+      engine = "r",
+      schema = list(orders = list(customer_id = "INTEGER", amount = "DOUBLE")),
+      labels = list(orders = c(customer_id = "Customer id", amount = "Amount"))
+    )
+
+  output <- Filter(function(n) n$id == "output", lineage$nodes)[[1]]
+  expect_identical(output$data$columnTypes, list(customer_id = "INTEGER"))
+  expect_identical(output$data$columnLabels, list(customer_id = "Customer id"))
+})
+
+test_that("conflicting identity sources propagate nothing", {
+  skip_if_no_r_engine()
+
+  lineage <- dbplyr::lazy_frame(a = 1L, .name = "t1") |>
+    dplyr::union_all(dbplyr::lazy_frame(a = "x", .name = "t2")) |>
+    extract_lineage(
+      engine = "r",
+      schema = list(t1 = list(a = "INTEGER"), t2 = list(a = "TEXT")),
+      labels = list(t1 = c(a = "Same label"), t2 = c(a = "Same label"))
+    )
+
+  output <- Filter(function(n) n$id == "output", lineage$nodes)[[1]]
+  # Disagreeing types stay off the union column — missing beats wrong —
+  # while the label both branches agree on flows through
+  expect_null(output$data$columnTypes)
+  expect_identical(output$data$columnLabels, list(a = "Same label"))
+})

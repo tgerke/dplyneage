@@ -62,7 +62,9 @@
 #' with named entries like `list(orders = list(amount = "DOUBLE"))` —
 #' and a `description` when column labels were: from `label` attributes
 #' on a local frame (the haven/labelled convention), database column
-#' comments, or [extract_lineage()]'s `labels` argument.
+#' comments, or [extract_lineage()]'s `labels` argument. Both propagate
+#' along identity edges, so an output dataset's passthrough columns
+#' report their source columns' types and descriptions.
 #' Indirect edges land in the `columnLineage` facet's dataset-level
 #' `dataset` array rather than under individual output columns: filter,
 #' join, group and sort columns shape the whole result, which is exactly

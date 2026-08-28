@@ -48,12 +48,13 @@ namespace URI inferred from that connection. The top-level
 \code{dialect} and \code{engine} collapse across models, to \code{"mixed"} when
 models disagree.
 \item \code{nodes}: objects with \code{id}, \code{type} (\code{"source"}, \code{"transform"}, or
-\code{"target"}), and \code{columns}. A source node whose column types were
-captured (from a live connection's schema, or a typed \code{schema}
-argument) also carries \code{types}, a column-to-type map covering the
-typed subset of its columns. A node with column labels — from
-\code{label} attributes on a local frame, database column comments, or
-a \code{labels} argument — carries \code{labels}, shaped the same way.
+\code{"target"}), and \code{columns}. A node whose columns carry types (from
+a live connection's schema, or a typed \code{schema} argument) adds
+\code{types}, a column-to-type map over that subset; one whose columns
+carry labels (\code{label} attributes on a local frame, database column
+comments, or a \code{labels} argument) adds \code{labels}, shaped the same
+way. Both spread along identity edges, so a passthrough column
+reports its source column's type and label.
 \item \code{edges}: objects with \code{source}, \code{source_column}, \code{target}, and
 \code{target_column}. Edges from \code{\link[=extract_lineage]{extract_lineage()}} also carry
 \code{transformation} and, on direct edges, \code{expression}. An indirect

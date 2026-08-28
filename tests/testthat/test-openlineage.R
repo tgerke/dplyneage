@@ -489,9 +489,14 @@ test_that("schema facet fields carry types from a typed schema argument", {
     event$inputs[[1]]$facets$schema$`_schemaURL`,
     "1-2-0/SchemaDatasetFacet.json#/\\$defs/SchemaDatasetFacet$"
   )
-  # Output columns have no captured types
+  # Identity columns inherit their source's type; aggregations stay bare
   out_fields <- event$outputs[[1]]$facets$schema$fields
-  expect_null(out_fields[[1]]$type)
+  out_by_name <- stats::setNames(
+    out_fields,
+    vapply(out_fields, `[[`, character(1), "name")
+  )
+  expect_identical(out_by_name$customer_id$type, "INTEGER")
+  expect_null(out_by_name$total$type)
 
   # The same types reach the lineage_json artifact
   doc <- jsonlite::fromJSON(lineage_json(lineage), simplifyVector = FALSE)

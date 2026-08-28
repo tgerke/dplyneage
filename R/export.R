@@ -32,12 +32,13 @@
 #'   `dialect` and `engine` collapse across models, to `"mixed"` when
 #'   models disagree.
 #' * `nodes`: objects with `id`, `type` (`"source"`, `"transform"`, or
-#'   `"target"`), and `columns`. A source node whose column types were
-#'   captured (from a live connection's schema, or a typed `schema`
-#'   argument) also carries `types`, a column-to-type map covering the
-#'   typed subset of its columns. A node with column labels — from
-#'   `label` attributes on a local frame, database column comments, or
-#'   a `labels` argument — carries `labels`, shaped the same way.
+#'   `"target"`), and `columns`. A node whose columns carry types (from
+#'   a live connection's schema, or a typed `schema` argument) adds
+#'   `types`, a column-to-type map over that subset; one whose columns
+#'   carry labels (`label` attributes on a local frame, database column
+#'   comments, or a `labels` argument) adds `labels`, shaped the same
+#'   way. Both spread along identity edges, so a passthrough column
+#'   reports its source column's type and label.
 #' * `edges`: objects with `source`, `source_column`, `target`, and
 #'   `target_column`. Edges from [extract_lineage()] also carry
 #'   `transformation` and, on direct edges, `expression`. An indirect

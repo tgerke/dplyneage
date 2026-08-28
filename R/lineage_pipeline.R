@@ -178,6 +178,8 @@ convert_pipeline_to_graph <- function(model_data) {
     character(1)
   )
 
+  nodes <- propagate_column_metadata(nodes, edges)
+
   structure(
     list(
       nodes = nodes,
@@ -329,6 +331,71 @@ build_layout_nodes <- function(specs) {
     }
     node
   })
+}
+
+#' Propagate column types and labels along identity edges
+#'
+#' dbt-Catalog-style passthrough: a column with no type or label of its
+#' own inherits its source column's through any chain of identity edges.
+#' Aggregations, transformations, and indirect edges propagate nothing,
+#' and a column fed conflicting values by several identity edges stays
+#' bare — missing beats wrong. Candidate sets flow to a fixpoint before
+#' anything commits, so the outcome doesn't depend on edge order and
+#' ambiguity carries through multi-hop chains.
+#' @noRd
+propagate_column_metadata <- function(nodes, edges) {
+  node_ids <- vapply(nodes, function(n) n$id, character(1))
+  id_edges <- Filter(function(e) {
+    identical(e$data$transformation, "identity") &&
+      isTRUE(e$source %in% node_ids) && isTRUE(e$target %in% node_ids)
+  }, edges)
+  if (length(id_edges) == 0) {
+    return(nodes)
+  }
+
+  for (field in c("columnTypes", "columnLabels")) {
+    # A column's own value is a barrier: never overwritten, and passed
+    # on in place of anything accumulated behind it
+    own <- list()
+    for (n in nodes) {
+      for (col in names(n$data[[field]])) {
+        own[[paste0(n$id, "\r", col)]] <- n$data[[field]][[col]]
+      }
+    }
+    acc <- list()
+    outset <- function(key) {
+      if (!is.null(own[[key]])) own[[key]] else acc[[key]] %||% character(0)
+    }
+    # Sets only grow, so this reaches a fixpoint; the cap is insurance
+    # the layered DAG (cycles are rejected upstream) never needs
+    for (pass in seq_len(length(nodes) + length(id_edges))) {
+      changed <- FALSE
+      for (e in id_edges) {
+        tkey <- paste0(e$target, "\r", e$targetHandle)
+        if (!is.null(own[[tkey]])) next
+        add <- setdiff(
+          outset(paste0(e$source, "\r", e$sourceHandle)),
+          acc[[tkey]]
+        )
+        if (length(add) > 0) {
+          acc[[tkey]] <- c(acc[[tkey]], add)
+          changed <- TRUE
+        }
+      }
+      if (!changed) break
+    }
+    # Commit only unambiguous values, and only into missing slots
+    for (i in seq_along(nodes)) {
+      for (col in as.character(unlist(nodes[[i]]$data$columns))) {
+        key <- paste0(node_ids[[i]], "\r", col)
+        vals <- unique(acc[[key]])
+        if (is.null(own[[key]]) && length(vals) == 1) {
+          nodes[[i]]$data[[field]][[col]] <- vals
+        }
+      }
+    }
+  }
+  nodes
 }
 
 #' @noRd

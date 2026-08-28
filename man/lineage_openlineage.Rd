@@ -142,7 +142,9 @@ captured — from a live connection's tables, or a \code{schema} argument
 with named entries like \code{list(orders = list(amount = "DOUBLE"))} —
 and a \code{description} when column labels were: from \code{label} attributes
 on a local frame (the haven/labelled convention), database column
-comments, or \code{\link[=extract_lineage]{extract_lineage()}}'s \code{labels} argument.
+comments, or \code{\link[=extract_lineage]{extract_lineage()}}'s \code{labels} argument. Both propagate
+along identity edges, so an output dataset's passthrough columns
+report their source columns' types and descriptions.
 Indirect edges land in the \code{columnLineage} facet's dataset-level
 \code{dataset} array rather than under individual output columns: filter,
 join, group and sort columns shape the whole result, which is exactly

@@ -860,6 +860,8 @@ convert_lineage_to_graph <- function(lineage_data) {
   models <- list(model)
   names(models) <- output_table
 
+  nodes <- propagate_column_metadata(nodes, edges)
+
   structure(
     list(
       nodes = nodes,
