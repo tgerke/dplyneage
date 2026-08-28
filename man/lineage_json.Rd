@@ -42,8 +42,11 @@ added fields do not bump it.
 \code{models} maps each model name to its \code{sql}, \code{engine}, and
 \code{dialect}; a single-query extraction is a one-model map keyed by
 the output table's name, so consumers read per-model SQL the same
-way for both shapes. The top-level \code{dialect} and \code{engine} collapse
-across models, to \code{"mixed"} when models disagree.
+way for both shapes. A model extracted from a table on a live
+database connection also carries \code{namespace}, the OpenLineage
+namespace URI inferred from that connection. The top-level
+\code{dialect} and \code{engine} collapse across models, to \code{"mixed"} when
+models disagree.
 \item \code{nodes}: objects with \code{id}, \code{type} (\code{"source"}, \code{"transform"}, or
 \code{"target"}), and \code{columns}.
 \item \code{edges}: objects with \code{source}, \code{source_column}, \code{target}, and

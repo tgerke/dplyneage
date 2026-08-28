@@ -5,6 +5,21 @@ of the package against current column-level lineage tooling (SQLMesh,
 dbt, sqlglot, OpenLineage). The remaining roadmap from the audit is
 filed as tiered issues on GitHub.
 
+* `lineage_openlineage()` now emits spec-faithful dataset namespaces.
+  `extract_lineage()` captures an OpenLineage namespace URI from the
+  table's connection while it is alive (`postgres://host:port`,
+  `mysql://host:port`, `duckdb:<path>`, `sqlite:<path>`, and friends;
+  in-memory databases get the bare scheme), stores it per model in the
+  lineage metadata, and each dataset in the event resolves to the
+  namespace of the model that referenced it, with a `dataSource` facet
+  carrying the URI. The `namespace` argument default changed from
+  `"dplyneage"` to `NULL`, meaning "use what was captured"; datasets
+  with nothing captured (local frames, hand-built graphs) keep the old
+  `"dplyneage"`, as does the job namespace, which names the producer
+  rather than a data store. Passing a string still overrides everything.
+  A new `output_name` argument names the synthetic `output` dataset of a
+  single-query extraction after the table its result lands in. (#6)
+
 * The sqlglot engine no longer counts the `ORDER BY` inside
   `WITHIN GROUP` as a result ordering. On dialects where dbplyr renders
   `median()`/`quantile()` as ordered-set aggregates, the ordered column

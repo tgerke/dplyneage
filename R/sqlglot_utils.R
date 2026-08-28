@@ -176,6 +176,16 @@ extract_lineage_data <- function(sql, dialect, schema, show_sql, engine,
     dialect <- if (is_lazy) infer_dialect(dbplyr::remote_con(sql)) else "duckdb"
   }
 
+  # Capture the connection-derived OpenLineage namespace while the
+  # connection is alive; nothing else about it survives extraction
+  namespace <- if (is_lazy) infer_namespace(dbplyr::remote_con(sql)) else NULL
+  with_namespace <- function(lineage_data) {
+    if (!is.null(namespace)) {
+      lineage_data$namespace <- namespace
+    }
+    lineage_data
+  }
+
   if (engine == "r") {
     if (!is_lazy) {
       stop(
@@ -194,7 +204,7 @@ extract_lineage_data <- function(sql, dialect, schema, show_sql, engine,
     if (show_sql) {
       show_analyzed_sql(lineage_data$sql)
     }
-    return(lineage_data)
+    return(with_namespace(lineage_data))
   }
 
   # Fast path: walk the lazy query tree in R, no Python needed. Falls
@@ -219,7 +229,7 @@ extract_lineage_data <- function(sql, dialect, schema, show_sql, engine,
       if (show_sql) {
         show_analyzed_sql(lineage_data$sql)
       }
-      return(lineage_data)
+      return(with_namespace(lineage_data))
     }
   }
 
@@ -269,7 +279,7 @@ extract_lineage_data <- function(sql, dialect, schema, show_sql, engine,
   }
 
   # Extract lineage using sqlglot
-  extract_lineage_from_sql(sql, dialect, schema, include_indirect)
+  with_namespace(extract_lineage_from_sql(sql, dialect, schema, include_indirect))
 }
 
 #' Print the SQL being analyzed (the `show_sql = TRUE` output)
@@ -305,11 +315,31 @@ get_sql_from_dplyr <- function(query) {
   as.character(sql_obj)
 }
 
+# Connection classes of the common DBI drivers (including the odbc
+# subclasses and dbplyr's simulate_*() connections, which share class
+# names with the real drivers) mapped to sqlglot dialect names
+dialect_by_class <- c(
+  duckdb_connection = "duckdb",
+  PqConnection = "postgres",
+  PostgreSQLConnection = "postgres",
+  RedshiftConnection = "redshift",
+  MariaDBConnection = "mysql",
+  MySQLConnection = "mysql",
+  SQLiteConnection = "sqlite",
+  BigQueryConnection = "bigquery",
+  Snowflake = "snowflake",
+  `Microsoft SQL Server` = "tsql",
+  Oracle = "oracle",
+  OraConnection = "oracle",
+  Teradata = "teradata",
+  `Spark SQL` = "spark",
+  Hive = "hive",
+  PrestoConnection = "presto",
+  TrinoConnection = "trino"
+)
+
 #' Infer the sqlglot dialect a DBI connection speaks
 #'
-#' Maps the connection classes of the common DBI drivers (including the
-#' odbc subclasses and dbplyr's simulate_*() connections, which share
-#' class names with the real drivers) to sqlglot dialect names.
 #' Unrecognized connections fall back to "duckdb", the historical
 #' default.
 #'
@@ -317,27 +347,87 @@ get_sql_from_dplyr <- function(query) {
 #' @return A sqlglot dialect string
 #' @noRd
 infer_dialect <- function(con) {
-  map <- c(
-    duckdb_connection = "duckdb",
-    PqConnection = "postgres",
-    PostgreSQLConnection = "postgres",
-    RedshiftConnection = "redshift",
-    MariaDBConnection = "mysql",
-    MySQLConnection = "mysql",
-    SQLiteConnection = "sqlite",
-    BigQueryConnection = "bigquery",
-    Snowflake = "snowflake",
-    `Microsoft SQL Server` = "tsql",
-    Oracle = "oracle",
-    OraConnection = "oracle",
-    Teradata = "teradata",
-    `Spark SQL` = "spark",
-    Hive = "hive",
-    PrestoConnection = "presto",
-    TrinoConnection = "trino"
+  hit <- intersect(class(con), names(dialect_by_class))
+  if (length(hit) == 0) "duckdb" else unname(dialect_by_class[[hit[[1]]]])
+}
+
+#' Infer an OpenLineage dataset namespace for a DBI connection
+#'
+#' Follows the OpenLineage naming conventions where they exist
+#' (postgres://host:port, mysql://host:port, ...). duckdb and sqlite have
+#' no official entry, so file-backed databases get "<scheme>:<path>" and
+#' in-memory ones the bare scheme. Returns NULL when nothing can be
+#' inferred: simulated connections, unrecognized drivers, or drivers
+#' whose dbGetInfo() lacks the fields the scheme needs.
+#'
+#' @param con A DBI connection
+#' @return A namespace string, or NULL
+#' @noRd
+infer_namespace <- function(con) {
+  # dbplyr's simulate_*() connections share driver classes with the real
+  # drivers but hold no connection info
+  if (inherits(con, "TestConnection")) {
+    return(NULL)
+  }
+  hit <- intersect(class(con), names(dialect_by_class))
+  if (length(hit) == 0) {
+    return(NULL)
+  }
+  info <- tryCatch(DBI::dbGetInfo(con), error = function(e) NULL)
+  ol_namespace_from_info(unname(dialect_by_class[[hit[[1]]]]), info)
+}
+
+#' Format an OpenLineage namespace from a dialect and dbGetInfo() fields
+#' @noRd
+ol_namespace_from_info <- function(dialect, info) {
+  field <- function(name) {
+    v <- info[[name]]
+    if (is.null(v) || length(v) != 1 || is.na(v) || !nzchar(as.character(v))) {
+      return(NULL)
+    }
+    as.character(v)
+  }
+  host_port <- function(scheme, host = field("host")) {
+    port <- field("port")
+    if (is.null(host) || !nzchar(host) || is.null(port)) {
+      return(NULL)
+    }
+    paste0(scheme, "://", host, ":", port)
+  }
+  local_db <- function(scheme) {
+    dbname <- field("dbname")
+    if (is.null(dbname) || identical(dbname, ":memory:")) {
+      return(scheme)
+    }
+    paste0(scheme, ":", dbname)
+  }
+
+  switch(
+    dialect,
+    postgres = host_port("postgres"),
+    mysql = host_port("mysql"),
+    tsql = host_port("mssql"),
+    trino = host_port("trino"),
+    redshift = host_port(
+      "redshift",
+      host = sub("\\.redshift\\.amazonaws\\.com$", "", field("host") %||% "")
+    ),
+    duckdb = local_db("duckdb"),
+    sqlite = local_db("sqlite"),
+    bigquery = "bigquery",
+    snowflake = {
+      server <- field("servername") %||% field("host")
+      if (is.null(server)) {
+        NULL
+      } else {
+        paste0(
+          "snowflake://",
+          sub("\\.snowflakecomputing\\.com$", "", server)
+        )
+      }
+    },
+    NULL
   )
-  hit <- intersect(class(con), names(map))
-  if (length(hit) == 0) "duckdb" else unname(map[[hit[[1]]]])
 }
 
 #' Harvest Table Schemas from a Database Connection
@@ -529,11 +619,16 @@ convert_lineage_to_graph <- function(lineage_data) {
   # models map keyed by the output table, so consumers of the committed
   # JSON artifact read per-model SQL one way for both
   engine <- if (is.null(lineage_data$engine)) "sqlglot" else lineage_data$engine
-  models <- list(list(
+  model <- list(
     sql = lineage_data$sql,
     engine = engine,
     dialect = lineage_data$dialect
-  ))
+  )
+  # Only when captured: a NULL entry would serialize to JSON as {}
+  if (!is.null(lineage_data$namespace)) {
+    model$namespace <- lineage_data$namespace
+  }
+  models <- list(model)
   names(models) <- output_table
 
   structure(

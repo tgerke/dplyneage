@@ -1,0 +1,344 @@
+# OpenLineage export: RunEvent assembly, namespaces, and facets
+
+test_that("lineage_openlineage emits a complete RunEvent", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  lineage <- dbplyr::lazy_frame(customer_id = 1L, amount = 1, .name = "orders") |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total = sum(amount, na.rm = TRUE)) |>
+    extract_lineage(engine = "r")
+
+  json <- lineage_openlineage(
+    lineage,
+    run_id = "00000000-0000-4000-8000-000000000000",
+    event_time = "2026-01-01T00:00:00.000Z"
+  )
+  event <- jsonlite::fromJSON(json, simplifyVector = FALSE)
+
+  expect_identical(event$eventType, "COMPLETE")
+  expect_identical(event$run$runId, "00000000-0000-4000-8000-000000000000")
+  expect_identical(event$eventTime, "2026-01-01T00:00:00.000Z")
+  expect_identical(event$inputs[[1]]$name, "orders")
+  expect_identical(event$outputs[[1]]$name, "output")
+
+  cl <- event$outputs[[1]]$facets$columnLineage$fields
+  total <- cl$total$inputFields[[1]]
+  expect_identical(total$name, "orders")
+  expect_identical(total$field, "amount")
+  expect_identical(total$transformations[[1]]$type, "DIRECT")
+  expect_identical(total$transformations[[1]]$subtype, "AGGREGATION")
+  expect_identical(
+    total$transformations[[1]]$description,
+    "sum(amount, na.rm = TRUE)"
+  )
+})
+
+test_that("indirect edges map to INDIRECT transformation subtypes", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  lineage <- dbplyr::lazy_frame(a = 1, b = 2, .name = "t1") |>
+    dplyr::filter(b > 0) |>
+    dplyr::select(a) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(lineage, run_id = "x", event_time = "t"),
+    simplifyVector = FALSE
+  )
+  inputs <- event$outputs[[1]]$facets$columnLineage$fields$a$inputFields
+  filter_input <- Filter(function(f) f$field == "b", inputs)[[1]]
+  expect_identical(filter_input$transformations[[1]]$type, "INDIRECT")
+  expect_identical(filter_input$transformations[[1]]$subtype, "FILTER")
+  expect_null(filter_input$transformations[[1]]$description)
+})
+
+test_that("multi-model pipelines put transforms in outputs", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  silver <- dbplyr::lazy_frame(customer_id = 1L, amount = 1, .name = "orders") |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total_spent = sum(amount, na.rm = TRUE))
+  gold <- dbplyr::lazy_frame(customer_id = 1L, total_spent = 1, .name = "silver") |>
+    dplyr::mutate(big = total_spent > 100)
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(
+      extract_lineage(list(silver = silver, gold = gold)),
+      run_id = "x", event_time = "t"
+    ),
+    simplifyVector = FALSE
+  )
+
+  input_names <- vapply(event$inputs, function(d) d$name, character(1))
+  output_names <- vapply(event$outputs, function(d) d$name, character(1))
+  expect_identical(input_names, "orders")
+  expect_identical(sort(output_names), c("gold", "silver"))
+
+  gold_cl <- Filter(function(d) d$name == "gold", event$outputs)[[1]]
+  big <- gold_cl$facets$columnLineage$fields$big$inputFields[[1]]
+  expect_identical(big$name, "silver")
+  expect_identical(big$field, "total_spent")
+})
+
+test_that("hand-built edges carry no transformations and defaults are valid", {
+  lineage <- list(
+    nodes = list(
+      create_table_node("orders", "amount"),
+      create_table_node("totals", "total", table_type = "target"),
+      create_table_node("island", "x", table_type = "target")
+    ),
+    edges = list(create_column_edge("orders", "amount", "totals", "total"))
+  )
+
+  event <- jsonlite::fromJSON(lineage_openlineage(lineage), simplifyVector = FALSE)
+
+  expect_match(
+    event$run$runId,
+    "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+  )
+  expect_match(event$eventTime, "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}")
+
+  totals <- Filter(function(d) d$name == "totals", event$outputs)[[1]]
+  expect_null(totals$facets$columnLineage$fields$total$inputFields[[1]]$transformations)
+
+  # An output with no incoming edges gets a schema facet but no (invalid,
+  # empty) columnLineage facet
+  island <- Filter(function(d) d$name == "island", event$outputs)[[1]]
+  expect_null(island$facets$columnLineage)
+  expect_identical(island$facets$schema$fields[[1]]$name, "x")
+})
+
+test_that("lineage_openlineage writes to a file and returns invisibly", {
+  lineage <- list(
+    nodes = list(create_table_node("orders", "amount")),
+    edges = list()
+  )
+  path <- withr::local_tempfile(fileext = ".json")
+  expect_invisible(lineage_openlineage(lineage, path = path))
+  expect_identical(
+    jsonlite::fromJSON(path, simplifyVector = FALSE)$eventType,
+    "COMPLETE"
+  )
+})
+
+test_that("lineage_openlineage leaves the caller's RNG state untouched", {
+  lineage <- list(
+    nodes = list(create_table_node("orders", "amount")),
+    edges = list()
+  )
+
+  set.seed(42)
+  expected <- runif(2)
+  set.seed(42)
+  invisible(lineage_openlineage(lineage))
+  expect_identical(runif(2), expected)
+
+  # Isolation must not make the run ids repeat
+  run_id <- function() {
+    jsonlite::fromJSON(
+      lineage_openlineage(lineage),
+      simplifyVector = FALSE
+    )$run$runId
+  }
+  expect_false(identical(run_id(), run_id()))
+})
+
+# Namespaces -------------------------------------------------------------
+
+test_that("infer_namespace returns NULL for simulated connections", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  lazy_con <- dbplyr::remote_con(dbplyr::lazy_frame(x = 1))
+  expect_null(infer_namespace(lazy_con))
+  # simulate_postgres() shares PqConnection's class but holds no info
+  expect_null(infer_namespace(dbplyr::simulate_postgres()))
+})
+
+test_that("ol_namespace_from_info formats known drivers", {
+  expect_identical(
+    ol_namespace_from_info("postgres", list(host = "db.local", port = "5432")),
+    "postgres://db.local:5432"
+  )
+  expect_identical(
+    ol_namespace_from_info("mysql", list(host = "h", port = 3306L)),
+    "mysql://h:3306"
+  )
+  expect_identical(
+    ol_namespace_from_info("tsql", list(host = "h", port = 1433L)),
+    "mssql://h:1433"
+  )
+  expect_identical(
+    ol_namespace_from_info(
+      "redshift",
+      list(host = "c.us-east-1.redshift.amazonaws.com", port = 5439L)
+    ),
+    "redshift://c.us-east-1:5439"
+  )
+  expect_identical(
+    ol_namespace_from_info(
+      "snowflake",
+      list(servername = "org-acct.snowflakecomputing.com")
+    ),
+    "snowflake://org-acct"
+  )
+  expect_identical(ol_namespace_from_info("bigquery", list()), "bigquery")
+  expect_identical(
+    ol_namespace_from_info("duckdb", list(dbname = ":memory:")),
+    "duckdb"
+  )
+  expect_identical(
+    ol_namespace_from_info("duckdb", list(dbname = "/data/warehouse.duckdb")),
+    "duckdb:/data/warehouse.duckdb"
+  )
+  expect_identical(
+    ol_namespace_from_info("sqlite", list(dbname = "/data/app.sqlite")),
+    "sqlite:/data/app.sqlite"
+  )
+
+  # Missing fields and unknown dialects degrade to NULL, dbGetInfo()'s
+  # NA placeholders included
+  expect_null(ol_namespace_from_info("postgres", list(host = "h")))
+  expect_null(ol_namespace_from_info("postgres", list(host = NA, port = NA)))
+  expect_null(ol_namespace_from_info("oracle", list(host = "h", port = 1521L)))
+})
+
+test_that("infer_namespace reads a live connection", {
+  skip_if_not_installed("RSQLite")
+  skip_if_not_installed("DBI")
+
+  con <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  withr::defer(DBI::dbDisconnect(con))
+  expect_identical(infer_namespace(con), "sqlite")
+})
+
+test_that("captured namespaces reach datasets and the dataSource facet", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+  skip_if_not_installed("duckdb")
+  skip_if_not_installed("DBI")
+
+  db_path <- withr::local_tempfile(fileext = ".duckdb")
+  con <- DBI::dbConnect(duckdb::duckdb(), dbdir = db_path)
+  withr::defer(DBI::dbDisconnect(con, shutdown = TRUE))
+  DBI::dbWriteTable(con, "orders", data.frame(customer_id = 1L, amount = 1))
+
+  lineage <- dplyr::tbl(con, "orders") |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total = sum(amount, na.rm = TRUE)) |>
+    extract_lineage(engine = "r")
+
+  # duckdb reports the resolved path (macOS /var -> /private/var), so
+  # build the expectation from the connection, not the tempfile string
+  ns <- paste0("duckdb:", DBI::dbGetInfo(con)$dbname)
+  expect_identical(lineage$metadata$models$output$namespace, ns)
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(lineage, run_id = "x", event_time = "t"),
+    simplifyVector = FALSE
+  )
+  expect_identical(event$inputs[[1]]$namespace, ns)
+  expect_identical(event$outputs[[1]]$namespace, ns)
+  expect_identical(event$inputs[[1]]$facets$dataSource$name, ns)
+  expect_identical(event$inputs[[1]]$facets$dataSource$uri, ns)
+  # The job namespace identifies the producer, not the data store
+  expect_identical(event$job$namespace, "dplyneage")
+  # Column-level input references carry the dataset's namespace too
+  total <- event$outputs[[1]]$facets$columnLineage$fields$total$inputFields[[1]]
+  expect_identical(total$namespace, ns)
+})
+
+test_that("lineage without a captured namespace falls back to dplyneage", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  lineage <- dbplyr::lazy_frame(a = 1, .name = "t1") |>
+    dplyr::mutate(b = a + 1) |>
+    extract_lineage(engine = "r")
+
+  expect_null(lineage$metadata$models$output$namespace)
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(lineage, run_id = "x", event_time = "t"),
+    simplifyVector = FALSE
+  )
+  expect_identical(event$inputs[[1]]$namespace, "dplyneage")
+  expect_null(event$inputs[[1]]$facets$dataSource)
+})
+
+test_that("an explicit namespace overrides captured namespaces", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+  skip_if_not_installed("duckdb")
+  skip_if_not_installed("DBI")
+
+  con <- DBI::dbConnect(duckdb::duckdb())
+  withr::defer(DBI::dbDisconnect(con, shutdown = TRUE))
+  DBI::dbWriteTable(con, "orders", data.frame(amount = 1))
+
+  lineage <- dplyr::tbl(con, "orders") |>
+    dplyr::mutate(double = amount * 2) |>
+    extract_lineage(engine = "r")
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(lineage, namespace = "prod", run_id = "x", event_time = "t"),
+    simplifyVector = FALSE
+  )
+  expect_identical(event$inputs[[1]]$namespace, "prod")
+  expect_identical(event$outputs[[1]]$namespace, "prod")
+  expect_identical(event$job$namespace, "prod")
+})
+
+# output_name ------------------------------------------------------------
+
+test_that("output_name renames the synthetic output dataset", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  lineage <- dbplyr::lazy_frame(customer_id = 1L, amount = 1, .name = "orders") |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total = sum(amount, na.rm = TRUE)) |>
+    extract_lineage(engine = "r")
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(
+      lineage,
+      run_id = "x", event_time = "t",
+      output_name = "daily_totals"
+    ),
+    simplifyVector = FALSE
+  )
+  expect_identical(event$outputs[[1]]$name, "daily_totals")
+  # Edges follow the rename, sources stay put
+  total <- event$outputs[[1]]$facets$columnLineage$fields$total$inputFields[[1]]
+  expect_identical(total$name, "orders")
+  expect_identical(event$inputs[[1]]$name, "orders")
+})
+
+test_that("output_name rejects pipelines and non-strings", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  silver <- dbplyr::lazy_frame(amount = 1, .name = "orders") |>
+    dplyr::mutate(total = amount)
+  gold <- dbplyr::lazy_frame(total = 1, .name = "silver") |>
+    dplyr::mutate(big = total > 100)
+  pipeline <- extract_lineage(list(silver = silver, gold = gold))
+
+  expect_error(
+    lineage_openlineage(pipeline, output_name = "x"),
+    "already carry their model names"
+  )
+
+  single <- extract_lineage(
+    dplyr::mutate(dbplyr::lazy_frame(a = 1, .name = "t1"), b = a),
+    engine = "r"
+  )
+  expect_error(
+    lineage_openlineage(single, output_name = c("a", "b")),
+    "single non-empty string"
+  )
+})
