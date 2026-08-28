@@ -6,6 +6,12 @@
 #' automatically, so piping works), or build `nodes` and `edges` yourself
 #' with [create_table_node()] and [create_column_edge()].
 #'
+#' Clicking a column isolates its trace cone — the transitive upstream and
+#' downstream subgraph — and dims everything else; clicking it again,
+#' clicking the background, or pressing Escape releases it. In Shiny, the
+#' traced column is reported as `input$<outputId>_selected`, a list with
+#' `table` and `column` entries (`NULL` when nothing is traced).
+#'
 #' @param nodes The output of [extract_lineage()], or a list of nodes
 #'   created with [create_table_node()].
 #' @param edges A list of edges created with [create_column_edge()].
@@ -15,6 +21,17 @@
 #'   `"600px"`. Default to full width and 600px tall.
 #' @param elementId Explicit HTML element id for the widget. Usually left
 #'   `NULL` so one is generated.
+#' @param minimap If `TRUE`, draws a pannable overview map in the corner.
+#'   Off by default; it earns its space on large multi-model graphs.
+#' @param legend If `TRUE` (the default), overlays a small legend naming
+#'   the node colors and edge styles present in the graph.
+#' @param theme `"light"` (the default), `"dark"`, or `"auto"`, which
+#'   follows the viewer's `prefers-color-scheme` — the operating-system
+#'   setting, not the theme of a surrounding Quarto or R Markdown
+#'   document, so documents rendered dark should pass `theme = "dark"`
+#'   explicitly.
+#' @param export_button If `TRUE` (the default), the zoom controls gain a
+#'   button that downloads the diagram as a PNG.
 #' @return An htmlwidget that prints in the RStudio viewer, R Markdown /
 #'   Quarto documents, and Shiny apps.
 #' @seealso [extract_lineage()] to compute lineage automatically;
@@ -34,11 +51,18 @@
 #'   )
 #' )
 #' lineage_flow(nodes, edges)
+#'
+#' # Dark theme with the overview map
+#' lineage_flow(nodes, edges, theme = "dark", minimap = TRUE)
 #' @examplesIf identical(Sys.getenv("NOT_CRAN"), "true") && dplyneage::has_sqlglot()
 #' # Or pipe from extract_lineage()
 #' extract_lineage("SELECT id, name FROM customers") |>
 #'   lineage_flow()
-lineage_flow <- function(nodes = list(), edges = list(), width = NULL, height = NULL, elementId = NULL) {
+lineage_flow <- function(nodes = list(), edges = list(), width = NULL, height = NULL,
+                         elementId = NULL, minimap = FALSE, legend = TRUE,
+                         theme = c("light", "dark", "auto"), export_button = TRUE) {
+  theme <- match.arg(theme)
+
   # Detect if 'nodes' is actually the output from extract_lineage()
   # (a list with both $nodes and $edges components)
   if (is.list(nodes) && !is.null(nodes$nodes) && !is.null(nodes$edges)) {
@@ -47,7 +71,7 @@ lineage_flow <- function(nodes = list(), edges = list(), width = NULL, height = 
     nodes <- lineage_obj$nodes
     edges <- lineage_obj$edges
   }
-  
+
   # Set default dimensions if not specified (important for RStudio viewer)
   if (is.null(width)) {
     width <- "100%"
@@ -55,8 +79,17 @@ lineage_flow <- function(nodes = list(), edges = list(), width = NULL, height = 
   if (is.null(height)) {
     height <- "600px"
   }
-  
-  x <- list(nodes = nodes, edges = edges)
+
+  x <- list(
+    nodes = nodes,
+    edges = edges,
+    options = list(
+      minimap = isTRUE(minimap),
+      legend = isTRUE(legend),
+      theme = theme,
+      exportButton = isTRUE(export_button)
+    )
+  )
   
   widget <- htmlwidgets::createWidget(
     name = 'lineage_flow',
@@ -88,7 +121,11 @@ lineage_flow <- function(nodes = list(), edges = list(), width = NULL, height = 
 #' Shiny bindings for lineage_flow
 #'
 #' Output and render functions for using lineage_flow within Shiny
-#' applications and interactive Rmd documents.
+#' applications and interactive Rmd documents. When the viewer clicks a
+#' column to trace it, the app receives `input$<outputId>_selected` — a
+#' list with `table` and `column` entries, or `NULL` once the trace is
+#' released — ready to feed [lineage_upstream()] and
+#' [lineage_downstream()] on the server side.
 #'
 #' @param outputId output variable to read from
 #' @param width,height Must be a valid CSS unit (like \code{'100\%'},

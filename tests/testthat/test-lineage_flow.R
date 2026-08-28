@@ -36,6 +36,25 @@ test_that("lineage_flow applies default dimensions", {
   expect_identical(w2$height, "300px")
 })
 
+test_that("widget options ride the payload", {
+  w <- lineage_flow(list(), list())
+  expect_identical(
+    w$x$options,
+    list(minimap = FALSE, legend = TRUE, theme = "light", exportButton = TRUE)
+  )
+
+  w <- lineage_flow(
+    list(), list(),
+    minimap = TRUE, legend = FALSE, theme = "dark", export_button = FALSE
+  )
+  expect_identical(
+    w$x$options,
+    list(minimap = TRUE, legend = FALSE, theme = "dark", exportButton = FALSE)
+  )
+
+  expect_error(lineage_flow(list(), list(), theme = "sepia"), "arg")
+})
+
 test_that("lineage_example builds a widget without Python", {
   w <- lineage_example()
   expect_s3_class(w, "htmlwidget")

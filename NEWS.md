@@ -5,6 +5,20 @@ the package against current column-level lineage tooling (SQLMesh,
 dbt, sqlglot, OpenLineage). The remaining roadmap from the audit is
 filed as tiered issues on GitHub.
 
+* `lineage_flow()` grows its widget chrome: `theme = "dark"` (or
+  `"auto"`, following the viewer's OS preference) redraws the whole
+  diagram on a dark palette; `legend = TRUE` (the default) overlays a
+  key for the node colors and edge styles actually present;
+  `minimap = TRUE` adds a pannable overview map; and the zoom controls
+  gain a button that downloads the diagram as a PNG (`export_button`).
+  In Shiny, clicking a column now reports `input$<outputId>_selected`
+  as a `list(table =, column =)` (`NULL` when the trace is released),
+  ready for `lineage_upstream()`/`lineage_downstream()` server-side.
+  Every new piece degrades by omission under a stale cached bundle,
+  though `theme = "dark"` needs the current bundle to render node text
+  legibly. `srcjs/package-lock.json` is now committed so bundle
+  rebuilds are reproducible. (#11)
+
 * Clicking a column in a `lineage_flow()` diagram now isolates its
   trace cone — the interaction dbt Catalog and SQLMesh converge on: the
   column's transitive upstream and downstream subgraph keeps its full

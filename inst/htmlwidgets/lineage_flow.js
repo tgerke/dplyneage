@@ -173,6 +173,207 @@ function computeCone(adjacency, selected) {
   return { columnKeys: columnKeys, edgeIds: edgeIds, nodeIds: nodeIds };
 }
 
+// Node colors are frozen into the payload by R (light values); dark mode
+// remaps them at render time by tableType so the same lineage object can
+// draw in either theme. Border hues stay recognizable across themes.
+var DARK_NODE_PALETTES = {
+  source: { bg: '#172554', border: '#60a5fa', header: '#1e40af' },
+  transform: { bg: '#451a03', border: '#fbbf24', header: '#b45309' },
+  target: { bg: '#022c22', border: '#34d399', header: '#047857' }
+};
+
+var THEME_COLORS = {
+  light: {
+    nodeBg: 'white', text: '#1f2937', rowBorder: '#e5e7eb',
+    hoverBg: '#ffffff', selectedBg: '#fef3c7',
+    edgeHighlight: '#f59e0b', edgeDim: '#d1d5db', edgeDimOpacity: 0.3,
+    backgroundDots: '#d1d5db', exportBg: '#ffffff',
+    legendBg: 'rgba(255, 255, 255, 0.92)', legendBorder: '#e5e7eb',
+    legendText: '#374151'
+  },
+  dark: {
+    nodeBg: '#1e1e1e', text: '#e5e7eb', rowBorder: '#374151',
+    hoverBg: '#374151', selectedBg: '#78350f',
+    edgeHighlight: '#fbbf24', edgeDim: '#4b5563', edgeDimOpacity: 0.35,
+    backgroundDots: '#3f3f46', exportBg: '#141414',
+    legendBg: 'rgba(30, 30, 30, 0.92)', legendBorder: '#3f3f46',
+    legendText: '#d1d5db'
+  }
+};
+
+function themeNodeColors(node, theme) {
+  var base = (node.data && node.data.colors) || {};
+  if (theme !== 'dark') {
+    return base;
+  }
+  var typed = DARK_NODE_PALETTES[node.data && node.data.tableType];
+  if (!typed) {
+    // A type outside source/transform/target has no dark palette; its
+    // light colors stay self-consistent (light text on light rows)
+    return base;
+  }
+  var t = THEME_COLORS.dark;
+  return Object.assign({}, base, typed, {
+    nodeBg: t.nodeBg, text: t.text, rowBorder: t.rowBorder,
+    hoverBg: t.hoverBg, selectedBg: t.selectedBg
+  });
+}
+
+// The two R-side edge grays swap roles on a dark canvas ("fainter"
+// inverts); anything else — user-styled edges — passes through untouched
+function darkEdgeColor(color) {
+  if (color === '#64748b') return '#94a3b8';
+  if (color === '#94a3b8') return '#64748b';
+  return color;
+}
+
+function themeEdge(edge, theme) {
+  if (theme !== 'dark') {
+    return edge;
+  }
+  var out = Object.assign({}, edge);
+  if (edge.style && edge.style.stroke) {
+    out.style = Object.assign({}, edge.style, {
+      stroke: darkEdgeColor(edge.style.stroke)
+    });
+  }
+  if (edge.labelStyle && edge.labelStyle.fill) {
+    out.labelStyle = Object.assign({}, edge.labelStyle, {
+      fill: darkEdgeColor(edge.labelStyle.fill)
+    });
+  }
+  if (edge.labelBgStyle && edge.labelBgStyle.fill === '#ffffff') {
+    out.labelBgStyle = Object.assign({}, edge.labelBgStyle, {
+      fill: '#1e1e1e'
+    });
+  }
+  return out;
+}
+
+// Small overlay naming the node colors and edge styles in play
+function legendPanel(React, Panel, theme, presentTypes, hasIndirect) {
+  var t = THEME_COLORS[theme];
+  var rowStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    lineHeight: '16px'
+  };
+  function chipStyle(color) {
+    return {
+      display: 'inline-block',
+      width: '10px',
+      height: '10px',
+      borderRadius: '3px',
+      background: color,
+      flex: 'none'
+    };
+  }
+  function lineStyle(color, dashed) {
+    return {
+      display: 'inline-block',
+      width: '16px',
+      borderTop: '2px ' + (dashed ? 'dashed' : 'solid') + ' ' + color,
+      flex: 'none'
+    };
+  }
+  var labels = { source: 'Source', transform: 'Transform', target: 'Target' };
+  var children = presentTypes.map(function(type) {
+    var swatch = theme === 'dark'
+      ? DARK_NODE_PALETTES[type].border
+      : { source: '#3b82f6', transform: '#f59e0b', target: '#10b981' }[type];
+    return React.createElement('div', { key: type, style: rowStyle },
+      React.createElement('span', { style: chipStyle(swatch) }),
+      labels[type]
+    );
+  });
+  children.push(React.createElement('div', { key: 'direct', style: rowStyle },
+    React.createElement('span', {
+      style: lineStyle(theme === 'dark' ? '#94a3b8' : '#64748b', false)
+    }),
+    'Direct'
+  ));
+  if (hasIndirect) {
+    children.push(React.createElement('div', { key: 'indirect', style: rowStyle },
+      React.createElement('span', {
+        style: lineStyle(theme === 'dark' ? '#64748b' : '#94a3b8', true)
+      }),
+      'Indirect'
+    ));
+  }
+  return React.createElement(Panel, {
+    position: 'top-right',
+    style: {
+      background: t.legendBg,
+      border: '1px solid ' + t.legendBorder,
+      borderRadius: '6px',
+      padding: '8px 10px',
+      fontSize: '11px',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      color: t.legendText,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '4px',
+      margin: '10px'
+    }
+  }, children);
+}
+
+// Renders the whole graph to a PNG and hands it to the browser as a
+// download. Runs outside React off the instance captured by onInit.
+function exportPng(el, state, theme) {
+  var B = window.ReactFlowBundle;
+  if (!state.flow || !B.toPng || !B.getNodesBounds || !B.getViewportForBounds) {
+    return;
+  }
+  var nodes = state.flow.getNodes();
+  if (!nodes.length) {
+    return;
+  }
+  var raw = B.getNodesBounds(nodes);
+  var pad = 24;
+  var bounds = {
+    x: raw.x - pad,
+    y: raw.y - pad,
+    width: raw.width + 2 * pad,
+    height: raw.height + 2 * pad
+  };
+  // 2x for crispness, capped so giant graphs stay under 4096px a side
+  var scale = Math.min(2, 4096 / bounds.width, 4096 / bounds.height);
+  var w = Math.round(bounds.width * scale);
+  var h = Math.round(bounds.height * scale);
+  // The 6th padding argument is required: omitting it yields NaNs
+  var viewport = B.getViewportForBounds(bounds, w, h, scale, scale, 0);
+  // Scoped to this widget: multiple widgets can render on one page, and
+  // the viewport layer holds only nodes and edges, so controls, minimap,
+  // legend, and the dotted background stay out of the image
+  var viewportEl = el.querySelector('.react-flow__viewport');
+  if (!viewportEl) {
+    return;
+  }
+  B.toPng(viewportEl, {
+    backgroundColor: THEME_COLORS[theme].exportBg,
+    width: w,
+    height: h,
+    pixelRatio: 1,
+    skipFonts: true,
+    style: {
+      width: w + 'px',
+      height: h + 'px',
+      transform: 'translate(' + viewport.x + 'px, ' + viewport.y + 'px) scale(' + viewport.zoom + ')'
+    }
+  }).then(function(dataUrl) {
+    var link = document.createElement('a');
+    link.download = 'lineage.png';
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }).catch(function(e) {
+    console.error('lineage_flow PNG export failed:', e);
+  });
+}
+
 function renderReactFlow(el, x, width, height, state) {
   var React = window.ReactFlowBundle.React;
   var ReactDOM = window.ReactFlowBundle.ReactDOM;
@@ -183,8 +384,17 @@ function renderReactFlow(el, x, width, height, state) {
   var applyEdgeChanges = window.ReactFlowBundle.applyEdgeChanges;
   var TableNode = window.ReactFlowBundle.TableNode;
   var LineageEdge = window.ReactFlowBundle.LineageEdge;
+  // Chrome that only newer bundles export; each is guarded at use so an
+  // older cached bundle degrades by omission instead of crashing
+  var ControlButton = window.ReactFlowBundle.ControlButton;
+  var MiniMap = window.ReactFlowBundle.MiniMap;
+  var Panel = window.ReactFlowBundle.Panel;
+  var canExportPng = !!(ControlButton && window.ReactFlowBundle.toPng &&
+    window.ReactFlowBundle.getNodesBounds && window.ReactFlowBundle.getViewportForBounds);
   // Older cached bundles don't export LineageEdge; fall back to smoothstep
   var defaultEdgeType = LineageEdge ? 'lineage' : 'smoothstep';
+
+  var opts = x.options || {};
 
   el.style.width = '100%';
   // htmlwidgets sets an inline height on el; default only when embedding
@@ -215,6 +425,16 @@ function renderReactFlow(el, x, width, height, state) {
 
   var laneFractions = computeLaneFractions(x.nodes || [], x.edges || []);
   var adjacency = buildAdjacency(x.edges || []);
+
+  // Legend content reflects what the graph actually contains
+  var presentTypes = ['source', 'transform', 'target'].filter(function(type) {
+    return (x.nodes || []).some(function(node) {
+      return node.data && node.data.tableType === type;
+    });
+  });
+  var hasIndirect = (x.edges || []).some(function(edge) {
+    return edge.style && edge.style.strokeDasharray;
+  });
 
   var initialEdges = (x.edges || []).map(function(edge) {
     var data = Object.assign({}, edge.data);
@@ -288,6 +508,35 @@ function renderReactFlow(el, x, width, height, state) {
         };
       }, []);
 
+      // Resolved theme. "auto" tracks prefers-color-scheme live; resolving
+      // it here rather than passing colorMode "system" keeps React Flow's
+      // chrome and our own palette flipping in the same render
+      var prefersDarkState = useState(function() {
+        return !!(window.matchMedia &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches);
+      });
+      var prefersDark = prefersDarkState[0];
+      var setPrefersDark = prefersDarkState[1];
+      useEffect(function() {
+        if (opts.theme !== 'auto' || !window.matchMedia) {
+          return undefined;
+        }
+        var query = window.matchMedia('(prefers-color-scheme: dark)');
+        function onChange(event) {
+          setPrefersDark(event.matches);
+        }
+        if (query.addEventListener) {
+          query.addEventListener('change', onChange);
+          return function() { query.removeEventListener('change', onChange); };
+        }
+        query.addListener(onChange);
+        return function() { query.removeListener(onChange); };
+      }, []);
+      var theme = opts.theme === 'dark' || (opts.theme === 'auto' && prefersDark)
+        ? 'dark'
+        : 'light';
+      var themeColors = THEME_COLORS[theme];
+
       var coneInfo = useMemo(function() {
         if (!selectedColumn) {
           return null;
@@ -295,7 +544,21 @@ function renderReactFlow(el, x, width, height, state) {
         return computeCone(adjacency, selectedColumn);
       }, [selectedColumn]);
 
-      // Update nodes to inject the callbacks and per-node cone state
+      // Report the traced column to Shiny as input$<outputId>_selected;
+      // the initial run publishes null so the input always exists
+      useEffect(function() {
+        if (window.Shiny && window.Shiny.setInputValue && el.id) {
+          window.Shiny.setInputValue(
+            el.id + '_selected',
+            selectedColumn
+              ? { table: selectedColumn.nodeId, column: selectedColumn.handleId }
+              : null
+          );
+        }
+      }, [selectedColumn]);
+
+      // Update nodes to inject the callbacks, per-node cone state, and the
+      // theme-resolved palette
       var nodesWithCallback = useMemo(function() {
         return nodes.map(function(node) {
           var dimmed = false;
@@ -318,6 +581,7 @@ function renderReactFlow(el, x, width, height, state) {
           }
           return Object.assign({}, node, {
             data: Object.assign({}, node.data, {
+              colors: themeNodeColors(node, theme),
               onColumnHover: onColumnHover,
               onColumnClick: onColumnClick,
               dimmed: dimmed,
@@ -326,17 +590,27 @@ function renderReactFlow(el, x, width, height, state) {
             })
           });
         });
-      }, [nodes, onColumnHover, onColumnClick, coneInfo, selectedColumn]);
+      }, [nodes, onColumnHover, onColumnClick, coneInfo, selectedColumn, theme]);
+
+      // Edge base styles re-grounded for the resolved theme
+      var themedEdges = useMemo(function() {
+        if (theme !== 'dark') {
+          return edges;
+        }
+        return edges.map(function(edge) {
+          return themeEdge(edge, theme);
+        });
+      }, [edges, theme]);
 
       // Update edges from the traced cone and the hovered handle. Cone
       // dimming wins: hovering never resurrects an edge outside the cone,
       // and in-cone edges stay at full strength unless hover-highlighted.
       var styledEdges = useMemo(function() {
         if (!hoveredHandle && !coneInfo) {
-          return edges;
+          return themedEdges;
         }
 
-        return edges.map(function(edge) {
+        return themedEdges.map(function(edge) {
           if (coneInfo && !coneInfo.edgeIds[edge.id]) {
             return Object.assign({}, edge, {
               animated: false,
@@ -355,7 +629,10 @@ function renderReactFlow(el, x, width, height, state) {
           if (isConnected) {
             return Object.assign({}, edge, {
               animated: true,
-              style: Object.assign({}, edge.style, { stroke: '#f59e0b', strokeWidth: 3 })
+              style: Object.assign({}, edge.style, {
+                stroke: themeColors.edgeHighlight,
+                strokeWidth: 3
+              })
             });
           }
           if (coneInfo) {
@@ -363,10 +640,14 @@ function renderReactFlow(el, x, width, height, state) {
           }
           return Object.assign({}, edge, {
             animated: false,
-            style: Object.assign({}, edge.style, { stroke: '#d1d5db', strokeWidth: 2, opacity: 0.3 })
+            style: Object.assign({}, edge.style, {
+              stroke: themeColors.edgeDim,
+              strokeWidth: 2,
+              opacity: themeColors.edgeDimOpacity
+            })
           });
         });
-      }, [edges, hoveredHandle, coneInfo]);
+      }, [themedEdges, hoveredHandle, coneInfo, themeColors]);
       
       // Handle node changes (dragging, selecting, etc.)
       var onNodesChange = useCallback(function(changes) {
@@ -400,6 +681,7 @@ function renderReactFlow(el, x, width, height, state) {
           },
           fitView: true,
           fitViewOptions: FIT_VIEW_OPTIONS,
+          colorMode: theme,
           minZoom: 0.1,
           maxZoom: 4,
           nodesDraggable: true,
@@ -414,15 +696,49 @@ function renderReactFlow(el, x, width, height, state) {
           defaultEdgeOptions: {
             type: defaultEdgeType,
             animated: false,
-            style: { stroke: '#64748b', strokeWidth: 2 }
+            style: {
+              stroke: theme === 'dark' ? '#94a3b8' : '#64748b',
+              strokeWidth: 2
+            }
           }
         },
-        React.createElement(Background, { 
-          color: "#d1d5db", 
+        React.createElement(Background, {
+          color: themeColors.backgroundDots,
           gap: 20,
           variant: "dots"
         }),
-        React.createElement(Controls, { showInteractive: false })
+        React.createElement(
+          Controls,
+          { showInteractive: false },
+          opts.exportButton !== false && canExportPng
+            ? React.createElement(ControlButton, {
+                onClick: function() { exportPng(el, state, theme); },
+                title: 'Download PNG',
+                'aria-label': 'Download PNG'
+              }, React.createElement('svg', {
+                width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none',
+                stroke: 'currentColor', strokeWidth: 2.5,
+                strokeLinecap: 'round', strokeLinejoin: 'round'
+              },
+                React.createElement('path', { key: 'stem', d: 'M12 4v11' }),
+                React.createElement('path', { key: 'head', d: 'M6 10l6 6 6-6' }),
+                React.createElement('path', { key: 'base', d: 'M5 20h14' })
+              ))
+            : null
+        ),
+        opts.minimap && MiniMap
+          ? React.createElement(MiniMap, {
+              pannable: true,
+              zoomable: true,
+              nodeColor: function(node) {
+                return (node.data && node.data.colors && node.data.colors.border) || '#3b82f6';
+              },
+              nodeStrokeColor: 'none'
+            })
+          : null,
+        opts.legend !== false && Panel
+          ? legendPanel(React, Panel, theme, presentTypes, hasIndirect)
+          : null
       );
     };
     
@@ -489,6 +805,15 @@ function renderSVG(el, x, width, height) {
   var edges = x.edges || [];
   var FONT = 'font-family="system-ui, -apple-system, sans-serif"';
 
+  // Static rendering resolves "auto" once; no live listener
+  var opts = x.options || {};
+  var theme = opts.theme === 'dark' || (opts.theme === 'auto' &&
+    window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    ? 'dark'
+    : 'light';
+  var dark = theme === 'dark';
+  var t = THEME_COLORS[theme];
+
   // Frame the drawing around the actual content
   var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   nodes.forEach(function(node) {
@@ -507,13 +832,17 @@ function renderSVG(el, x, width, height) {
 
   var html = '<svg width="100%" height="' + svgHeight + '" viewBox="' + viewBox + '" ' +
     'preserveAspectRatio="xMidYMid meet" ' +
-    'style="background: #fafafa; border: 1px solid #e0e0e0; display: block;">';
+    'style="background: ' + (dark ? '#141414' : '#fafafa') +
+    '; border: 1px solid ' + (dark ? '#3f3f46' : '#e0e0e0') + '; display: block;">';
 
   // One arrowhead marker per distinct edge color, so arrows match lines
   var markerIds = {};
   var defs = '';
   edges.forEach(function(edge) {
     var stroke = (edge.style && edge.style.stroke) || '#64748b';
+    if (dark) {
+      stroke = darkEdgeColor(stroke);
+    }
     if (!markerIds[stroke]) {
       var id = 'lineage-arrow-' + stroke.replace(/[^a-zA-Z0-9]/g, '');
       markerIds[stroke] = id;
@@ -540,6 +869,9 @@ function renderSVG(el, x, width, height) {
 
     var style = edge.style || {};
     var stroke = style.stroke || '#64748b';
+    if (dark) {
+      stroke = darkEdgeColor(stroke);
+    }
     var strokeWidth = style.strokeWidth || 2;
     html += '<path d="M ' + x1 + ' ' + y1 +
       ' C ' + (x1 + dx) + ' ' + y1 + ', ' + (x2 - dx) + ' ' + y2 +
@@ -554,8 +886,10 @@ function renderSVG(el, x, width, height) {
     var ny = node.position.y;
     var columns = svgColumnsOf(node);
     var nodeH = svgNodeHeight(node);
-    var colors = (node.data && node.data.colors) ||
-      { bg: '#f0f7ff', border: '#3b82f6', header: '#1d4ed8' };
+    var colors = themeNodeColors(node, theme);
+    if (!colors.bg) {
+      colors = { bg: '#f0f7ff', border: '#3b82f6', header: '#1d4ed8' };
+    }
     var label = (node.data && node.data.label) ? node.data.label : node.id;
 
     // Body, then header (rounded top squared off below), then rows, with
@@ -575,16 +909,16 @@ function renderSVG(el, x, width, height) {
       var centerY = rowY + SVG_ROW_H / 2;
       if (i > 0) {
         html += '<line x1="' + nx + '" y1="' + rowY + '" x2="' + (nx + SVG_NODE_W) +
-          '" y2="' + rowY + '" stroke="#e5e7eb" stroke-width="1"/>';
+          '" y2="' + rowY + '" stroke="' + (colors.rowBorder || t.rowBorder) + '" stroke-width="1"/>';
       }
       html += '<text x="' + (nx + 14) + '" y="' + centerY + '" ' +
         'dominant-baseline="central" ' + FONT + ' font-size="13" font-weight="500" ' +
-        'fill="#1f2937">' + escapeHtml(svgTruncate(column, 24)) + '</text>';
+        'fill="' + (colors.text || t.text) + '">' + escapeHtml(svgTruncate(column, 24)) + '</text>';
       // Connection dots where the interactive handles would sit
       html += '<circle cx="' + nx + '" cy="' + centerY + '" r="4" ' +
-        'fill="' + escapeHtml(colors.border) + '" stroke="#ffffff" stroke-width="1.5"/>';
+        'fill="' + escapeHtml(colors.border) + '" stroke="' + (colors.nodeBg || 'white') + '" stroke-width="1.5"/>';
       html += '<circle cx="' + (nx + SVG_NODE_W) + '" cy="' + centerY + '" r="4" ' +
-        'fill="' + escapeHtml(colors.border) + '" stroke="#ffffff" stroke-width="1.5"/>';
+        'fill="' + escapeHtml(colors.border) + '" stroke="' + (colors.nodeBg || 'white') + '" stroke-width="1.5"/>';
     });
 
     html += '<rect x="' + nx + '" y="' + ny + '" width="' + SVG_NODE_W +
@@ -594,8 +928,10 @@ function renderSVG(el, x, width, height) {
 
   html += '</svg>';
 
-  html += '<div style="margin-top: 10px; padding: 8px 12px; background: #f0f0f0; ';
-  html += 'border-radius: 4px; font-size: 12px; font-family: system-ui, sans-serif; color: #666;">';
+  html += '<div style="margin-top: 10px; padding: 8px 12px; background: ' +
+    (dark ? '#27272a' : '#f0f0f0') + '; ';
+  html += 'border-radius: 4px; font-size: 12px; font-family: system-ui, sans-serif; color: ' +
+    (dark ? '#a1a1aa' : '#666') + ';">';
   html += 'Column lineage (static SVG) | Tables: ' + nodes.length + ' | Edges: ' + edges.length;
   html += '</div>';
 

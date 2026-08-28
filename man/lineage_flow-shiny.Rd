@@ -26,7 +26,11 @@ is useful if you want to save an expression in a variable.}
 }
 \description{
 Output and render functions for using lineage_flow within Shiny
-applications and interactive Rmd documents.
+applications and interactive Rmd documents. When the viewer clicks a
+column to trace it, the app receives \verb{input$<outputId>_selected} — a
+list with \code{table} and \code{column} entries, or \code{NULL} once the trace is
+released — ready to feed \code{\link[=lineage_upstream]{lineage_upstream()}} and
+\code{\link[=lineage_downstream]{lineage_downstream()}} on the server side.
 }
 \examples{
 if (interactive() && requireNamespace("shiny", quietly = TRUE)) {

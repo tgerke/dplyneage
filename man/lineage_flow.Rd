@@ -9,7 +9,11 @@ lineage_flow(
   edges = list(),
   width = NULL,
   height = NULL,
-  elementId = NULL
+  elementId = NULL,
+  minimap = FALSE,
+  legend = TRUE,
+  theme = c("light", "dark", "auto"),
+  export_button = TRUE
 )
 }
 \arguments{
@@ -25,6 +29,21 @@ its own edges.}
 
 \item{elementId}{Explicit HTML element id for the widget. Usually left
 \code{NULL} so one is generated.}
+
+\item{minimap}{If \code{TRUE}, draws a pannable overview map in the corner.
+Off by default; it earns its space on large multi-model graphs.}
+
+\item{legend}{If \code{TRUE} (the default), overlays a small legend naming
+the node colors and edge styles present in the graph.}
+
+\item{theme}{\code{"light"} (the default), \code{"dark"}, or \code{"auto"}, which
+follows the viewer's \code{prefers-color-scheme} — the operating-system
+setting, not the theme of a surrounding Quarto or R Markdown
+document, so documents rendered dark should pass \code{theme = "dark"}
+explicitly.}
+
+\item{export_button}{If \code{TRUE} (the default), the zoom controls gain a
+button that downloads the diagram as a PNG.}
 }
 \value{
 An htmlwidget that prints in the RStudio viewer, R Markdown /
@@ -36,6 +55,13 @@ as draggable nodes, column-to-column edges, and zoom/pan controls. Pass
 the result of \code{\link[=extract_lineage]{extract_lineage()}} directly (it is detected
 automatically, so piping works), or build \code{nodes} and \code{edges} yourself
 with \code{\link[=create_table_node]{create_table_node()}} and \code{\link[=create_column_edge]{create_column_edge()}}.
+}
+\details{
+Clicking a column isolates its trace cone — the transitive upstream and
+downstream subgraph — and dims everything else; clicking it again,
+clicking the background, or pressing Escape releases it. In Shiny, the
+traced column is reported as \verb{input$<outputId>_selected}, a list with
+\code{table} and \code{column} entries (\code{NULL} when nothing is traced).
 }
 \examples{
 # Build a small diagram by hand
@@ -51,6 +77,9 @@ edges <- list(
   )
 )
 lineage_flow(nodes, edges)
+
+# Dark theme with the overview map
+lineage_flow(nodes, edges, theme = "dark", minimap = TRUE)
 \dontshow{if (identical(Sys.getenv("NOT_CRAN"), "true") && dplyneage::has_sqlglot()) withAutoprint(\{ # examplesIf}
 # Or pipe from extract_lineage()
 extract_lineage("SELECT id, name FROM customers") |>

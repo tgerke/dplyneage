@@ -4,14 +4,20 @@ import {
   ReactFlow,
   Background,
   Controls,
+  ControlButton,
+  MiniMap,
+  Panel,
   Handle,
   Position,
   applyNodeChanges,
   applyEdgeChanges,
   addEdge,
   BaseEdge,
-  getSmoothStepPath
+  getSmoothStepPath,
+  getNodesBounds,
+  getViewportForBounds
 } from '@xyflow/react';
+import { toPng } from 'html-to-image';
 import '@xyflow/react/dist/style.css';
 
 // Custom Table Node Component for column-level lineage
@@ -21,6 +27,11 @@ const TableNode = ({ data, isConnectable, id }) => {
     ? data.columns
     : (data.columns ? [data.columns] : []);
   const colors = data.colors || { bg: '#f0f7ff', border: '#3b82f6', header: '#1d4ed8' };
+  const nodeBg = colors.nodeBg || 'white';
+  const textColor = colors.text || '#1f2937';
+  const rowBorder = colors.rowBorder || '#e5e7eb';
+  const hoverBg = colors.hoverBg || '#ffffff';
+  const selectedBg = colors.selectedBg || '#fef3c7';
 
   // Get the hover/click callbacks from data if available
   const onColumnHover = data.onColumnHover || (() => {});
@@ -33,7 +44,7 @@ const TableNode = ({ data, isConnectable, id }) => {
 
   return (
     <div style={{
-      background: 'white',
+      background: nodeBg,
       border: `2px solid ${colors.border}`,
       borderRadius: '8px',
       minWidth: '200px',
@@ -65,24 +76,24 @@ const TableNode = ({ data, isConnectable, id }) => {
           return (
           <div key={column} style={{
             padding: '8px 14px',
-            borderBottom: index < columns.length - 1 ? '1px solid #e5e7eb' : 'none',
+            borderBottom: index < columns.length - 1 ? `1px solid ${rowBorder}` : 'none',
             display: 'flex',
             alignItems: 'center',
             position: 'relative',
             transition: 'background 0.15s ease',
-            background: isSelected ? '#fef3c7' : 'transparent',
+            background: isSelected ? selectedBg : 'transparent',
             opacity: isDimmed ? 0.35 : 1,
             cursor: onColumnClick ? 'pointer' : 'default'
           }}
           onMouseEnter={(e) => {
             if (isDimmed) return;
             if (!isSelected) {
-              e.currentTarget.style.background = '#ffffff';
+              e.currentTarget.style.background = hoverBg;
             }
             onColumnHover(id, column);
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = isSelected ? '#fef3c7' : 'transparent';
+            e.currentTarget.style.background = isSelected ? selectedBg : 'transparent';
             onColumnHover(null, null);
           }}
           onClick={(e) => {
@@ -102,7 +113,7 @@ const TableNode = ({ data, isConnectable, id }) => {
                 background: colors.border,
                 width: '10px',
                 height: '10px',
-                border: '2px solid white',
+                border: `2px solid ${nodeBg}`,
                 left: '-6px'
               }}
               isConnectable={isConnectable}
@@ -113,7 +124,7 @@ const TableNode = ({ data, isConnectable, id }) => {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              color: '#1f2937',
+              color: textColor,
               fontWeight: isSelected ? 600 : 500
             }}>
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -132,7 +143,7 @@ const TableNode = ({ data, isConnectable, id }) => {
                 background: colors.border,
                 width: '10px',
                 height: '10px',
-                border: '2px solid white',
+                border: `2px solid ${nodeBg}`,
                 right: '-6px'
               }}
               isConnectable={isConnectable}
@@ -188,13 +199,19 @@ export {
   ReactFlow,
   Background,
   Controls,
+  ControlButton,
+  MiniMap,
+  Panel,
   Handle,
   Position,
   applyNodeChanges,
   applyEdgeChanges,
   addEdge,
   TableNode,
-  LineageEdge
+  LineageEdge,
+  getNodesBounds,
+  getViewportForBounds,
+  toPng
 };
 
 // Also make available on window for htmlwidgets
@@ -205,12 +222,18 @@ if (typeof window !== 'undefined') {
     ReactFlow,
     Background,
     Controls,
+    ControlButton,
+    MiniMap,
+    Panel,
     Handle,
     Position,
     applyNodeChanges,
     applyEdgeChanges,
     addEdge,
     TableNode,
-    LineageEdge
+    LineageEdge,
+    getNodesBounds,
+    getViewportForBounds,
+    toPng
   };
 }
