@@ -551,3 +551,177 @@ test_that("multiple indirect kinds merge into one dataset array entry", {
   )
   expect_setequal(subtypes, c("FILTER", "SORT"))
 })
+
+# Static events (#8) -----------------------------------------------------
+
+test_that("events = 'job' emits one run-less JobEvent per model", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  silver <- dbplyr::lazy_frame(customer_id = 1L, amount = 1, .name = "orders") |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total_spent = sum(amount, na.rm = TRUE))
+  gold <- dbplyr::lazy_frame(customer_id = 1L, total_spent = 1, .name = "silver") |>
+    dplyr::mutate(big = total_spent > 100)
+  pipeline <- extract_lineage(list(silver = silver, gold = gold))
+
+  ndjson <- lineage_openlineage(
+    pipeline,
+    events = "job", event_time = "t", pretty = FALSE
+  )
+  lines <- strsplit(ndjson, "\n", fixed = TRUE)[[1]]
+  expect_length(lines, 2L)
+
+  events <- lapply(lines, jsonlite::fromJSON, simplifyVector = FALSE)
+  names(events) <- vapply(events, function(e) e$job$name, character(1))
+  expect_setequal(names(events), c("silver", "gold"))
+
+  for (e in events) {
+    expect_null(e$run)
+    expect_null(e$eventType)
+    expect_match(e$schemaURL, "#/\\$defs/JobEvent$")
+    expect_identical(e$eventTime, "t")
+    # Each JobEvent carries its own model's sql facet
+    expect_identical(
+      e$job$facets$sql$query,
+      pipeline$metadata$models[[e$job$name]]$sql
+    )
+  }
+
+  gold_inputs <- vapply(
+    events$gold$inputs,
+    function(d) d$name,
+    character(1)
+  )
+  expect_identical(gold_inputs, "silver")
+  expect_identical(events$gold$outputs[[1]]$name, "gold")
+  big <- events$gold$outputs[[1]]$facets$columnLineage$fields$big
+  expect_identical(big$inputFields[[1]]$name, "silver")
+
+  silver_inputs <- vapply(
+    events$silver$inputs,
+    function(d) d$name,
+    character(1)
+  )
+  expect_identical(silver_inputs, "orders")
+})
+
+test_that("events = 'dataset' emits one run-less DatasetEvent per node", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  lineage <- dbplyr::lazy_frame(customer_id = 1L, amount = 1, .name = "orders") |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total = sum(amount, na.rm = TRUE)) |>
+    extract_lineage(engine = "r")
+
+  ndjson <- lineage_openlineage(
+    lineage,
+    events = "dataset", event_time = "t", pretty = FALSE
+  )
+  lines <- strsplit(ndjson, "\n", fixed = TRUE)[[1]]
+  expect_length(lines, 2L)
+
+  events <- lapply(lines, jsonlite::fromJSON, simplifyVector = FALSE)
+  names(events) <- vapply(events, function(e) e$dataset$name, character(1))
+  expect_setequal(names(events), c("orders", "output"))
+
+  for (e in events) {
+    expect_null(e$run)
+    expect_null(e$job)
+    expect_match(e$schemaURL, "#/\\$defs/DatasetEvent$")
+  }
+  # Sources register schema only; outputs carry their column lineage
+  expect_null(events$orders$dataset$facets$columnLineage)
+  expect_setequal(
+    vapply(
+      events$orders$dataset$facets$schema$fields,
+      `[[`, character(1), "name"
+    ),
+    c("customer_id", "amount")
+  )
+  expect_identical(
+    events$output$dataset$facets$columnLineage$fields$total$inputFields[[1]]$field,
+    "amount"
+  )
+})
+
+test_that("static job events need extraction metadata", {
+  lineage <- list(
+    nodes = list(
+      create_table_node("orders", "amount"),
+      create_table_node("totals", "total", table_type = "target")
+    ),
+    edges = list(create_column_edge("orders", "amount", "totals", "total"))
+  )
+  expect_error(
+    lineage_openlineage(lineage, events = "job"),
+    "metadata"
+  )
+  # DatasetEvents work without metadata
+  expect_match(
+    lineage_openlineage(lineage, events = "dataset", pretty = FALSE),
+    "DatasetEvent"
+  )
+})
+
+test_that("a single selected event honors pretty; NDJSON otherwise", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  lineage <- dbplyr::lazy_frame(a = 1, .name = "t1") |>
+    dplyr::mutate(b = a + 1) |>
+    extract_lineage(engine = "r")
+
+  # One JobEvent, pretty: an indented single document
+  json <- lineage_openlineage(lineage, events = "job", event_time = "t")
+  expect_match(json, "^\\{\n")
+  expect_match(json, "#/\\$defs/JobEvent")
+
+  # pretty = FALSE is always NDJSON, even for one event
+  one_line <- lineage_openlineage(
+    lineage,
+    events = "job", event_time = "t", pretty = FALSE
+  )
+  expect_false(grepl("\n", one_line, fixed = TRUE))
+  expect_identical(
+    jsonlite::fromJSON(one_line, simplifyVector = FALSE)$job$name,
+    "output"
+  )
+
+  # Kinds combine, in kind order: run, then job, then two datasets
+  ndjson <- lineage_openlineage(
+    lineage,
+    events = c("run", "job", "dataset"),
+    run_id = "x", event_time = "t", pretty = FALSE
+  )
+  lines <- strsplit(ndjson, "\n", fixed = TRUE)[[1]]
+  expect_length(lines, 4L)
+  kinds <- vapply(lines, function(l) {
+    sub("^.*#/\\$defs/", "", jsonlite::fromJSON(l, simplifyVector = FALSE)$schemaURL)
+  }, character(1), USE.NAMES = FALSE)
+  expect_identical(
+    kinds,
+    c("RunEvent", "JobEvent", "DatasetEvent", "DatasetEvent")
+  )
+})
+
+test_that("output_name flows through to static job events", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  lineage <- dbplyr::lazy_frame(a = 1, .name = "t1") |>
+    dplyr::mutate(b = a + 1) |>
+    extract_lineage(engine = "r")
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(
+      lineage,
+      events = "job", event_time = "t", output_name = "enriched",
+      pretty = FALSE
+    ),
+    simplifyVector = FALSE
+  )
+  expect_identical(event$job$name, "enriched")
+  expect_identical(event$outputs[[1]]$name, "enriched")
+})

@@ -2,7 +2,7 @@
 % Please edit documentation in R/openlineage.R
 \name{lineage_openlineage}
 \alias{lineage_openlineage}
-\title{Export lineage as an OpenLineage run event}
+\title{Export lineage as OpenLineage events}
 \usage{
 lineage_openlineage(
   lineage,
@@ -12,6 +12,7 @@ lineage_openlineage(
   run_id = NULL,
   event_time = NULL,
   pretty = TRUE,
+  events = "run",
   event_type = "COMPLETE",
   output_name = NULL,
   nominal_time = NULL,
@@ -44,9 +45,15 @@ reproducible output.}
 \item{pretty}{If \code{TRUE} (the default), indent the output for
 readability. Use \code{FALSE} for a single-line document.}
 
-\item{event_type}{The run state this event reports: \code{"COMPLETE"} (the
-default), \code{"START"}, \code{"RUNNING"}, \code{"ABORT"}, \code{"FAIL"}, or
-\code{"OTHER"}.}
+\item{events}{Which event kinds to emit: any combination of \code{"run"}
+(the default; one \code{RunEvent} for the whole extraction), \code{"job"}
+(run-less \code{JobEvent}s, one per model), and \code{"dataset"} (run-less
+\code{DatasetEvent}s, one per dataset). See the Static lineage events
+section.}
+
+\item{event_type}{The run state a \code{"run"} event reports:
+\code{"COMPLETE"} (the default), \code{"START"}, \code{"RUNNING"}, \code{"ABORT"},
+\code{"FAIL"}, or \code{"OTHER"}. Static events carry no run state.}
 
 \item{output_name}{Name recorded for the output dataset in place of
 the synthetic \code{"output"} node id of a single-query extraction — use
@@ -63,19 +70,37 @@ under (an Airflow task, a dbt run); emitted as the \code{parent} run
 facet. \code{NULL} (the default) omits the facet.}
 }
 \value{
-A JSON string containing one OpenLineage \code{RunEvent} of the
-requested \code{event_type}.
+A JSON string: one indented event document, or NDJSON with
+one event per line (see the Static lineage events section for when
+each applies).
 }
 \description{
-Serializes a lineage object to an
-\href{https://openlineage.io/}{OpenLineage} \code{RunEvent} JSON document with a
-\code{ColumnLineage} facet on each output dataset — the interchange format
+Serializes a lineage object to
+\href{https://openlineage.io/}{OpenLineage} JSON — the interchange format
 that data catalogs and lineage backends (Marquez, DataHub,
-OpenMetadata, ...) ingest. POST the document to an OpenLineage endpoint
-and dplyneage-extracted lineage appears alongside lineage from dbt,
-Airflow, or Spark.
+OpenMetadata, ...) ingest. The default is one \code{RunEvent} with a
+\code{ColumnLineage} facet on each output dataset; POST it to an
+OpenLineage endpoint (see \code{\link[=lineage_emit]{lineage_emit()}}) and dplyneage-extracted
+lineage appears alongside lineage from dbt, Airflow, or Spark.
 }
-\details{
+\section{Static lineage events}{
+
+dplyneage extracts lineage from code without running it, which is the
+case OpenLineage defines run-less events for. \code{events = "job"} emits
+one \code{JobEvent} per model — its job named after the model, its inputs
+the datasets the model reads (upstream models included), its output
+carrying the \code{columnLineage} facet — and \code{events = "dataset"} emits
+one \code{DatasetEvent} per dataset, sources included, as a static schema
+registration. Both carry no \code{run}, so no run has to be fabricated for
+design-time lineage. Kinds combine: \code{events = c("job", "dataset")}
+emits both sets in one document.
+
+When the selection yields a single event and \code{pretty = TRUE}, the
+result is one indented JSON document. Anything else — several events,
+or \code{pretty = FALSE} — is NDJSON, one compact event per line, the
+format OpenLineage's \code{FileTransport} writes and replay tooling reads:
+a committed events file can later be replayed into any backend.
+
 Source tables become the event's \code{inputs} (with a schema facet listing
 their referenced columns); transform and target tables become
 \code{outputs}, each carrying a \code{columnLineage} facet that maps every output
@@ -87,6 +112,7 @@ subtype, and indirect edges (from
 subtype \code{FILTER}, \code{JOIN}, \code{GROUP_BY}, or \code{SORT}. A direct edge's
 defining expression is carried in the transformation's \code{description}.
 }
+
 \section{Namespaces}{
 
 OpenLineage groups datasets by namespace, and catalogs join events to

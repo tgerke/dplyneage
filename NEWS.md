@@ -37,6 +37,17 @@ filed as tiered issues on GitHub.
   see them fanned out to every column. All `schemaURL`s now use the
   spec's `#/$defs/...` fragments. (#7)
 
+* `lineage_openlineage()` can emit OpenLineage's run-less static
+  events, the spec's design-time path — which is what extracting
+  lineage from code without running it is. `events = "job"` produces
+  one `JobEvent` per model (inputs are the datasets the model reads,
+  upstream models included; each carries its own `sql` facet), and
+  `events = "dataset"` one `DatasetEvent` per dataset; neither
+  fabricates a run. Kinds combine, and anything beyond a single pretty
+  document serializes as NDJSON, one compact event per line — the
+  format `FileTransport` writes, so a committed events file can be
+  replayed into any backend later. (#8)
+
 * The sqlglot engine no longer counts the `ORDER BY` inside
   `WITHIN GROUP` as a result ordering. On dialects where dbplyr renders
   `median()`/`quantile()` as ordered-set aggregates, the ordered column

@@ -1,12 +1,29 @@
-#' Export lineage as an OpenLineage run event
+#' Export lineage as OpenLineage events
 #'
-#' Serializes a lineage object to an
-#' [OpenLineage](https://openlineage.io/) `RunEvent` JSON document with a
-#' `ColumnLineage` facet on each output dataset — the interchange format
+#' Serializes a lineage object to
+#' [OpenLineage](https://openlineage.io/) JSON — the interchange format
 #' that data catalogs and lineage backends (Marquez, DataHub,
-#' OpenMetadata, ...) ingest. POST the document to an OpenLineage endpoint
-#' and dplyneage-extracted lineage appears alongside lineage from dbt,
-#' Airflow, or Spark.
+#' OpenMetadata, ...) ingest. The default is one `RunEvent` with a
+#' `ColumnLineage` facet on each output dataset; POST it to an
+#' OpenLineage endpoint (see [lineage_emit()]) and dplyneage-extracted
+#' lineage appears alongside lineage from dbt, Airflow, or Spark.
+#'
+#' @section Static lineage events:
+#' dplyneage extracts lineage from code without running it, which is the
+#' case OpenLineage defines run-less events for. `events = "job"` emits
+#' one `JobEvent` per model — its job named after the model, its inputs
+#' the datasets the model reads (upstream models included), its output
+#' carrying the `columnLineage` facet — and `events = "dataset"` emits
+#' one `DatasetEvent` per dataset, sources included, as a static schema
+#' registration. Both carry no `run`, so no run has to be fabricated for
+#' design-time lineage. Kinds combine: `events = c("job", "dataset")`
+#' emits both sets in one document.
+#'
+#' When the selection yields a single event and `pretty = TRUE`, the
+#' result is one indented JSON document. Anything else — several events,
+#' or `pretty = FALSE` — is NDJSON, one compact event per line, the
+#' format OpenLineage's `FileTransport` writes and replay tooling reads:
+#' a committed events file can later be replayed into any backend.
 #'
 #' Source tables become the event's `inputs` (with a schema facet listing
 #' their referenced columns); transform and target tables become
@@ -63,9 +80,14 @@
 #' @param event_time Event timestamp in ISO-8601 format. The current UTC
 #'   time when `NULL` (the default); pass a fixed timestamp for
 #'   reproducible output.
-#' @param event_type The run state this event reports: `"COMPLETE"` (the
-#'   default), `"START"`, `"RUNNING"`, `"ABORT"`, `"FAIL"`, or
-#'   `"OTHER"`.
+#' @param events Which event kinds to emit: any combination of `"run"`
+#'   (the default; one `RunEvent` for the whole extraction), `"job"`
+#'   (run-less `JobEvent`s, one per model), and `"dataset"` (run-less
+#'   `DatasetEvent`s, one per dataset). See the Static lineage events
+#'   section.
+#' @param event_type The run state a `"run"` event reports:
+#'   `"COMPLETE"` (the default), `"START"`, `"RUNNING"`, `"ABORT"`,
+#'   `"FAIL"`, or `"OTHER"`. Static events carry no run state.
 #' @param output_name Name recorded for the output dataset in place of
 #'   the synthetic `"output"` node id of a single-query extraction — use
 #'   it when the query's result lands in a known table. Errors on
@@ -77,8 +99,9 @@
 #'   `namespace`, identifying the orchestrating run this event belongs
 #'   under (an Airflow task, a dbt run); emitted as the `parent` run
 #'   facet. `NULL` (the default) omits the facet.
-#' @return A JSON string containing one OpenLineage `RunEvent` of the
-#'   requested `event_type`.
+#' @return A JSON string: one indented event document, or NDJSON with
+#'   one event per line (see the Static lineage events section for when
+#'   each applies).
 #' @family lineage exporters
 #' @seealso [extract_lineage()] to compute lineage automatically
 #' @export
@@ -103,27 +126,76 @@ lineage_openlineage <- function(lineage, path = NULL,
                                 run_id = NULL,
                                 event_time = NULL,
                                 pretty = TRUE,
+                                events = "run",
                                 event_type = "COMPLETE",
                                 output_name = NULL,
                                 nominal_time = NULL,
                                 parent = NULL) {
-  event_type <- match.arg(
-    event_type,
-    c("COMPLETE", "START", "RUNNING", "ABORT", "FAIL", "OTHER")
-  )
+  events <- match.arg(events, c("run", "job", "dataset"), several.ok = TRUE)
   semantics <- ol_rename_output(lineage_semantics(lineage), output_name)
-  event <- build_openlineage(
+  ctx <- ol_context(
     semantics,
     namespace = namespace,
+    job_name = job_name,
+    run_id = run_id,
+    event_time = event_time,
+    event_type = event_type,
+    nominal_time = nominal_time,
+    parent = parent
+  )
+  out <- ol_serialize(ol_build_events(semantics, events, ctx), pretty)
+  write_export(out, path)
+}
+
+#' Everything the event builders share, validated once
+#' @noRd
+ol_context <- function(semantics, namespace, job_name, run_id, event_time,
+                       event_type, nominal_time, parent) {
+  list(
+    node_ns = ol_node_namespaces(semantics, namespace),
+    job_ns = namespace %||% "dplyneage",
     job_name = job_name,
     run_id = run_id %||% ol_uuid(),
     event_time = event_time %||%
       format(Sys.time(), "%Y-%m-%dT%H:%M:%OS3Z", tz = "UTC"),
-    event_type = event_type,
+    event_type = match.arg(
+      event_type,
+      c("COMPLETE", "START", "RUNNING", "ABORT", "FAIL", "OTHER")
+    ),
     run_facets = ol_run_facets(nominal_time, parent)
   )
-  out <- jsonlite::toJSON(event, auto_unbox = TRUE, pretty = pretty)
-  write_export(out, path)
+}
+
+#' The requested event kinds, in kind order, as a flat list of events
+#' @noRd
+ol_build_events <- function(semantics, kinds, ctx) {
+  events <- list()
+  for (kind in kinds) {
+    events <- c(
+      events,
+      switch(
+        kind,
+        run = list(ol_run_event(semantics, ctx)),
+        job = ol_job_events(semantics, ctx),
+        dataset = ol_dataset_events(semantics, ctx)
+      )
+    )
+  }
+  events
+}
+
+#' One event per line when there are several: FileTransport's NDJSON
+#' @noRd
+ol_serialize <- function(events, pretty) {
+  if (length(events) == 1 && pretty) {
+    return(jsonlite::toJSON(events[[1]], auto_unbox = TRUE, pretty = TRUE))
+  }
+  lines <- vapply(
+    events,
+    function(e) as.character(jsonlite::toJSON(e, auto_unbox = TRUE)),
+    character(1)
+  )
+  paste(lines, collapse = "\n")
 }
 
 #' @noRd
@@ -141,64 +213,114 @@ ol_facet_url <- function(version, name) {
   )
 }
 
+#' Which nodes are outputs (transform or target)
 #' @noRd
-build_openlineage <- function(semantics, namespace, job_name, run_id,
-                              event_time, event_type = "COMPLETE",
-                              run_facets = NULL) {
+ol_is_output <- function(semantics) {
   types <- vapply(
     semantics$nodes,
     function(n) n$type %||% NA_character_,
     character(1)
   )
-  is_output <- !is.na(types) & types %in% c("transform", "target")
+  !is.na(types) & types %in% c("transform", "target")
+}
 
-  node_ns <- ol_node_namespaces(semantics, namespace)
-
-  dataset_facets <- function(n) {
-    facets <- list(schema = ol_schema_facet(n$columns, n$types))
-    data_source <- ol_datasource_facet(node_ns[[n$id]])
-    if (!is.null(data_source)) {
-      facets$dataSource <- data_source
-    }
-    facets
+#' One OpenLineage dataset object; pass edges to attach column lineage
+#' @noRd
+ol_dataset <- function(n, ctx, edges = NULL) {
+  facets <- list(schema = ol_schema_facet(n$columns, n$types))
+  data_source <- ol_datasource_facet(ctx$node_ns[[n$id]])
+  if (!is.null(data_source)) {
+    facets$dataSource <- data_source
   }
-
-  inputs <- lapply(semantics$nodes[!is_output], function(n) {
-    list(
-      namespace = node_ns[[n$id]],
-      name = n$id,
-      facets = dataset_facets(n)
-    )
-  })
-
-  outputs <- lapply(semantics$nodes[is_output], function(n) {
-    facets <- dataset_facets(n)
-    column_lineage <- ol_column_lineage_facet(semantics$edges, n$id, node_ns)
+  if (!is.null(edges)) {
+    column_lineage <- ol_column_lineage_facet(edges, n$id, ctx$node_ns)
     if (!is.null(column_lineage)) {
       facets$columnLineage <- column_lineage
     }
-    list(namespace = node_ns[[n$id]], name = n$id, facets = facets)
-  })
-
-  run <- list(runId = run_id)
-  if (length(run_facets) > 0) {
-    run$facets <- run_facets
   }
+  list(namespace = ctx$node_ns[[n$id]], name = n$id, facets = facets)
+}
 
+#' @noRd
+ol_run_event <- function(semantics, ctx) {
+  is_output <- ol_is_output(semantics)
+  run <- list(runId = ctx$run_id)
+  if (length(ctx$run_facets) > 0) {
+    run$facets <- ctx$run_facets
+  }
   list(
-    eventType = event_type,
-    eventTime = event_time,
+    eventType = ctx$event_type,
+    eventTime = ctx$event_time,
     run = run,
     job = list(
-      namespace = namespace %||% "dplyneage",
-      name = job_name,
+      namespace = ctx$job_ns,
+      name = ctx$job_name,
       facets = ol_job_facets(semantics$metadata$models)
     ),
-    inputs = inputs,
-    outputs = outputs,
+    inputs = lapply(semantics$nodes[!is_output], ol_dataset, ctx = ctx),
+    outputs = lapply(
+      semantics$nodes[is_output],
+      ol_dataset,
+      ctx = ctx,
+      edges = semantics$edges
+    ),
     producer = ol_producer,
     schemaURL = paste0(ol_spec_url, "#/$defs/RunEvent")
   )
+}
+
+#' Run-less JobEvents: one design-time job per model
+#'
+#' A model's inputs are the distinct sources of the edges that target its
+#' node — base tables and upstream models alike, so a downstream model's
+#' JobEvent lists the model it reads as an input dataset.
+#' @noRd
+ol_job_events <- function(semantics, ctx) {
+  models <- semantics$metadata$models
+  if (length(models) == 0) {
+    stop(
+      "Static job events describe the models extract_lineage() records ",
+      "in metadata; this lineage has none.",
+      call. = FALSE
+    )
+  }
+  nodes_by_id <- stats::setNames(
+    semantics$nodes,
+    vapply(semantics$nodes, function(n) n$id, character(1))
+  )
+  lapply(names(models), function(m) {
+    incoming <- Filter(function(e) identical(e$target, m), semantics$edges)
+    input_ids <- unique(vapply(incoming, function(e) e$source, character(1)))
+    list(
+      eventTime = ctx$event_time,
+      job = list(
+        namespace = ctx$job_ns,
+        name = m,
+        facets = ol_job_facets(models[m])
+      ),
+      # unname: a named list would serialize as an object, not an array
+      inputs = unname(lapply(nodes_by_id[input_ids], ol_dataset, ctx = ctx)),
+      outputs = list(
+        ol_dataset(nodes_by_id[[m]], ctx, edges = semantics$edges)
+      ),
+      producer = ol_producer,
+      schemaURL = paste0(ol_spec_url, "#/$defs/JobEvent")
+    )
+  })
+}
+
+#' Run-less DatasetEvents: one per node, sources included — a static
+#' schema registration that needs no metadata
+#' @noRd
+ol_dataset_events <- function(semantics, ctx) {
+  lapply(semantics$nodes, function(n) {
+    list(
+      eventTime = ctx$event_time,
+      dataset = ol_dataset(n, ctx, edges = semantics$edges),
+      producer = ol_producer,
+      schemaURL = paste0(ol_spec_url, "#/$defs/DatasetEvent")
+    )
+  })
 }
 
 #' @noRd
