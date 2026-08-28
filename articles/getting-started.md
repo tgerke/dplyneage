@@ -299,12 +299,18 @@ multi-model pipeline, the model’s name plays that role. Had two sources
 fed one column conflicting labels, it would have stayed bare — missing
 beats wrong.
 
-In
-[`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md),
-hovering a labeled column shows a card with the label and type.
+In the diagram, those labels become hover cards. Try it on this
+rendering: `customer_id` shows its label on both nodes, and `total`
+shows the hand-supplied one.
+
+``` r
+
+lineage_flow(lineage, height = "300px")
+```
+
 [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
-records them as per-node `labels` and `types` maps, and each OpenLineage
-schema-facet field gains a `description` — the [OpenLineage
+records the same labels as per-node `labels` and `types` maps, and each
+OpenLineage schema-facet field gains a `description` — the [OpenLineage
 article](https://tgerke.github.io/dplyneage/articles/openlineage.html)
 shows the rendered event.
 
@@ -453,12 +459,12 @@ g <- igraph::read_graph(path, format = "graphml")
 
 # Everything upstream of total_spent
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from d11d701:
+#> + 2/6 vertices, named, from a2cb0bd:
 #> [1] output.total_spent orders.amount
 
 # Everything downstream of orders.amount
 igraph::subcomponent(g, "orders.amount", mode = "out")
-#> + 2/6 vertices, named, from d11d701:
+#> + 2/6 vertices, named, from a2cb0bd:
 #> [1] orders.amount      output.total_spent
 ```
 
