@@ -264,26 +264,40 @@ sales_df <- data.frame(
   customer_id = c(1, 1, 2),
   amount = c(100, 250, 40)
 )
+attr(sales_df$customer_id, "label") <- "Customer surrogate key"
 attr(sales_df$amount, "label") <- "Order amount in USD"
 
 lineage <- dbplyr::tbl_lazy(sales_df, name = "sales") |>
   group_by(customer_id) |>
   summarise(total = sum(amount, na.rm = TRUE)) |>
-  extract_lineage()
+  extract_lineage(labels = list(output = c(total = "Total spent per customer")))
 
-jsonlite::fromJSON(lineage_json(lineage), simplifyVector = FALSE)$nodes[[1]]$labels
+doc <- jsonlite::fromJSON(lineage_json(lineage), simplifyVector = FALSE)
+
+doc$nodes[[1]]$labels # sales: both labels, captured from the attributes
+#> $customer_id
+#> [1] "Customer surrogate key"
+#> 
 #> $amount
 #> [1] "Order amount in USD"
+doc$nodes[[2]]$labels # output: total hand-labelled, customer_id propagated
+#> $total
+#> [1] "Total spent per customer"
+#> 
+#> $customer_id
+#> [1] "Customer surrogate key"
 ```
 
-Labels follow the data through the graph. A column that passes through a
-[`select()`](https://dplyr.tidyverse.org/reference/select.html),
-[`rename()`](https://dplyr.tidyverse.org/reference/rename.html), or join
-unchanged carries its label (and its type, when one was captured) to the
-downstream node, the way dbt Catalog carries descriptions through
-passthrough columns. Aggregated and computed columns stay unlabeled
-unless you label them yourself — a `labels` entry keyed by a model’s
-name, or by `"output"` for a single query, does that.
+That receipt shows the whole pattern. `customer_id` passes through the
+[`group_by()`](https://dplyr.tidyverse.org/reference/group_by.html)
+unchanged, so its label travels to the output node on its own — labels
+(and types, when captured) propagate along identity edges, the way dbt
+Catalog carries descriptions through passthrough columns. `total` is a
+computed column no propagation can describe, so it gets a `labels` entry
+keyed by `"output"`, the synthetic name of a single query’s result; in a
+multi-model pipeline, the model’s name plays that role. Had two sources
+fed one column conflicting labels, it would have stayed bare — missing
+beats wrong.
 
 In
 [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md),
@@ -292,7 +306,7 @@ hovering a labeled column shows a card with the label and type.
 records them as per-node `labels` and `types` maps, and each OpenLineage
 schema-facet field gains a `description` — the [OpenLineage
 article](https://tgerke.github.io/dplyneage/articles/openlineage.html)
-covers that side.
+shows the rendered event.
 
 ## Building diagrams by hand
 
@@ -439,12 +453,12 @@ g <- igraph::read_graph(path, format = "graphml")
 
 # Everything upstream of total_spent
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from 8731c9d:
+#> + 2/6 vertices, named, from d11d701:
 #> [1] output.total_spent orders.amount
 
 # Everything downstream of orders.amount
 igraph::subcomponent(g, "orders.amount", mode = "out")
-#> + 2/6 vertices, named, from 8731c9d:
+#> + 2/6 vertices, named, from d11d701:
 #> [1] orders.amount      output.total_spent
 ```
 

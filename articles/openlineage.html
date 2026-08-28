@@ -88,7 +88,7 @@ document. The fixture here is a small duckdb warehouse with an
 <span></span>
 <span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbConnect.html" class="external-link">dbConnect</a></span><span class="op">(</span><span class="fu">duckdb</span><span class="fu">::</span><span class="fu"><a href="https://r.duckdb.org/reference/duckdb.html" class="external-link">duckdb</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; duckdb keeps downloaded extensions and secrets in a temporary directory:</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> /tmp/RtmpavPAaQ/duckdb</span></span>
+<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> /tmp/Rtmp0M5XVO/duckdb</span></span>
 <span><span class="co">#&gt; This is removed when the R session ends.</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Extensions are re-downloaded each session.</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Secrets are lost.</span></span>
@@ -99,6 +99,12 @@ document. The fixture here is a small duckdb warehouse with an
 <span>  order_id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">6</span>,</span>
 <span>  customer_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, <span class="fl">2</span><span class="op">)</span>,</span>
 <span>  amount <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">10</span>, <span class="fl">20</span>, <span class="fl">30</span>, <span class="fl">40</span>, <span class="fl">50</span>, <span class="fl">60</span><span class="op">)</span></span>
+<span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbExecute.html" class="external-link">dbExecute</a></span><span class="op">(</span></span>
+<span>  <span class="va">con</span>, <span class="st">"COMMENT ON COLUMN orders.customer_id IS 'Customer surrogate key'"</span></span>
+<span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbExecute.html" class="external-link">dbExecute</a></span><span class="op">(</span></span>
+<span>  <span class="va">con</span>, <span class="st">"COMMENT ON COLUMN orders.amount IS 'Order amount in USD'"</span></span>
 <span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">lineage</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"orders"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -150,11 +156,13 @@ document. The fixture here is a small duckdb warehouse with an
 <span><span class="co">#&gt;           "fields": [</span></span>
 <span><span class="co">#&gt;             {</span></span>
 <span><span class="co">#&gt;               "name": "customer_id",</span></span>
-<span><span class="co">#&gt;               "type": "INTEGER"</span></span>
+<span><span class="co">#&gt;               "type": "INTEGER",</span></span>
+<span><span class="co">#&gt;               "description": "Customer surrogate key"</span></span>
 <span><span class="co">#&gt;             },</span></span>
 <span><span class="co">#&gt;             {</span></span>
 <span><span class="co">#&gt;               "name": "amount",</span></span>
-<span><span class="co">#&gt;               "type": "DOUBLE"</span></span>
+<span><span class="co">#&gt;               "type": "DOUBLE",</span></span>
+<span><span class="co">#&gt;               "description": "Order amount in USD"</span></span>
 <span><span class="co">#&gt;             }</span></span>
 <span><span class="co">#&gt;           ]</span></span>
 <span><span class="co">#&gt;         }</span></span>
@@ -172,7 +180,8 @@ document. The fixture here is a small duckdb warehouse with an
 <span><span class="co">#&gt;           "fields": [</span></span>
 <span><span class="co">#&gt;             {</span></span>
 <span><span class="co">#&gt;               "name": "customer_id",</span></span>
-<span><span class="co">#&gt;               "type": "INTEGER"</span></span>
+<span><span class="co">#&gt;               "type": "INTEGER",</span></span>
+<span><span class="co">#&gt;               "description": "Customer surrogate key"</span></span>
 <span><span class="co">#&gt;             },</span></span>
 <span><span class="co">#&gt;             {</span></span>
 <span><span class="co">#&gt;               "name": "total"</span></span>
@@ -250,9 +259,13 @@ columns, column comments read from a live connection’s catalog (duckdb
 and postgres; one small metadata query per base table), or a
 <code>labels</code> argument like
 <code>labels = list(orders = c(amount = "Order amount in USD"))</code>,
-which wins over both. Whatever is captured also lands in
-<code><a href="../reference/lineage_json.html">lineage_json()</a></code> as per-node <code>types</code> and
-<code>labels</code> maps.</p>
+which wins over both. The comments on this article’s fixture are why the
+event above carries a <code>description</code> on each input field — and
+on the output’s <code>customer_id</code>: types and descriptions
+propagate along identity edges, so a passthrough column arrives
+documented while the aggregated <code>total</code> stays bare. Whatever
+is captured also lands in <code><a href="../reference/lineage_json.html">lineage_json()</a></code> as per-node
+<code>types</code> and <code>labels</code> maps.</p>
 <p><strong>Indirect lineage sits at the dataset level.</strong> With
 <code>extract_lineage(include_indirect = TRUE)</code>, filter, join,
 group and sort columns shape every row of the result rather than any one

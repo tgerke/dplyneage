@@ -303,29 +303,43 @@ winning over the automatic sources:</p>
 <span>  customer_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span>,</span>
 <span>  amount <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">100</span>, <span class="fl">250</span>, <span class="fl">40</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">sales_df</span><span class="op">$</span><span class="va">customer_id</span>, <span class="st">"label"</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="st">"Customer surrogate key"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/attr.html" class="external-link">attr</a></span><span class="op">(</span><span class="va">sales_df</span><span class="op">$</span><span class="va">amount</span>, <span class="st">"label"</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="st">"Order amount in USD"</span></span>
 <span></span>
 <span><span class="va">lineage</span> <span class="op">&lt;-</span> <span class="fu">dbplyr</span><span class="fu">::</span><span class="fu"><a href="https://dbplyr.tidyverse.org/reference/tbl_lazy.html" class="external-link">tbl_lazy</a></span><span class="op">(</span><span class="va">sales_df</span>, name <span class="op">=</span> <span class="st">"sales"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">customer_id</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/summarise.html" class="external-link">summarise</a></span><span class="op">(</span>total <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">amount</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span>labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>output <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>total <span class="op">=</span> <span class="st">"Total spent per customer"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">jsonlite</span><span class="fu">::</span><span class="fu"><a href="https://jeroen.r-universe.dev/jsonlite/reference/fromJSON.html" class="external-link">fromJSON</a></span><span class="op">(</span><span class="fu"><a href="../reference/lineage_json.html">lineage_json</a></span><span class="op">(</span><span class="va">lineage</span><span class="op">)</span>, simplifyVector <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">$</span><span class="va">nodes</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">labels</span></span>
+<span><span class="va">doc</span> <span class="op">&lt;-</span> <span class="fu">jsonlite</span><span class="fu">::</span><span class="fu"><a href="https://jeroen.r-universe.dev/jsonlite/reference/fromJSON.html" class="external-link">fromJSON</a></span><span class="op">(</span><span class="fu"><a href="../reference/lineage_json.html">lineage_json</a></span><span class="op">(</span><span class="va">lineage</span><span class="op">)</span>, simplifyVector <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">doc</span><span class="op">$</span><span class="va">nodes</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">labels</span> <span class="co"># sales: both labels, captured from the attributes</span></span>
+<span><span class="co">#&gt; $customer_id</span></span>
+<span><span class="co">#&gt; [1] "Customer surrogate key"</span></span>
+<span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $amount</span></span>
-<span><span class="co">#&gt; [1] "Order amount in USD"</span></span></code></pre></div>
-<p>Labels follow the data through the graph. A column that passes
-through a <code><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select()</a></code>, <code><a href="https://dplyr.tidyverse.org/reference/rename.html" class="external-link">rename()</a></code>, or join
-unchanged carries its label (and its type, when one was captured) to the
-downstream node, the way dbt Catalog carries descriptions through
-passthrough columns. Aggregated and computed columns stay unlabeled
-unless you label them yourself — a <code>labels</code> entry keyed by a
-model’s name, or by <code>"output"</code> for a single query, does
-that.</p>
+<span><span class="co">#&gt; [1] "Order amount in USD"</span></span>
+<span><span class="va">doc</span><span class="op">$</span><span class="va">nodes</span><span class="op">[[</span><span class="fl">2</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">labels</span> <span class="co"># output: total hand-labelled, customer_id propagated</span></span>
+<span><span class="co">#&gt; $total</span></span>
+<span><span class="co">#&gt; [1] "Total spent per customer"</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $customer_id</span></span>
+<span><span class="co">#&gt; [1] "Customer surrogate key"</span></span></code></pre></div>
+<p>That receipt shows the whole pattern. <code>customer_id</code> passes
+through the <code><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by()</a></code> unchanged, so its label travels to
+the output node on its own — labels (and types, when captured) propagate
+along identity edges, the way dbt Catalog carries descriptions through
+passthrough columns. <code>total</code> is a computed column no
+propagation can describe, so it gets a <code>labels</code> entry keyed
+by <code>"output"</code>, the synthetic name of a single query’s result;
+in a multi-model pipeline, the model’s name plays that role. Had two
+sources fed one column conflicting labels, it would have stayed bare —
+missing beats wrong.</p>
 <p>In <code><a href="../reference/lineage_flow.html">lineage_flow()</a></code>, hovering a labeled column shows a
 card with the label and type. <code><a href="../reference/lineage_json.html">lineage_json()</a></code> records them
 as per-node <code>labels</code> and <code>types</code> maps, and each
 OpenLineage schema-facet field gains a <code>description</code> — the <a href="https://tgerke.github.io/dplyneage/articles/openlineage.html">OpenLineage
-article</a> covers that side.</p>
+article</a> shows the rendered event.</p>
 </div>
 <div class="section level2">
 <h2 id="building-diagrams-by-hand">Building diagrams by hand<a class="anchor" aria-label="anchor" href="#building-diagrams-by-hand"></a>
@@ -461,12 +475,12 @@ it:</p>
 <span></span>
 <span><span class="co"># Everything upstream of total_spent</span></span>
 <span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"output.total_spent"</span>, mode <span class="op">=</span> <span class="st">"in"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; + 2/6 vertices, named, from 8731c9d:</span></span>
+<span><span class="co">#&gt; + 2/6 vertices, named, from d11d701:</span></span>
 <span><span class="co">#&gt; [1] output.total_spent orders.amount</span></span>
 <span></span>
 <span><span class="co"># Everything downstream of orders.amount</span></span>
 <span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"orders.amount"</span>, mode <span class="op">=</span> <span class="st">"out"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; + 2/6 vertices, named, from 8731c9d:</span></span>
+<span><span class="co">#&gt; + 2/6 vertices, named, from d11d701:</span></span>
 <span><span class="co">#&gt; [1] orders.amount      output.total_spent</span></span></code></pre></div>
 <p>Both functions return the serialized string when called without
 <code>path</code>, so they compose in pipes and tests.</p>
