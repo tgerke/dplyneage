@@ -139,7 +139,10 @@ event carries job facets: \code{jobType} (\code{BATCH}/\code{DPLYNEAGE}/\code{QU
 for single-model lineage, \code{sql} with the analyzed query and its
 dialect. Schema facet fields include a \code{type} when column types were
 captured — from a live connection's tables, or a \code{schema} argument
-with named entries like \code{list(orders = list(amount = "DOUBLE"))}.
+with named entries like \code{list(orders = list(amount = "DOUBLE"))} —
+and a \code{description} when column labels were: from \code{label} attributes
+on a local frame (the haven/labelled convention), database column
+comments, or \code{\link[=extract_lineage]{extract_lineage()}}'s \code{labels} argument.
 Indirect edges land in the \code{columnLineage} facet's dataset-level
 \code{dataset} array rather than under individual output columns: filter,
 join, group and sort columns shape the whole result, which is exactly

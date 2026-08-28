@@ -59,7 +59,10 @@
 #' for single-model lineage, `sql` with the analyzed query and its
 #' dialect. Schema facet fields include a `type` when column types were
 #' captured — from a live connection's tables, or a `schema` argument
-#' with named entries like `list(orders = list(amount = "DOUBLE"))`.
+#' with named entries like `list(orders = list(amount = "DOUBLE"))` —
+#' and a `description` when column labels were: from `label` attributes
+#' on a local frame (the haven/labelled convention), database column
+#' comments, or [extract_lineage()]'s `labels` argument.
 #' Indirect edges land in the `columnLineage` facet's dataset-level
 #' `dataset` array rather than under individual output columns: filter,
 #' join, group and sort columns shape the whole result, which is exactly
@@ -227,7 +230,7 @@ ol_is_output <- function(semantics) {
 #' One OpenLineage dataset object; pass edges to attach column lineage
 #' @noRd
 ol_dataset <- function(n, ctx, edges = NULL) {
-  facets <- list(schema = ol_schema_facet(n$columns, n$types))
+  facets <- list(schema = ol_schema_facet(n$columns, n$types, n$labels))
   data_source <- ol_datasource_facet(ctx$node_ns[[n$id]])
   if (!is.null(data_source)) {
     facets$dataSource <- data_source
@@ -324,8 +327,9 @@ ol_dataset_events <- function(semantics, ctx) {
 }
 
 #' @noRd
-ol_schema_facet <- function(columns, types = NULL) {
+ol_schema_facet <- function(columns, types = NULL, labels = NULL) {
   types <- as.list(types %||% list())
+  labels <- as.list(labels %||% list())
   list(
     `_producer` = ol_producer,
     `_schemaURL` = ol_facet_url("1-2-0", "SchemaDatasetFacet"),
@@ -333,6 +337,9 @@ ol_schema_facet <- function(columns, types = NULL) {
       field <- list(name = col)
       if (!is.null(types[[col]])) {
         field$type <- types[[col]]
+      }
+      if (!is.null(labels[[col]])) {
+        field$description <- labels[[col]]
       }
       field
     })

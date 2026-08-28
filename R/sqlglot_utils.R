@@ -62,6 +62,17 @@
 #'   relevant for SQL strings — the R engine reads exact provenance from
 #'   the lazy query tree, and a lazy table that falls back to sqlglot
 #'   harvests its schema from the database connection automatically.
+#' @param labels Optional human-readable column labels: a named list
+#'   mapping node ids to named character vectors, e.g.
+#'   `list(orders = c(amount = "Order amount in USD"))`. Node ids are
+#'   base table names, pipeline model names, or `"output"` for a single
+#'   query's result. Labels ride on the matching nodes, show in
+#'   [lineage_flow()] tooltips, land in [lineage_json()], and become each
+#'   schema-facet field's `description` in [lineage_openlineage()].
+#'   Entries here win over the two automatic sources: `label` attributes
+#'   on a local frame's columns (the haven/labelled convention), and
+#'   column comments read from the table's live database connection
+#'   (duckdb and postgres; other backends are skipped quietly).
 #' @param show_sql If `TRUE`, print the SQL being analyzed. Useful for
 #'   seeing what dbplyr generated from your pipeline. Default: `FALSE`.
 #' @param engine Which lineage engine to use. `"auto"` (the default) uses
@@ -126,7 +137,8 @@
 #'   lineage_flow()
 #'
 #' DBI::dbDisconnect(con)
-extract_lineage <- function(sql, dialect = NULL, schema = NULL, show_sql = FALSE,
+extract_lineage <- function(sql, dialect = NULL, schema = NULL, labels = NULL,
+                            show_sql = FALSE,
                             engine = c("auto", "sqlglot", "r"),
                             include_indirect = FALSE) {
   engine <- match.arg(engine)
@@ -151,12 +163,14 @@ extract_lineage <- function(sql, dialect = NULL, schema = NULL, show_sql = FALSE
   # model names
   if (is.list(sql) && !is.object(sql)) {
     return(extract_lineage_pipeline(
-      sql, dialect, schema, show_sql, engine, include_indirect
+      sql, dialect, schema, labels, show_sql, engine, include_indirect
     ))
   }
 
   convert_lineage_to_graph(
-    extract_lineage_data(sql, dialect, schema, show_sql, engine, include_indirect)
+    extract_lineage_data(
+      sql, dialect, schema, labels, show_sql, engine, include_indirect
+    )
   )
 }
 
@@ -166,8 +180,9 @@ extract_lineage <- function(sql, dialect = NULL, schema = NULL, show_sql = FALSE
 #' fallback, schema harvesting, and sqlglot extraction, without the final
 #' conversion to a graph — so pipelines can stitch several results first.
 #' @noRd
-extract_lineage_data <- function(sql, dialect, schema, show_sql, engine,
+extract_lineage_data <- function(sql, dialect, schema, labels, show_sql, engine,
                                  include_indirect = FALSE) {
+  labels <- normalize_labels(labels)
   is_lazy <- inherits(sql, "tbl_lazy")
 
   # Resolve dialect = NULL here rather than in extract_lineage() so each
@@ -176,19 +191,28 @@ extract_lineage_data <- function(sql, dialect, schema, show_sql, engine,
     dialect <- if (is_lazy) infer_dialect(dbplyr::remote_con(sql)) else "duckdb"
   }
 
-  # Capture the connection-derived OpenLineage namespace while the
-  # connection is alive; nothing else about it survives extraction.
-  # Column types ride along from whatever schema is in scope when a
-  # branch returns — the user's, or the harvested one on the sqlglot
-  # path (`schema` is read at call time, after any harvest).
-  namespace <- if (is_lazy) infer_namespace(dbplyr::remote_con(sql)) else NULL
-  with_namespace <- function(lineage_data) {
+  # Capture the connection while it is alive: the OpenLineage namespace
+  # and column comments come from it, and nothing else about it survives
+  # extraction. Column types ride along from whatever schema is in scope
+  # when a branch returns — the user's, or the harvested one on the
+  # sqlglot path (`schema` is read at call time, after any harvest).
+  con <- if (is_lazy) dbplyr::remote_con(sql) else NULL
+  namespace <- if (is_lazy) infer_namespace(con) else NULL
+  finalize_lineage_data <- function(lineage_data) {
     if (!is.null(namespace)) {
       lineage_data$namespace <- namespace
     }
     types <- schema_types(schema)
     if (length(types) > 0) {
       lineage_data$column_types <- types
+    }
+    merged <- merge_label_maps(
+      labels,
+      harvest_all_column_labels(con, lineage_data$tables, dialect),
+      lineage_data$column_labels %||% list()
+    )
+    if (length(merged) > 0) {
+      lineage_data$column_labels <- merged
     }
     lineage_data
   }
@@ -211,7 +235,7 @@ extract_lineage_data <- function(sql, dialect, schema, show_sql, engine,
     if (show_sql) {
       show_analyzed_sql(lineage_data$sql)
     }
-    return(with_namespace(lineage_data))
+    return(finalize_lineage_data(lineage_data))
   }
 
   # Fast path: walk the lazy query tree in R, no Python needed. Falls
@@ -236,7 +260,7 @@ extract_lineage_data <- function(sql, dialect, schema, show_sql, engine,
       if (show_sql) {
         show_analyzed_sql(lineage_data$sql)
       }
-      return(with_namespace(lineage_data))
+      return(finalize_lineage_data(lineage_data))
     }
   }
 
@@ -260,11 +284,9 @@ extract_lineage_data <- function(sql, dialect, schema, show_sql, engine,
     )
   }
 
-  # Convert dbplyr query to SQL if needed, keeping the connection so we can
-  # harvest the table schemas for accurate column attribution
-  con <- NULL
+  # Convert dbplyr query to SQL if needed; the connection captured above
+  # lets us harvest the table schemas for accurate column attribution
   if (is_lazy) {
-    con <- dbplyr::remote_con(sql)
     sql <- get_sql_from_dplyr(sql)
   }
 
@@ -286,7 +308,9 @@ extract_lineage_data <- function(sql, dialect, schema, show_sql, engine,
   }
 
   # Extract lineage using sqlglot
-  with_namespace(extract_lineage_from_sql(sql, dialect, schema, include_indirect))
+  finalize_lineage_data(
+    extract_lineage_from_sql(sql, dialect, schema, include_indirect)
+  )
 }
 
 #' Print the SQL being analyzed (the `show_sql = TRUE` output)
@@ -511,7 +535,8 @@ schema_types <- function(schema) {
   types
 }
 
-#' Types for one node's columns, when the extraction captured any
+#' One node's entries of a {table: named chr} map (types or labels),
+#' when the extraction captured any
 #' @noRd
 spec_types <- function(column_types, table, columns) {
   types <- column_types[[table]]
@@ -520,6 +545,48 @@ spec_types <- function(column_types, table, columns) {
   }
   hit <- types[intersect(as.character(columns), names(types))]
   if (length(hit) == 0) NULL else hit
+}
+
+#' Validate and normalize labels= to {table: named chr of col -> label}
+#' @noRd
+normalize_labels <- function(labels) {
+  if (is.null(labels)) {
+    return(list())
+  }
+  bad <- !is.list(labels) || is.null(names(labels)) ||
+    any(!nzchar(names(labels)))
+  if (!bad) {
+    bad <- !all(vapply(labels, function(x) {
+      x <- unlist(x)
+      is.character(x) && length(x) > 0 && !is.null(names(x)) &&
+        all(nzchar(names(x)))
+    }, logical(1)))
+  }
+  if (bad) {
+    stop(
+      "labels must be a named list mapping tables to named character ",
+      "vectors of column labels, e.g. ",
+      "list(orders = c(amount = \"Order amount in USD\")).",
+      call. = FALSE
+    )
+  }
+  lapply(labels, function(x) {
+    x <- unlist(x)
+    x[!is.na(x) & nzchar(x)]
+  })
+}
+
+#' Merge {table: named chr} maps; earlier maps win per column
+#' @noRd
+merge_label_maps <- function(...) {
+  out <- list()
+  for (m in list(...)) {
+    for (tbl in names(m)) {
+      new_cols <- setdiff(names(m[[tbl]]), names(out[[tbl]]))
+      out[[tbl]] <- c(out[[tbl]], m[[tbl]][new_cols])
+    }
+  }
+  out
 }
 
 #' Column names and types from a zero-row probe of one table
@@ -539,6 +606,82 @@ harvest_column_types <- function(con, ref) {
   # DBI-standard type column holds the R type
   type <- if (".typname" %in% names(info)) info$.typname else info$type
   stats::setNames(as.list(as.character(type)), info$name)
+}
+
+#' Column comments of one table, as a named chr of col -> comment
+#'
+#' Comment catalogs are per-backend, so this dispatches on the dialect
+#' string; dialects without one (sqlite, and anything unlisted) return
+#' NULL. Errors are the caller's to swallow.
+#' @noRd
+harvest_column_labels <- function(con, table, dialect) {
+  parts <- strsplit(table, ".", fixed = TRUE)[[1]]
+  sql <- switch(
+    dialect,
+    duckdb = {
+      # An unqualified name filters on current_schema() so same-named
+      # tables in other schemas don't bleed in
+      schema_filter <- if (length(parts) > 1) {
+        DBI::dbQuoteString(con, parts[[length(parts) - 1]])
+      } else {
+        "current_schema()"
+      }
+      paste0(
+        "SELECT column_name, comment FROM duckdb_columns() ",
+        "WHERE table_name = ",
+        DBI::dbQuoteString(con, parts[[length(parts)]]),
+        " AND schema_name = ", schema_filter
+      )
+    },
+    postgres = ,
+    redshift = paste0(
+      # The quoted-identifier-as-regclass literal resolves search_path
+      # and schema qualification the same way the query itself would
+      "SELECT a.attname AS column_name, ",
+      "pg_catalog.col_description(a.attrelid, a.attnum) AS comment ",
+      "FROM pg_catalog.pg_attribute a WHERE a.attrelid = ",
+      DBI::dbQuoteString(con, as.character(DBI::dbQuoteIdentifier(
+        con,
+        if (length(parts) > 1) DBI::Id(parts) else table
+      ))),
+      "::regclass AND a.attnum > 0 AND NOT a.attisdropped"
+    ),
+    NULL
+  )
+  if (is.null(sql)) {
+    return(NULL)
+  }
+  res <- DBI::dbGetQuery(con, sql)
+  keep <- !is.na(res$comment) & nzchar(res$comment)
+  if (!any(keep)) {
+    return(NULL)
+  }
+  stats::setNames(as.character(res$comment[keep]), res$column_name[keep])
+}
+
+#' Column comments for every base table of an extraction
+#'
+#' Returns {table: named chr of col -> comment}, shaped like
+#' column_types. Failures stay silent — lineage never breaks because a
+#' comment catalog was unreachable — and dbplyr's simulate_*()
+#' connections are skipped like infer_namespace() skips them.
+#' @noRd
+harvest_all_column_labels <- function(con, tables, dialect) {
+  if (is.null(con) || inherits(con, "TestConnection") ||
+    !requireNamespace("DBI", quietly = TRUE)) {
+    return(list())
+  }
+  out <- list()
+  for (tbl in tables %||% list()) {
+    labs <- tryCatch(
+      harvest_column_labels(con, tbl$name, dialect),
+      error = function(e) NULL
+    )
+    if (length(labs) > 0) {
+      out[[tbl$name]] <- labs
+    }
+  }
+  out
 }
 
 #' Extract Lineage from SQL using sqlglot
@@ -644,15 +787,23 @@ convert_lineage_to_graph <- function(lineage_data) {
       columns = columns,
       type = "source",
       layer = 0L,
-      types = spec_types(lineage_data$column_types %||% list(), table_name, columns)
+      types = spec_types(lineage_data$column_types %||% list(), table_name, columns),
+      labels = spec_types(
+        lineage_data$column_labels %||% list(), table_name, columns
+      )
     )
   })
   if (length(output_columns) > 0) {
+    # A labels= entry keyed by the output table documents computed
+    # columns the identity-edge propagation can't reach
     specs[[length(specs) + 1]] <- list(
       id = output_table,
       columns = output_columns,
       type = "target",
-      layer = 1L
+      layer = 1L,
+      labels = spec_types(
+        lineage_data$column_labels %||% list(), output_table, output_columns
+      )
     )
   }
   nodes <- build_layout_nodes(specs)

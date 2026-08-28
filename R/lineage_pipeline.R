@@ -5,8 +5,8 @@
 
 #' Extract and stitch lineage for a named list of models
 #' @noRd
-extract_lineage_pipeline <- function(models, dialect, schema, show_sql, engine,
-                                     include_indirect = FALSE) {
+extract_lineage_pipeline <- function(models, dialect, schema, labels, show_sql,
+                                     engine, include_indirect = FALSE) {
   nms <- names(models)
   if (
     length(models) == 0 || is.null(nms) || any(!nzchar(nms)) ||
@@ -21,7 +21,9 @@ extract_lineage_pipeline <- function(models, dialect, schema, show_sql, engine,
   }
 
   model_data <- lapply(models, function(model) {
-    extract_lineage_data(model, dialect, schema, show_sql, engine, include_indirect)
+    extract_lineage_data(
+      model, dialect, schema, labels, show_sql, engine, include_indirect
+    )
   })
 
   convert_pipeline_to_graph(model_data)
@@ -127,14 +129,18 @@ convert_pipeline_to_graph <- function(model_data) {
   }
 
   # Column types for base tables, merged across models: the first model
-  # whose harvested or supplied schema typed a table wins
+  # whose harvested or supplied schema typed a table wins. Labels merge
+  # the same way, and apply to model nodes too — a labels= entry keyed
+  # by a model name documents columns that model computes
   base_types <- list()
+  all_labels <- list()
   for (d in model_data) {
     for (tbl in names(d$column_types %||% list())) {
       if (is.null(base_types[[tbl]])) {
         base_types[[tbl]] <- d$column_types[[tbl]]
       }
     }
+    all_labels <- merge_label_maps(all_labels, d$column_labels %||% list())
   }
 
   specs <- c(
@@ -144,15 +150,18 @@ convert_pipeline_to_graph <- function(model_data) {
         columns = base_cols[[nm]],
         type = "source",
         layer = layers[[nm]],
-        types = spec_types(base_types, nm, base_cols[[nm]])
+        types = spec_types(base_types, nm, base_cols[[nm]]),
+        labels = spec_types(all_labels, nm, base_cols[[nm]])
       )
     }),
     lapply(model_names, function(nm) {
+      columns <- c(model_outputs[[nm]], model_extra[[nm]])
       list(
         id = nm,
-        columns = c(model_outputs[[nm]], model_extra[[nm]]),
+        columns = columns,
         type = if (nm %in% referenced) "transform" else "target",
-        layer = layers[[nm]]
+        layer = layers[[nm]],
+        labels = spec_types(all_labels, nm, columns)
       )
     })
   )
@@ -314,6 +323,9 @@ build_layout_nodes <- function(specs) {
     )
     if (length(specs[[i]]$types) > 0) {
       node$data$columnTypes <- as.list(specs[[i]]$types)
+    }
+    if (length(specs[[i]]$labels) > 0) {
+      node$data$columnLabels <- as.list(specs[[i]]$labels)
     }
     node
   })

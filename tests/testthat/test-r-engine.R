@@ -753,3 +753,77 @@ test_that("a column filtered and sorted on keeps one edge with both kinds", {
   expect_identical(nrow(pair), 1L)
   expect_identical(pair$transformation, edge[[1]]$data$transformation)
 })
+
+test_that("label attributes on a local frame become column labels", {
+  skip_if_no_r_engine()
+
+  df <- data.frame(customer_id = 1L, amount = 2.5)
+  attr(df$amount, "label") <- "Order amount in USD"
+
+  lineage <- dbplyr::tbl_lazy(df, name = "orders") |>
+    dplyr::select(customer_id, amount) |>
+    extract_lineage(engine = "r")
+
+  orders <- Filter(function(n) n$id == "orders", lineage$nodes)[[1]]
+  expect_identical(
+    orders$data$columnLabels,
+    list(amount = "Order amount in USD")
+  )
+})
+
+test_that("the labels argument supplies labels and beats attributes", {
+  skip_if_no_r_engine()
+
+  df <- data.frame(customer_id = 1L, amount = 2.5)
+  attr(df$amount, "label") <- "From the attribute"
+
+  lineage <- dbplyr::tbl_lazy(df, name = "orders") |>
+    dplyr::select(customer_id, amount) |>
+    extract_lineage(
+      engine = "r",
+      labels = list(orders = c(
+        amount = "From the argument",
+        customer_id = "Customer id"
+      ))
+    )
+
+  orders <- Filter(function(n) n$id == "orders", lineage$nodes)[[1]]
+  expect_identical(orders$data$columnLabels$amount, "From the argument")
+  expect_identical(orders$data$columnLabels$customer_id, "Customer id")
+})
+
+test_that("a malformed labels argument errors with the expected shape", {
+  skip_if_no_r_engine()
+
+  expect_error(
+    extract_lineage(customers_lf(), engine = "r", labels = list("plain")),
+    "named list mapping tables"
+  )
+  expect_error(
+    extract_lineage(
+      customers_lf(),
+      engine = "r",
+      labels = list(customers = "unnamed label")
+    ),
+    "named list mapping tables"
+  )
+})
+
+test_that("semi-join filter sides stay unwalked without include_indirect", {
+  skip_if_no_r_engine()
+
+  # The y side uses raw SQL, which the walker refuses only while
+  # indirect collection is active; the always-present collector env must
+  # not change that
+  flagged <- orders_lf() |>
+    dplyr::filter(dbplyr::sql("amount > 10"))
+  lineage <- customers_lf() |>
+    dplyr::semi_join(flagged, by = "customer_id") |>
+    extract_lineage(engine = "r")
+
+  expect_edges(lineage, c(
+    "customers.customer_id -> customer_id",
+    "customers.first_name -> first_name",
+    "customers.email -> email"
+  ))
+})

@@ -8,6 +8,7 @@ extract_lineage(
   sql,
   dialect = NULL,
   schema = NULL,
+  labels = NULL,
   show_sql = FALSE,
   engine = c("auto", "sqlglot", "r"),
   include_indirect = FALSE
@@ -41,6 +42,18 @@ column names, e.g. \code{list(orders = c("order_id", "amount"))}. Only
 relevant for SQL strings — the R engine reads exact provenance from
 the lazy query tree, and a lazy table that falls back to sqlglot
 harvests its schema from the database connection automatically.}
+
+\item{labels}{Optional human-readable column labels: a named list
+mapping node ids to named character vectors, e.g.
+\code{list(orders = c(amount = "Order amount in USD"))}. Node ids are
+base table names, pipeline model names, or \code{"output"} for a single
+query's result. Labels ride on the matching nodes, show in
+\code{\link[=lineage_flow]{lineage_flow()}} tooltips, land in \code{\link[=lineage_json]{lineage_json()}}, and become each
+schema-facet field's \code{description} in \code{\link[=lineage_openlineage]{lineage_openlineage()}}.
+Entries here win over the two automatic sources: \code{label} attributes
+on a local frame's columns (the haven/labelled convention), and
+column comments read from the table's live database connection
+(duckdb and postgres; other backends are skipped quietly).}
 
 \item{show_sql}{If \code{TRUE}, print the SQL being analyzed. Useful for
 seeing what dbplyr generated from your pipeline. Default: \code{FALSE}.}

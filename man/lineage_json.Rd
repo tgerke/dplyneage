@@ -51,7 +51,9 @@ models disagree.
 \code{"target"}), and \code{columns}. A source node whose column types were
 captured (from a live connection's schema, or a typed \code{schema}
 argument) also carries \code{types}, a column-to-type map covering the
-typed subset of its columns.
+typed subset of its columns. A node with column labels — from
+\code{label} attributes on a local frame, database column comments, or
+a \code{labels} argument — carries \code{labels}, shaped the same way.
 \item \code{edges}: objects with \code{source}, \code{source_column}, \code{target}, and
 \code{target_column}. Edges from \code{\link[=extract_lineage]{extract_lineage()}} also carry
 \code{transformation} and, on direct edges, \code{expression}. An indirect

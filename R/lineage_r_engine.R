@@ -73,9 +73,12 @@ unsupported_lineage <- function(what) {
 extract_lineage_from_tbl <- function(tbl, dialect = "duckdb",
                                      include_indirect = FALSE) {
   con <- dbplyr::remote_con(tbl)
-  collector <- NULL
+  # The collector env always rides along so base-table walkers can report
+  # column label attributes; indirect collection is keyed off $sources
+  # existing (see collecting())
+  collector <- new.env(parent = emptyenv())
+  collector$labels <- list()
   if (include_indirect) {
-    collector <- new.env(parent = emptyenv())
     collector$sources <- list()
   }
   cols <- lineage_walk(tbl$lazy_query, con, collector)
@@ -102,25 +105,38 @@ extract_lineage_from_tbl <- function(tbl, dialect = "duckdb",
     dialect = dialect,
     engine = "r"
   )
+  if (length(collector$labels) > 0) {
+    out$column_labels <- collector$labels
+  }
   if (include_indirect) {
     out$indirect <- dedupe_indirect(collector$sources)
   }
   out
 }
 
+#' Is indirect-source collection active on this walk?
+#'
+#' The collector env itself always exists (base-table walkers report
+#' column labels through it); indirect collection is on only when it
+#' carries a $sources list.
+#' @noRd
+collecting <- function(collector) {
+  !is.null(collector) && !is.null(collector$sources)
+}
+
 #' Record indirect sources during a walk
 #'
 #' Resolves column names against the inner node's column map so the
 #' recorded sources point at base tables, like direct sources do. No-op
-#' when no collector is active, so the default walk pays nothing.
+#' unless indirect collection is active, so the default walk pays nothing.
 #'
-#' @param collector Environment with a `sources` list, or NULL
+#' @param collector The walk's collector env (see `collecting()`)
 #' @param kind One of "filter", "join", "group_by", "sort"
 #' @param vars Character vector of column names used indirectly
 #' @param inner Column map of the node the names resolve against
 #' @noRd
 note_indirect <- function(collector, kind, vars, inner) {
-  if (is.null(collector)) {
+  if (!collecting(collector)) {
     return(invisible(NULL))
   }
   for (v in intersect(vars, names(inner))) {
@@ -142,12 +158,12 @@ all_expr_vars <- function(exprs) {
 #'
 #' `all.vars()` sees nothing inside a `sql("...")` string, so a filter,
 #' grouping, or ordering clause written as raw SQL would silently
-#' contribute no indirect edges. Only checked while a collector is
-#' active: without `include_indirect`, these clauses never create edges,
-#' so raw SQL there cannot make the result wrong.
+#' contribute no indirect edges. Only checked while indirect collection
+#' is active: without `include_indirect`, these clauses never create
+#' edges, so raw SQL there cannot make the result wrong.
 #' @noRd
 check_indirect_raw_sql <- function(collector, exprs, verb) {
-  if (is.null(collector)) {
+  if (!collecting(collector)) {
     return(invisible(NULL))
   }
   for (e in exprs) {
@@ -174,6 +190,21 @@ dedupe_indirect <- function(sources) {
   sources[!duplicated(keys)]
 }
 
+#' Non-empty label attributes of a frame's columns, haven/labelled style
+#' @noRd
+frame_column_labels <- function(df) {
+  labs <- lapply(df, function(col) attr(col, "label", exact = TRUE))
+  keep <- vapply(
+    labs,
+    function(l) is.character(l) && length(l) == 1 && !is.na(l) && nzchar(l),
+    logical(1)
+  )
+  if (!any(keep)) {
+    return(NULL)
+  }
+  vapply(labs[keep], identity, character(1))
+}
+
 #' Walk a lazy query node
 #'
 #' Each method returns a named list, one element per visible column in
@@ -183,8 +214,9 @@ dedupe_indirect <- function(sources) {
 #'
 #' @param qry A dbplyr `lazy_query` node
 #' @param con The remote connection, used to unquote table paths
-#' @param collector Optional environment accumulating indirect sources
-#'   (see `note_indirect()`); NULL disables collection
+#' @param collector Environment carrying walk state: base-table walkers
+#'   record label attributes in `$labels`, and indirect sources accumulate
+#'   in `$sources` when that list exists (see `collecting()`)
 #' @noRd
 lineage_walk <- function(qry, con, collector = NULL) {
   UseMethod("lineage_walk")
@@ -218,6 +250,15 @@ lineage_walk.lazy_base_query <- function(qry, con, collector = NULL) {
       )
     }
   )
+  # Local frames (tbl_lazy) still hold the original columns, so their
+  # haven/labelled label attributes are readable here; remote tables have
+  # only a path in $x, and their labels come from database comments
+  if (!is.null(collector) && is.data.frame(qry$x)) {
+    labs <- frame_column_labels(qry$x)
+    if (length(labs) > 0) {
+      collector$labels[[table]] <- labs
+    }
+  }
   cols <- lapply(qry$vars, function(v) {
     list(
       expression = v,
@@ -429,7 +470,7 @@ lineage_walk.lazy_select_query <- function(qry, con, collector = NULL) {
     if (length(node_ov) >= i) node_ov[[i]] %||% list() else list()
   }
   has_window_state <- any(lengths(node_gv) > 0) || any(lengths(node_ov) > 0)
-  win_funs <- if (has_window_state || !is.null(collector)) {
+  win_funs <- if (has_window_state || collecting(collector)) {
     window_fun_names(con)
   }
   window_sort_vars <- character()
@@ -483,7 +524,7 @@ lineage_walk.lazy_multi_join_query <- function(qry, con, collector = NULL) {
     list(lineage_walk(qry$x, con, collector)),
     lapply(qry$joins$table, lineage_walk, con = con, collector = collector)
   )
-  if (!is.null(collector)) {
+  if (collecting(collector)) {
     for (j in seq_len(nrow(qry$joins))) {
       by <- qry$joins$by[[j]]
       x_ids <- qry$joins$by_x_table_id[[j]]
@@ -539,7 +580,7 @@ lineage_walk.lazy_rf_join_query <- function(qry, con, collector = NULL) {
 #' @exportS3Method
 lineage_walk.lazy_semi_join_query <- function(qry, con, collector = NULL) {
   inner <- lineage_walk(qry$x, con, collector)
-  if (!is.null(collector)) {
+  if (collecting(collector)) {
     note_indirect(collector, "join", qry$by$x, inner)
     note_indirect(collector, "join", qry$by$y, lineage_walk(qry$y, con, collector))
   }

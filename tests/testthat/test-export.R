@@ -350,3 +350,20 @@ test_that("lineage_mermaid writes to a file and returns invisibly", {
   expect_invisible(lineage_mermaid(lineage, path = path))
   expect_match(readLines(path)[[1]], "flowchart LR", fixed = TRUE)
 })
+
+test_that("lineage_json carries captured column labels", {
+  data <- fixture_lineage()
+  data$column_labels <- list(customers = c(customer_id = "Customer id"))
+
+  parsed <- jsonlite::fromJSON(
+    lineage_json(convert_lineage_to_graph(data)),
+    simplifyVector = FALSE
+  )
+
+  ids <- vapply(parsed$nodes, function(n) n$id, character(1))
+  customers <- parsed$nodes[[which(ids == "customers")]]
+  expect_identical(customers$labels, list(customer_id = "Customer id"))
+  orders <- parsed$nodes[[which(ids == "orders")]]
+  expect_null(orders$labels)
+  expect_identical(parsed$format_version, 1L)
+})

@@ -336,3 +336,84 @@ test_that("copy_inline() frames trace as sourceless values", {
   lineage <- extract_lineage(joined, include_indirect = TRUE)
   expect_identical(lineage$metadata$engine, "r")
 })
+
+test_that("database column comments become labels on the R path", {
+  testthat::skip_if_not_installed("dplyr")
+  testthat::skip_if_not_installed("dbplyr", "2.5.0")
+  testthat::skip_if_not_installed("duckdb")
+  testthat::skip_if_not_installed("DBI")
+  testthat::skip_if_not_installed("withr")
+  con <- local_duckdb()
+  DBI::dbExecute(con, "COMMENT ON COLUMN orders.amount IS 'Order amount'")
+
+  lineage <- dplyr::tbl(con, "orders") |>
+    dplyr::select(customer_id, amount) |>
+    extract_lineage()
+
+  expect_identical(lineage$metadata$engine, "r")
+  orders <- Filter(function(n) n$id == "orders", lineage$nodes)[[1]]
+  expect_identical(orders$data$columnLabels, list(amount = "Order amount"))
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(lineage, run_id = "x", event_time = "t"),
+    simplifyVector = FALSE
+  )
+  fields <- event$inputs[[1]]$facets$schema$fields
+  by_name <- stats::setNames(
+    fields,
+    vapply(fields, `[[`, character(1), "name")
+  )
+  expect_identical(by_name$amount$description, "Order amount")
+  expect_null(by_name$customer_id$description)
+})
+
+test_that("the sqlglot path harvests column comments too", {
+  skip_if_no_db_stack()
+  con <- local_duckdb()
+  DBI::dbExecute(con, "COMMENT ON COLUMN orders.amount IS 'Order amount'")
+
+  lineage <- dplyr::tbl(con, "orders") |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total = sum(amount, na.rm = TRUE)) |>
+    extract_lineage(engine = "sqlglot")
+
+  orders <- Filter(function(n) n$id == "orders", lineage$nodes)[[1]]
+  expect_identical(orders$data$columnLabels, list(amount = "Order amount"))
+})
+
+test_that("a labels argument wins over a database comment", {
+  testthat::skip_if_not_installed("dplyr")
+  testthat::skip_if_not_installed("dbplyr", "2.5.0")
+  testthat::skip_if_not_installed("duckdb")
+  testthat::skip_if_not_installed("DBI")
+  testthat::skip_if_not_installed("withr")
+  con <- local_duckdb()
+  DBI::dbExecute(con, "COMMENT ON COLUMN orders.amount IS 'From the comment'")
+
+  lineage <- dplyr::tbl(con, "orders") |>
+    dplyr::select(amount) |>
+    extract_lineage(labels = list(orders = c(amount = "From the argument")))
+
+  orders <- Filter(function(n) n$id == "orders", lineage$nodes)[[1]]
+  expect_identical(orders$data$columnLabels$amount, "From the argument")
+})
+
+test_that("schema-qualified tables harvest their own comments", {
+  testthat::skip_if_not_installed("dplyr")
+  testthat::skip_if_not_installed("dbplyr", "2.5.0")
+  testthat::skip_if_not_installed("duckdb")
+  testthat::skip_if_not_installed("DBI")
+  testthat::skip_if_not_installed("withr")
+  con <- local_duckdb()
+  DBI::dbExecute(con, "CREATE SCHEMA stg")
+  DBI::dbExecute(con, "CREATE TABLE stg.orders AS SELECT * FROM orders")
+  DBI::dbExecute(con, "COMMENT ON COLUMN orders.amount IS 'Main comment'")
+  DBI::dbExecute(con, "COMMENT ON COLUMN stg.orders.amount IS 'Staging comment'")
+
+  lineage <- dplyr::tbl(con, DBI::Id("stg", "orders")) |>
+    dplyr::select(order_id, amount) |>
+    extract_lineage(engine = "r")
+
+  stg <- Filter(function(n) n$id == "stg.orders", lineage$nodes)[[1]]
+  expect_identical(stg$data$columnLabels, list(amount = "Staging comment"))
+})

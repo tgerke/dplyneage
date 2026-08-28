@@ -35,7 +35,9 @@
 #'   `"target"`), and `columns`. A source node whose column types were
 #'   captured (from a live connection's schema, or a typed `schema`
 #'   argument) also carries `types`, a column-to-type map covering the
-#'   typed subset of its columns.
+#'   typed subset of its columns. A node with column labels — from
+#'   `label` attributes on a local frame, database column comments, or
+#'   a `labels` argument — carries `labels`, shaped the same way.
 #' * `edges`: objects with `source`, `source_column`, `target`, and
 #'   `target_column`. Edges from [extract_lineage()] also carry
 #'   `transformation` and, on direct edges, `expression`. An indirect
@@ -270,6 +272,9 @@ lineage_semantics <- function(lineage) {
     )
     if (!is.null(n$data$columnTypes)) {
       node$types <- n$data$columnTypes
+    }
+    if (!is.null(n$data$columnLabels)) {
+      node$labels <- n$data$columnLabels
     }
     node
   })

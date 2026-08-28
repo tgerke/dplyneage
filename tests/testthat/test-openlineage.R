@@ -758,3 +758,33 @@ test_that("extracted multi-kind edges reach the dataset array and lineage_json",
   expect_setequal(unlist(multi[[1]]$transformations), c("filter", "sort"))
   expect_identical(multi[[1]]$transformation, multi[[1]]$transformations[[1]])
 })
+
+test_that("schema facet fields carry descriptions from a labels argument", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  lineage <- dbplyr::lazy_frame(customer_id = 1L, amount = 1, .name = "orders") |>
+    dplyr::select(customer_id, amount) |>
+    extract_lineage(
+      engine = "r",
+      labels = list(orders = c(amount = "Order amount in USD"))
+    )
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(lineage, run_id = "x", event_time = "t"),
+    simplifyVector = FALSE
+  )
+  fields <- event$inputs[[1]]$facets$schema$fields
+  by_name <- stats::setNames(fields, vapply(fields, `[[`, character(1), "name"))
+  expect_identical(by_name$amount$description, "Order amount in USD")
+  expect_null(by_name$customer_id$description)
+  expect_match(
+    event$inputs[[1]]$facets$schema$`_schemaURL`,
+    "1-2-0/SchemaDatasetFacet.json#/\\$defs/SchemaDatasetFacet$"
+  )
+
+  # The same labels reach the lineage_json artifact
+  doc <- jsonlite::fromJSON(lineage_json(lineage), simplifyVector = FALSE)
+  orders <- Filter(function(n) n$id == "orders", doc$nodes)[[1]]
+  expect_identical(orders$labels$amount, "Order amount in USD")
+})

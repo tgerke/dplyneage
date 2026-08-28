@@ -61,3 +61,19 @@ test_that("lineage_example builds a widget without Python", {
   expect_length(w$x$nodes, 3)
   expect_length(w$x$edges, 5)
 })
+
+test_that("column labels ride the widget payload", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  df <- data.frame(amount = 1)
+  attr(df$amount, "label") <- "Order amount"
+
+  w <- dbplyr::tbl_lazy(df, name = "orders") |>
+    dplyr::mutate(doubled = amount * 2) |>
+    extract_lineage(engine = "r") |>
+    lineage_flow()
+
+  orders <- Filter(function(n) n$id == "orders", w$x$nodes)[[1]]
+  expect_identical(orders$data$columnLabels, list(amount = "Order amount"))
+})
