@@ -95,6 +95,91 @@ test_that("traversals reject columns not in the lineage", {
     lineage_upstream(chain_graph(), "nope.nope"),
     "table.column"
   )
+  expect_error(
+    lineage_upstream(chain_graph(), "nope"),
+    "table name"
+  )
+})
+
+test_that("a table name traces all of its columns at once", {
+  g <- chain_graph()
+
+  expect_identical(lineage_upstream(g, "c"), c("a.x", "b.y"))
+  expect_identical(lineage_downstream(g, "a"), c("b.y", "c.z"))
+  expect_identical(lineage_upstream(g, "b"), "a.x")
+  expect_identical(lineage_downstream(g, "b"), "c.z")
+  expect_identical(lineage_upstream(g, "a"), character(0))
+  expect_identical(lineage_downstream(g, "c"), character(0))
+})
+
+test_that("table traversal covers columns only edges mention", {
+  g <- list(
+    nodes = list(
+      create_table_node("a", "x"),
+      create_table_node("b", "y", table_type = "target")
+    ),
+    edges = list(
+      create_column_edge("a", "x", "b", "y"),
+      create_column_edge("a", "hidden", "b", "y")
+    )
+  )
+  expect_identical(lineage_downstream(g, "a"), "b.y")
+  expect_identical(lineage_upstream(g, "b"), c("a.hidden", "a.x"))
+})
+
+test_that("a column key wins over a table name it also spells", {
+  # A node "main" carrying a column "silver" next to a node "main.silver":
+  # the string "main.silver" keeps meaning the column key
+  g <- list(
+    nodes = list(
+      create_table_node("main", "silver"),
+      create_table_node("main.silver", "amount"),
+      create_table_node("out", c("via_column", "via_table"),
+        table_type = "target"
+      )
+    ),
+    edges = list(
+      create_column_edge("main", "silver", "out", "via_column"),
+      create_column_edge("main.silver", "amount", "out", "via_table")
+    )
+  )
+  expect_identical(lineage_downstream(g, "main.silver"), "out.via_column")
+})
+
+test_that("lineage_unused reports columns with no path to a target", {
+  g <- chain_graph()
+  expect_identical(nrow(lineage_unused(g)), 0L)
+
+  g$nodes[[1]] <- create_table_node("a", c("x", "dead"))
+  unused <- lineage_unused(g)
+  expect_identical(unused$table, "a")
+  expect_identical(unused$column, "dead")
+  expect_identical(unused$table_type, "source")
+})
+
+test_that("lineage_unused sees transform output stranded mid-chain", {
+  g <- chain_graph()
+  # b.stale receives from a.y but feeds nothing, so both are unused
+  g$nodes[[1]] <- create_table_node("a", c("x", "y"))
+  g$nodes[[2]] <- create_table_node("b", c("y", "stale"),
+    table_type = "transform"
+  )
+  g$edges <- c(g$edges, list(create_column_edge("a", "y", "b", "stale")))
+
+  unused <- lineage_unused(g)
+  expect_identical(unused$table, c("a", "b"))
+  expect_identical(unused$column, c("y", "stale"))
+  expect_identical(unused$table_type, c("source", "transform"))
+})
+
+test_that("lineage_unused treats untyped nodes as consumers", {
+  g <- chain_graph()
+  g$nodes <- lapply(g$nodes, function(n) {
+    n$data$tableType <- NULL
+    n
+  })
+  g$nodes[[1]]$data$columns <- c("x", "dead")
+  expect_identical(nrow(lineage_unused(g)), 0L)
 })
 
 test_that("lineage_diff reports added and removed edges and columns", {

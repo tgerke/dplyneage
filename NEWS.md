@@ -1,9 +1,20 @@
 # dplyneage (development version)
 
-Correctness fixes and the first feature tier from an August 2026 audit
-of the package against current column-level lineage tooling (SQLMesh,
+Correctness fixes and the feature tiers from an August 2026 audit of
+the package against current column-level lineage tooling (SQLMesh,
 dbt, sqlglot, OpenLineage). The remaining roadmap from the audit is
 filed as tiered issues on GitHub.
+
+* `lineage_upstream()` and `lineage_downstream()` accept a table name as
+  well as a `"table.column"` string, tracing from every column of the
+  table at once (the table's own columns are not part of the answer).
+  Matching stays exact — names are never split on dots, and a string
+  that is both a column key and a schema-qualified table id resolves as
+  the column key it already was. New `lineage_unused()` reports the dead
+  columns: every column on a source or transform table with no path to
+  any target, which in a multi-model lineage surfaces base-table columns
+  nothing reads and intermediate outputs no downstream model consumes.
+  (#12)
 
 * `lineage_openlineage()` now emits spec-faithful dataset namespaces.
   `extract_lineage()` captures an OpenLineage namespace URI from the

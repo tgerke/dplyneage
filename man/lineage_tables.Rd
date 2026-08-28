@@ -34,6 +34,7 @@ Other lineage accessors:
 \code{\link[=lineage_check]{lineage_check()}},
 \code{\link[=lineage_diff]{lineage_diff()}},
 \code{\link[=lineage_edges]{lineage_edges()}},
+\code{\link[=lineage_unused]{lineage_unused()}},
 \code{\link[=lineage_upstream]{lineage_upstream()}}
 }
 \concept{lineage accessors}

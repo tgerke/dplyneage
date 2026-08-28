@@ -62,6 +62,69 @@ test_that("stitched graphs support transitive impact analysis", {
   )
 })
 
+test_that("table names traverse stitched graphs", {
+  skip_if_no_r_engine()
+
+  lineage <- extract_lineage(pipeline_fixture())
+
+  expect_identical(
+    lineage_downstream(lineage, "orders"),
+    c(
+      "gold.big_spender", "gold.customer_id", "gold.total_spent",
+      "silver.customer_id", "silver.total_spent"
+    )
+  )
+  expect_identical(
+    lineage_upstream(lineage, "gold"),
+    c(
+      "orders.amount", "orders.customer_id",
+      "silver.customer_id", "silver.total_spent"
+    )
+  )
+})
+
+test_that("a qualified model id resolves as a table name", {
+  skip_if_no_r_engine()
+
+  models <- pipeline_fixture()
+  gold_qualified <- dbplyr::lazy_frame(
+    customer_id = 1L, total_spent = 1,
+    .name = "main.silver"
+  ) |>
+    dplyr::mutate(big_spender = total_spent > 100)
+  lineage <- extract_lineage(
+    list("main.silver" = models$silver, gold = gold_qualified)
+  )
+
+  # No node "main" declares a column "silver", so the string dispatches
+  # as the table id
+  expect_identical(
+    lineage_upstream(lineage, "main.silver"),
+    c("orders.amount", "orders.customer_id")
+  )
+})
+
+test_that("lineage_unused surfaces unconsumed intermediate outputs", {
+  skip_if_no_r_engine()
+
+  models <- pipeline_fixture()
+  # gold drops customer_id, stranding silver.customer_id and, with it,
+  # the base column that only fed it
+  gold <- dbplyr::lazy_frame(
+    customer_id = 1L, total_spent = 1,
+    .name = "silver"
+  ) |>
+    dplyr::transmute(big_spender = total_spent > 100)
+  lineage <- extract_lineage(list(silver = models$silver, gold = gold))
+
+  unused <- lineage_unused(lineage)
+  expect_identical(unused$table, c("orders", "silver"))
+  expect_identical(unused$column, c("customer_id", "customer_id"))
+  expect_identical(unused$table_type, c("source", "transform"))
+
+  expect_identical(nrow(lineage_unused(extract_lineage(models))), 0L)
+})
+
 test_that("models advance one layer per hop, left to right", {
   skip_if_no_r_engine()
 

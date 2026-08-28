@@ -15,18 +15,24 @@ lineage_downstream(lineage, column)
 \code{\link[=create_column_edge]{create_column_edge()}}.}
 
 \item{column}{A \code{"table.column"} string identifying the column to trace
-from, e.g. \code{"output.total_spent"}.}
+from, e.g. \code{"output.total_spent"}, or a table name to trace from all
+of that table's columns. Names are matched exactly, never split on
+dots; a string that is both a column key and a schema-qualified table
+name (a node \code{"main"} with column \code{"silver"} alongside a node
+\code{"main.silver"}) is read as the column key.}
 }
 \value{
 A character vector of \code{"table.column"} identifiers, sorted.
 Empty when the column has no upstream (or downstream) connections.
+For a table, the table's own columns are not part of the answer.
 }
 \description{
 \code{lineage_upstream()} lists every column that feeds into \code{column},
 following edges transitively; \code{lineage_downstream()} lists every column
 \code{column} feeds into. This is the core impact-analysis question — "what
 breaks if this column changes?" — answered directly on the lineage
-object, without exporting to a graph tool.
+object, without exporting to a graph tool. Passing a table name instead
+of a column traces from every column of that table at once.
 }
 \examples{
 lineage <- list(
@@ -40,12 +46,14 @@ lineage <- list(
 )
 lineage_upstream(lineage, "daily_totals.total")
 lineage_downstream(lineage, "orders.amount")
+lineage_downstream(lineage, "orders")
 }
 \seealso{
 Other lineage accessors:
 \code{\link[=lineage_check]{lineage_check()}},
 \code{\link[=lineage_diff]{lineage_diff()}},
 \code{\link[=lineage_edges]{lineage_edges()}},
-\code{\link[=lineage_tables]{lineage_tables()}}
+\code{\link[=lineage_tables]{lineage_tables()}},
+\code{\link[=lineage_unused]{lineage_unused()}}
 }
 \concept{lineage accessors}

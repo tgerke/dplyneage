@@ -130,13 +130,19 @@ lineage_tables <- function(lineage) {
 #' following edges transitively; `lineage_downstream()` lists every column
 #' `column` feeds into. This is the core impact-analysis question — "what
 #' breaks if this column changes?" — answered directly on the lineage
-#' object, without exporting to a graph tool.
+#' object, without exporting to a graph tool. Passing a table name instead
+#' of a column traces from every column of that table at once.
 #'
 #' @inheritParams lineage_edges
 #' @param column A `"table.column"` string identifying the column to trace
-#'   from, e.g. `"output.total_spent"`.
+#'   from, e.g. `"output.total_spent"`, or a table name to trace from all
+#'   of that table's columns. Names are matched exactly, never split on
+#'   dots; a string that is both a column key and a schema-qualified table
+#'   name (a node `"main"` with column `"silver"` alongside a node
+#'   `"main.silver"`) is read as the column key.
 #' @return A character vector of `"table.column"` identifiers, sorted.
 #'   Empty when the column has no upstream (or downstream) connections.
+#'   For a table, the table's own columns are not part of the answer.
 #' @family lineage accessors
 #' @export
 #' @examples
@@ -151,6 +157,7 @@ lineage_tables <- function(lineage) {
 #' )
 #' lineage_upstream(lineage, "daily_totals.total")
 #' lineage_downstream(lineage, "orders.amount")
+#' lineage_downstream(lineage, "orders")
 lineage_upstream <- function(lineage, column) {
   traverse_lineage(lineage, column, direction = "upstream")
 }
@@ -192,12 +199,29 @@ traverse_lineage <- function(lineage, column, direction) {
   from <- paste_keys(edges$source_table, ".", edges$source_column)
   to <- paste_keys(edges$target_table, ".", edges$target_column)
 
-  known <- unique(c(from, to, unlist(lapply(lineage$nodes, function(n) {
+  node_keys <- lapply(lineage$nodes, function(n) {
     paste_keys(n$id, ".", unlist(n$data$columns))
-  }))))
-  if (!is.character(column) || length(column) != 1 || !column %in% known) {
+  })
+  known <- unique(c(from, to, unlist(node_keys)))
+  tables <- vapply(lineage$nodes, function(n) n$id, character(1))
+
+  valid <- is.character(column) && length(column) == 1 && !is.na(column)
+  if (valid && column %in% known) {
+    start <- column
+  } else if (valid && column %in% tables) {
+    # Table form: every column of the table, declared on the node or only
+    # appearing as an edge endpoint. Column keys take precedence above, so
+    # a schema-qualified id like "main.silver" only lands here when no
+    # node "main" carries a column "silver" — exactly what the string
+    # meant before table names were accepted.
+    start <- unique(c(
+      unlist(node_keys[tables == column]),
+      from[edges$source_table == column],
+      to[edges$target_table == column]
+    ))
+  } else {
     stop(
-      "`column` must be a \"table.column\" string present in the lineage",
+      "`column` must be a \"table.column\" string or a table name present in the lineage",
       if (length(known)) paste0(" (e.g. \"", known[[1]], "\")"),
       ".",
       call. = FALSE
@@ -211,7 +235,90 @@ traverse_lineage <- function(lineage, column, direction) {
     step_from <- from
     step_to <- to
   }
-  bfs_reachable(step_from, step_to, column)
+  # For a table, reachable siblings of the start set are still the queried
+  # table's own columns, not its ancestry or descendants
+  setdiff(bfs_reachable(step_from, step_to, start), start)
+}
+
+#' Node id -> tableType lookup; NA for nodes that declare no type
+#' @noRd
+node_types <- function(lineage) {
+  types <- vapply(
+    lineage$nodes,
+    function(n) n$data$tableType %||% NA_character_,
+    character(1)
+  )
+  names(types) <- vapply(lineage$nodes, function(n) n$id, character(1))
+  types
+}
+
+#' Report columns with no path to any target
+#'
+#' The dead-column report: every column on a source or transform table
+#' from which no chain of edges reaches a target table. In a multi-model
+#' lineage that surfaces base-table columns nothing reads and
+#' intermediate-model outputs no downstream model consumes — both safe to
+#' drop as far as the graph can see.
+#'
+#' A single-query extraction usually reports nothing, because its source
+#' nodes only carry columns the query referenced. Tables whose type is
+#' unknown (hand-built nodes without a `table_type`) count as targets, on
+#' the same reasoning as [lineage_diff()] severity: the graph cannot see
+#' who consumes them, so their columns — and columns feeding them — are
+#' not called unused.
+#'
+#' @inheritParams lineage_edges
+#' @return A data frame with columns `table`, `column`, and `table_type`,
+#'   one row per unused column, sorted by table then column. Zero rows
+#'   when every column reaches a target.
+#' @family lineage accessors
+#' @export
+#' @examples
+#' lineage <- list(
+#'   nodes = list(
+#'     create_table_node("orders", c("order_id", "amount", "internal_note")),
+#'     create_table_node("daily_totals", "total", table_type = "target")
+#'   ),
+#'   edges = list(
+#'     create_column_edge("orders", "amount", "daily_totals", "total")
+#'   )
+#' )
+#' lineage_unused(lineage)
+lineage_unused <- function(lineage) {
+  check_lineage(lineage)
+  edges <- lineage_edges(lineage)
+  from <- paste_keys(edges$source_table, ".", edges$source_column)
+  to <- paste_keys(edges$target_table, ".", edges$target_column)
+
+  declared <- do.call(rbind, lapply(lineage$nodes, function(n) {
+    cols <- as.character(unlist(n$data$columns))
+    if (length(cols) == 0) {
+      return(NULL)
+    }
+    data.frame(table = n$id, column = cols, stringsAsFactors = FALSE)
+  }))
+  endpoints <- data.frame(
+    table = c(edges$source_table, edges$target_table),
+    column = c(edges$source_column, edges$target_column),
+    stringsAsFactors = FALSE
+  )
+  all_cols <- unique(rbind(declared, endpoints))
+  keys <- paste_keys(all_cols$table, ".", all_cols$column)
+
+  # Terminal surface as in change_severity(): target and unknown-type
+  # nodes, plus tables that appear only in edges. One upstream walk from
+  # the whole surface marks every column with a path into it.
+  types <- node_types(lineage)
+  non_terminal <- names(types)[!is.na(types) & types != "target"]
+  seed <- keys[!(all_cols$table %in% non_terminal)]
+  used <- bfs_reachable(to, from, seed)
+
+  unused <- all_cols$table %in% non_terminal & !(keys %in% c(used, seed))
+  out <- all_cols[unused, , drop = FALSE]
+  out$table_type <- unname(types[out$table])
+  out <- out[order(out$table, out$column), , drop = FALSE]
+  rownames(out) <- NULL
+  out
 }
 
 #' Severity of changing/removing each `table.column`, judged in `old` —
@@ -235,13 +342,7 @@ change_severity <- function(old, tables, columns) {
     logical(1)
   )[match(keys, uniq)]
 
-  node_types <- vapply(
-    old$nodes,
-    function(n) n$data$tableType %||% NA_character_,
-    character(1)
-  )
-  names(node_types) <- vapply(old$nodes, function(n) n$id, character(1))
-  type <- unname(node_types[tables])
+  type <- unname(node_types(old)[tables])
   on_target <- is.na(type) | type == "target"
 
   ifelse(has_downstream | on_target, "breaking", "non-breaking")

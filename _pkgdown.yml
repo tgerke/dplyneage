@@ -39,6 +39,7 @@ reference:
     - lineage_edges
     - lineage_tables
     - lineage_upstream
+    - lineage_unused
     - lineage_diff
     - lineage_check
 
