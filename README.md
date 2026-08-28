@@ -90,13 +90,14 @@ Behind that one pipe, `extract_lineage()`:
   from your connection so unqualified columns attribute correctly)
 
 The resulting diagram is fully interactive: drag tables to rearrange,
-zoom and pan, and hover columns to highlight their connections. Click a
-column and the diagram isolates its trace cone — everything upstream and
-downstream of that column — until you click again or press Escape.
-Computed columns carry their defining expression as an edge label, and
-aggregation edges animate. `lineage_flow()` also takes `theme = "dark"`
-(or `"auto"`), `minimap = TRUE` for an overview map, and a PNG download
-button lives in the zoom controls.
+zoom and pan, and hover columns to highlight their connections — when a
+column’s type or label was captured, the hover also shows a small card
+with both. Click a column and the diagram isolates its trace cone —
+everything upstream and downstream of that column — until you click
+again or press Escape. Computed columns carry their defining expression
+as an edge label, and aggregation edges animate. `lineage_flow()` also
+takes `theme = "dark"` (or `"auto"`), `minimap = TRUE` for an overview
+map, and a PNG download button lives in the zoom controls.
 
 ## Local data frames
 
@@ -132,7 +133,13 @@ builds the data in throwaway in-memory SQLite instead, and
 `copy_to(dbplyr::memdb(), df, name = "df")` does the same for a frame
 you already have. Lineage depends only on the pipeline’s structure,
 never on the data, so copying a slice with `head(df)` yields the same
-diagram as copying every row. See the [Local data
+diagram as copying every row. Column `label` attributes on the frame —
+the convention haven and labelled use for imported SAS, SPSS, and Stata
+data — ride along too: they show as hover cards in the diagram,
+propagate to downstream columns along identity edges, and become field
+`description`s in the OpenLineage export. Database column comments
+(duckdb, postgres) and a `labels` argument feed the same machinery. See
+the [Local data
 frames](https://tgerke.github.io/dplyneage/articles/getting-started.html#local-data-frames)
 section of the getting-started vignette for more.
 
@@ -365,16 +372,18 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from 219589f:
+#> + 2/6 vertices, named, from f8a2fa3:
 #> [1] output.total_spent orders.amount
 ```
 
 For data catalogs, `lineage_openlineage()` emits
 [OpenLineage](https://openlineage.io/) events, the interchange format
 Marquez, DataHub, and OpenMetadata ingest. Dataset namespaces come from
-the table’s actual connection, schema facets carry column types, and
-`events = "job"` produces the spec’s run-less design-time events, one
-per model. `lineage_emit()` POSTs any of it to a running backend:
+the table’s actual connection, schema facets carry column types and
+descriptions (from `label` attributes, database comments, or a `labels`
+argument), and `events = "job"` produces the spec’s run-less design-time
+events, one per model. `lineage_emit()` POSTs any of it to a running
+backend:
 
 ``` r
 lineage_openlineage(lineage, events = "job")          # run-less JobEvents, NDJSON
@@ -404,6 +413,7 @@ and your warehouse queries alike.
 | dplyr / dbplyr pipelines | native | — | — | — | — |
 | Indirect (filter/join/group/sort) columns | opt-in | — | — | excluded | — |
 | Breaking-change classification | `lineage_check()` CI gate | — | — | Advanced CI (paid) | semantic diff |
+| Column labels / descriptions | `label` attributes + DB comments, propagated | — | — | Catalog (Enterprise) | — |
 | OpenLineage export | built in | — | — | external integration | — |
 | Free and local | yes | yes | yes | partly | yes |
 
