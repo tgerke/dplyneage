@@ -62,6 +62,11 @@ downstream subgraph — and dims everything else; clicking it again,
 clicking the background, or pressing Escape releases it. In Shiny, the
 traced column is reported as \verb{input$<outputId>_selected}, a list with
 \code{table} and \code{column} entries (\code{NULL} when nothing is traced).
+
+Hovering a column shows a small card with its captured type and label
+(see \code{\link[=extract_lineage]{extract_lineage()}}'s \code{schema} and \code{labels} arguments); columns
+with neither stay quiet. The static SVG fallback shows the same
+information through native browser tooltips.
 }
 \examples{
 # Build a small diagram by hand

@@ -5,6 +5,22 @@ the package against current column-level lineage tooling (SQLMesh,
 dbt, sqlglot, OpenLineage). The remaining roadmap from the audit is
 filed as tiered issues on GitHub.
 
+* Column labels now travel through lineage. `extract_lineage()` reads
+  `label` attributes from local frames (the haven/labelled convention),
+  reads column comments from a live duckdb or postgres connection on
+  any engine, and takes a `labels` argument —
+  `list(orders = c(amount = "Order amount in USD"))` — that wins over
+  both. Labels and column types then propagate along identity edges,
+  the way dbt Catalog carries descriptions through passthrough columns:
+  a renamed or selected-through column reports its source's metadata,
+  aggregations stay bare, and a column fed conflicting values inherits
+  nothing. Hovering a column in `lineage_flow()` shows a themed card
+  with its type and label (native tooltips in the SVG fallback),
+  `lineage_json()` adds a per-node `labels` map, and OpenLineage
+  schema-facet fields gain a `description`. Note `labels` sits after
+  `schema` in the signature, so positional `show_sql`/`engine`/
+  `include_indirect` arguments shift by one. (#15)
+
 * `lineage_flow()` grows its widget chrome: `theme = "dark"` (or
   `"auto"`, following the viewer's OS preference) redraws the whole
   diagram on a dark palette; `legend = TRUE` (the default) overlays a

@@ -438,6 +438,15 @@ function renderReactFlow(el, x, width, height, state) {
   var laneFractions = computeLaneFractions(x.nodes || [], x.edges || []);
   var adjacency = buildAdjacency(x.edges || []);
 
+  // Column metadata for the hover tooltip, keyed by node id
+  var columnMeta = {};
+  (x.nodes || []).forEach(function(node) {
+    columnMeta[node.id] = {
+      types: (node.data && node.data.columnTypes) || {},
+      labels: (node.data && node.data.columnLabels) || {}
+    };
+  });
+
   // Legend content reflects what the graph actually contains
   var presentTypes = ['source', 'transform', 'target'].filter(function(type) {
     return (x.nodes || []).some(function(node) {
@@ -506,6 +515,66 @@ function renderReactFlow(el, x, width, height, state) {
           return { nodeId: nodeId, handleId: handleId };
         });
       }, []);
+
+      // Floating tooltip with the hovered column's type and label,
+      // anchored to the row's handle DOM node. It re-measures on pan and
+      // zoom (moveVersion) so the card stays glued to its row; nothing
+      // renders for columns with no captured metadata.
+      var tooltipState = useState(null);
+      var tooltip = tooltipState[0];
+      var setTooltip = tooltipState[1];
+      var moveVersionState = useState(0);
+      var moveVersion = moveVersionState[0];
+      var setMoveVersion = moveVersionState[1];
+      useEffect(function() {
+        if (!hoveredHandle) {
+          setTooltip(null);
+          return;
+        }
+        var meta = columnMeta[hoveredHandle.nodeId] || {};
+        var type = (meta.types || {})[hoveredHandle.handleId];
+        var label = (meta.labels || {})[hoveredHandle.handleId];
+        if (!type && !label) {
+          setTooltip(null);
+          return;
+        }
+        // Attribute comparison rather than a CSS attribute selector:
+        // column names can hold characters a selector would need escaped
+        var handles = container.querySelectorAll('.react-flow__handle');
+        var sourceHandle = null;
+        var targetHandle = null;
+        for (var i = 0; i < handles.length; i++) {
+          var h = handles[i];
+          if (h.getAttribute('data-nodeid') === hoveredHandle.nodeId &&
+              h.getAttribute('data-handleid') === hoveredHandle.handleId) {
+            if (h.classList.contains('source')) {
+              sourceHandle = h;
+            } else {
+              targetHandle = h;
+            }
+          }
+        }
+        if (!sourceHandle && !targetHandle) {
+          setTooltip(null);
+          return;
+        }
+        var wrapRect = container.getBoundingClientRect();
+        var rightRect = (sourceHandle || targetHandle).getBoundingClientRect();
+        var left = rightRect.right - wrapRect.left + 12;
+        // Flip to the row's left side when the card would leave the pane
+        var flip = left + 280 > wrapRect.width;
+        var leftRect = flip
+          ? (targetHandle || sourceHandle).getBoundingClientRect()
+          : rightRect;
+        setTooltip({
+          column: hoveredHandle.handleId,
+          type: type,
+          label: label,
+          left: flip ? leftRect.left - wrapRect.left - 12 : left,
+          top: rightRect.top + rightRect.height / 2 - wrapRect.top,
+          flip: flip
+        });
+      }, [hoveredHandle, moveVersion]);
 
       // Escape releases the traced cone from anywhere on the page
       useEffect(function() {
@@ -691,6 +760,13 @@ function renderReactFlow(el, x, width, height, state) {
           onPaneClick: function() {
             setSelectedColumn(null);
           },
+          // Re-anchor the hover tooltip while panning or zooming; no-op
+          // (and no re-render) when no column is hovered
+          onMove: function() {
+            if (hoveredHandle) {
+              setMoveVersion(function(v) { return v + 1; });
+            }
+          },
           fitView: true,
           fitViewOptions: FIT_VIEW_OPTIONS,
           colorMode: theme,
@@ -750,6 +826,48 @@ function renderReactFlow(el, x, width, height, state) {
           : null,
         opts.legend !== false && Panel
           ? legendPanel(React, Panel, theme, presentTypes, hasIndirect)
+          : null,
+        // Rendered outside .react-flow__viewport, so it neither scales
+        // with zoom nor lands in PNG exports
+        tooltip
+          ? React.createElement('div', {
+              style: {
+                position: 'absolute',
+                left: tooltip.left + 'px',
+                top: tooltip.top + 'px',
+                transform: tooltip.flip
+                  ? 'translate(-100%, -50%)'
+                  : 'translateY(-50%)',
+                zIndex: 1100,
+                pointerEvents: 'none',
+                maxWidth: '260px',
+                background: themeColors.legendBg,
+                border: '1px solid ' + themeColors.legendBorder,
+                color: themeColors.legendText,
+                borderRadius: '6px',
+                padding: '8px 10px',
+                fontSize: '11px',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.15)'
+              }
+            },
+            React.createElement('div', {
+              style: { fontWeight: 600 }
+            }, tooltip.column),
+            tooltip.type
+              ? React.createElement('div', {
+                  style: {
+                    opacity: 0.75,
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace'
+                  }
+                }, tooltip.type)
+              : null,
+            tooltip.label
+              ? React.createElement('div', {
+                  style: { marginTop: '3px', lineHeight: '1.35' }
+                }, tooltip.label)
+              : null
+          )
           : null
       );
     };
@@ -966,12 +1084,26 @@ function renderSVG(el, x, width, height) {
       'dominant-baseline="central" ' + FONT + ' font-size="14" font-weight="600" ' +
       'fill="#ffffff">' + escapeHtml(svgTruncate(label, 22)) + '</text>';
 
+    var rowTypes = (node.data && node.data.columnTypes) || {};
+    var rowLabels = (node.data && node.data.columnLabels) || {};
     columns.forEach(function(column, i) {
       var rowY = ny + SVG_HEADER_H + SVG_ROW_H * i;
       var centerY = rowY + SVG_ROW_H / 2;
       if (i > 0) {
         html += '<line x1="' + nx + '" y1="' + rowY + '" x2="' + (nx + SVG_NODE_W) +
           '" y2="' + rowY + '" stroke="' + (colors.rowBorder || t.rowBorder) + '" stroke-width="1"/>';
+      }
+      // Native SVG tooltip: "column — type", the label on its own line;
+      // rows without metadata get no <title> at all
+      var tip = '';
+      if (rowTypes[column] || rowLabels[column]) {
+        tip = column + (rowTypes[column] ? ' — ' + rowTypes[column] : '');
+        if (rowLabels[column]) {
+          tip += '\n' + rowLabels[column];
+        }
+      }
+      if (tip) {
+        html += '<g><title>' + escapeHtml(tip) + '</title>';
       }
       html += '<text x="' + (nx + 14) + '" y="' + centerY + '" ' +
         'dominant-baseline="central" ' + FONT + ' font-size="13" font-weight="500" ' +
@@ -981,6 +1113,9 @@ function renderSVG(el, x, width, height) {
         'fill="' + escapeHtml(colors.border) + '" stroke="' + (colors.nodeBg || 'white') + '" stroke-width="1.5"/>';
       html += '<circle cx="' + (nx + SVG_NODE_W) + '" cy="' + centerY + '" r="4" ' +
         'fill="' + escapeHtml(colors.border) + '" stroke="' + (colors.nodeBg || 'white') + '" stroke-width="1.5"/>';
+      if (tip) {
+        html += '</g>';
+      }
     });
 
     html += '<rect x="' + nx + '" y="' + ny + '" width="' + SVG_NODE_W +
