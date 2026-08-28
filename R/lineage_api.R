@@ -49,7 +49,9 @@ print.dplyneage_lineage <- function(x, ...) {
 #' output column's defining expression; both are `NA` for hand-built
 #' edges. With `include_indirect = TRUE`, indirect edges are classified by
 #' how the source column is used — `"filter"`, `"join"`, `"group_by"`, or
-#' `"sort"` — with `NA` for `expression`.
+#' `"sort"` — with `NA` for `expression`. A column used in several of
+#' those ways keeps one edge classified by the first kind; the full set
+#' is in the [lineage_json()] artifact and the OpenLineage export.
 #'
 #' @param lineage The result of [extract_lineage()], or any list with
 #'   `nodes` and `edges` built with [create_table_node()] and

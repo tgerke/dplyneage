@@ -271,3 +271,26 @@ test_that("raw-vs-model name overlap does not warn when the columns differ", {
 
   expect_no_warning(extract_lineage(list(orders = clean)))
 })
+
+test_that("pipeline models keep one indirect edge per pair with all kinds", {
+  skip_if_no_r_engine()
+
+  report <- dbplyr::lazy_frame(a = 1, b = 2, .name = "t1") |>
+    dplyr::filter(b > 0) |>
+    dbplyr::window_order(b) |>
+    dplyr::mutate(rn = dplyr::row_number()) |>
+    dplyr::select(a, rn)
+
+  lineage <- extract_lineage(list(report = report), include_indirect = TRUE)
+
+  edge <- Filter(
+    function(e) e$sourceHandle == "b" && e$targetHandle == "a",
+    lineage$edges
+  )
+  expect_length(edge, 1L)
+  expect_setequal(edge[[1]]$data$transformations, c("filter", "sort"))
+  expect_identical(
+    edge[[1]]$data$transformation,
+    edge[[1]]$data$transformations[[1]]
+  )
+})

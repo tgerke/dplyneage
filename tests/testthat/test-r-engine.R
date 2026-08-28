@@ -724,3 +724,32 @@ test_that("rewriting an aggregate surfaces as a changed edge in lineage_diff", {
   expect_identical(diff$changed_edges$new_expression, "mean(amount, na.rm = TRUE)")
   expect_true(lineage_has_changes(diff))
 })
+
+test_that("a column filtered and sorted on keeps one edge with both kinds", {
+  skip_if_no_r_engine()
+
+  lineage <- orders_lf() |>
+    dplyr::filter(amount > 10) |>
+    dbplyr::window_order(amount) |>
+    dplyr::transmute(customer_id, rn = dplyr::row_number()) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  edge <- Filter(
+    function(e) e$sourceHandle == "amount" && e$targetHandle == "customer_id",
+    lineage$edges
+  )
+  expect_length(edge, 1L)
+  expect_setequal(edge[[1]]$data$transformations, c("filter", "sort"))
+  expect_identical(
+    edge[[1]]$data$transformation,
+    edge[[1]]$data$transformations[[1]]
+  )
+
+  # The edges frame shows the first kind; amount -> rn stays direct
+  edges <- lineage_edges(lineage)
+  pair <- edges[
+    edges$source_column == "amount" & edges$target_column == "customer_id",
+  ]
+  expect_identical(nrow(pair), 1L)
+  expect_identical(pair$transformation, edge[[1]]$data$transformation)
+})

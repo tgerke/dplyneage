@@ -522,8 +522,9 @@ test_that("a dataset-array-only columnLineage facet keeps an empty fields object
 })
 
 test_that("multiple indirect kinds merge into one dataset array entry", {
-  # extract_lineage() dedups indirect edges per column pair, so two kinds
-  # on one source column only arise on hand-built (or future) graphs
+  # Separate hand-built edges with different kinds on one source column
+  # merge in the array; extracted lineage records the kinds on a single
+  # edge instead (covered by the next test)
   filter_edge <- create_column_edge("t1", "b", "out", "x")
   filter_edge$data <- list(transformation = "filter")
   sort_edge <- create_column_edge("t1", "b", "out", "y")
@@ -724,4 +725,36 @@ test_that("output_name flows through to static job events", {
   )
   expect_identical(event$job$name, "enriched")
   expect_identical(event$outputs[[1]]$name, "enriched")
+})
+
+test_that("extracted multi-kind edges reach the dataset array and lineage_json", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  # b is both a filter column and a window sort column: one edge per
+  # pair, carrying both kinds
+  lineage <- dbplyr::lazy_frame(a = 1, b = 2, .name = "t1") |>
+    dplyr::filter(b > 0) |>
+    dbplyr::window_order(b) |>
+    dplyr::mutate(rn = dplyr::row_number()) |>
+    dplyr::select(a, rn) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(lineage, run_id = "x", event_time = "t"),
+    simplifyVector = FALSE
+  )
+  deps <- event$outputs[[1]]$facets$columnLineage$dataset
+  b_dep <- Filter(function(d) d$field == "b", deps)
+  expect_length(b_dep, 1L)
+  expect_setequal(
+    vapply(b_dep[[1]]$transformations, function(t) t$subtype, character(1)),
+    c("FILTER", "SORT")
+  )
+
+  doc <- jsonlite::fromJSON(lineage_json(lineage), simplifyVector = FALSE)
+  multi <- Filter(function(e) !is.null(e$transformations), doc$edges)
+  expect_length(multi, 1L)
+  expect_setequal(unlist(multi[[1]]$transformations), c("filter", "sort"))
+  expect_identical(multi[[1]]$transformation, multi[[1]]$transformations[[1]])
 })

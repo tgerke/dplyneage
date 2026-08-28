@@ -78,14 +78,22 @@ convert_pipeline_to_graph <- function(model_data) {
       }
     }
     # Indirect columns (filter/join/group/sort) connect to every output
-    # column of this model, dashed, skipping pairs a direct edge covers
+    # column of this model, dashed, skipping pairs a direct edge covers.
+    # A pair reached through several kinds keeps one edge recording all
+    # of them
+    indirect_at <- integer()
     for (source in model_data[[m]]$indirect %||% list()) {
       st <- register_source(m, source)
       for (output_column in model_outputs[[m]]) {
         key <- paste0(st, ".", source$column_name, "->", output_column)
         if (key %in% edge_keys) next
-        edge_keys <- c(edge_keys, key)
+        at <- indirect_at[key]
+        if (!is.na(at)) {
+          edges[[at]] <- add_indirect_kind(edges[[at]], source$kind)
+          next
+        }
         edges[[length(edges) + 1]] <- indirect_edge_for(source, m, output_column)
+        indirect_at[[key]] <- length(edges)
       }
     }
   }
@@ -245,6 +253,22 @@ lineage_edge_for <- function(col, source, target_table) {
   if (!is.null(type)) {
     edge$data <- list(expression = col$expression, transformation = type)
   }
+  edge
+}
+
+#' Record an additional indirect classification on an existing edge
+#'
+#' A source column can shape the same output through several indirect
+#' kinds (filtered on and sorted on, say). The diagram keeps one dashed
+#' edge; `data$transformation` stays the first kind and the full set
+#' accumulates in `data$transformations`, which the JSON and OpenLineage
+#' exports read.
+#' @noRd
+add_indirect_kind <- function(edge, kind) {
+  edge$data$transformations <- union(
+    edge$data$transformations %||% edge$data$transformation,
+    kind
+  )
   edge
 }
 

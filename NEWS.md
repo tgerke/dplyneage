@@ -58,6 +58,15 @@ filed as tiered issues on GitHub.
   documents the event surface and a verified round-trip into a Marquez
   quickstart, column-level lineage included. (#9)
 
+* Indirect edges no longer lose secondary classifications. A source
+  column that shapes the same output in several ways (filtered on and
+  window-sorted on, say) used to keep only the first kind the engine
+  emitted; the graph now records the full set on the edge. The diagram
+  still draws one dashed edge and `lineage_edges()` still shows the
+  first kind, but the `lineage_json()` edge gains a `transformations`
+  array (additive, `format_version` stays 1) and the OpenLineage
+  `columnLineage` facet's dataset array lists every kind. (#18)
+
 * The sqlglot engine no longer counts the `ORDER BY` inside
   `WITHIN GROUP` as a result ordering. On dialects where dbplyr renders
   `median()`/`quantile()` as ordered-set aggregates, the ordered column

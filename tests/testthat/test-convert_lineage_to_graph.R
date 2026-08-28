@@ -104,3 +104,21 @@ test_that("metadata records the models map and counts", {
   expect_identical(graph$metadata$node_count, 3L)
   expect_identical(graph$metadata$edge_count, 2L)
 })
+
+test_that("a column with several indirect kinds keeps one edge with all of them", {
+  lineage <- fixture_lineage()
+  lineage$indirect <- list(
+    list(table = "orders", column_name = "region", kind = "filter"),
+    list(table = "orders", column_name = "region", kind = "sort")
+  )
+
+  graph <- convert_lineage_to_graph(lineage)
+
+  region <- Filter(function(e) e$sourceHandle == "region", graph$edges)
+  # One dashed edge per output column, not one per kind
+  expect_length(region, 2L)
+  for (e in region) {
+    expect_identical(e$data$transformation, "filter")
+    expect_identical(e$data$transformations, c("filter", "sort"))
+  }
+})

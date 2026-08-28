@@ -54,7 +54,10 @@ argument) also carries \code{types}, a column-to-type map covering the
 typed subset of its columns.
 \item \code{edges}: objects with \code{source}, \code{source_column}, \code{target}, and
 \code{target_column}. Edges from \code{\link[=extract_lineage]{extract_lineage()}} also carry
-\code{transformation} and, on direct edges, \code{expression}.
+\code{transformation} and, on direct edges, \code{expression}. An indirect
+edge whose column shapes the result in several ways (filtered and
+sorted on, say) adds \code{transformations}, the full set of kinds with
+the first one leading.
 }
 }
 

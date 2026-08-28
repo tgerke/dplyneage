@@ -248,3 +248,23 @@ test_that("indirect filters inside CTE bodies attribute to base tables", {
   expect_identical(unique(filters$source_table), "orders")
   expect_identical(unique(filters$source_column), "order_date")
 })
+
+test_that("a column filtered and window-sorted keeps one edge with both kinds", {
+  skip_if_no_sqlglot()
+
+  lineage <- extract_lineage("
+    SELECT a, ROW_NUMBER() OVER (ORDER BY b) AS rn
+    FROM t1 WHERE b > 0
+  ", schema = list(t1 = c("a", "b")), include_indirect = TRUE)
+
+  edge <- Filter(
+    function(e) e$sourceHandle == "b" && e$targetHandle == "a",
+    lineage$edges
+  )
+  expect_length(edge, 1L)
+  expect_setequal(edge[[1]]$data$transformations, c("filter", "sort"))
+  expect_identical(
+    edge[[1]]$data$transformation,
+    edge[[1]]$data$transformations[[1]]
+  )
+})

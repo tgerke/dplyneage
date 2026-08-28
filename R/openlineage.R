@@ -543,7 +543,7 @@ ol_column_lineage_facet <- function(edges, dataset, node_ns) {
       }
       dataset_deps[[key]]$kinds <- union(
         dataset_deps[[key]]$kinds,
-        e$transformation
+        as.character(e$transformations %||% e$transformation)
       )
       next
     }

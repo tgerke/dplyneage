@@ -671,7 +671,10 @@ convert_lineage_to_graph <- function(lineage_data) {
   }
 
   # Indirect columns shape the whole result, so each connects to every
-  # output column — dashed, and skipped where a direct edge already exists
+  # output column — dashed, and skipped where a direct edge already
+  # exists. A pair reached through several kinds keeps one edge
+  # recording all of them
+  indirect_at <- integer()
   for (source in indirect) {
     for (output_column in output_columns) {
       key <- paste0(
@@ -679,9 +682,14 @@ convert_lineage_to_graph <- function(lineage_data) {
         "->", output_column
       )
       if (key %in% edge_keys) next
-      edge_keys <- c(edge_keys, key)
+      at <- indirect_at[key]
+      if (!is.na(at)) {
+        edges[[at]] <- add_indirect_kind(edges[[at]], source$kind)
+        next
+      }
       edges[[length(edges) + 1]] <-
         indirect_edge_for(source, output_table, output_column)
+      indirect_at[[key]] <- length(edges)
     }
   }
 

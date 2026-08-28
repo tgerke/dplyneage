@@ -38,7 +38,10 @@
 #'   typed subset of its columns.
 #' * `edges`: objects with `source`, `source_column`, `target`, and
 #'   `target_column`. Edges from [extract_lineage()] also carry
-#'   `transformation` and, on direct edges, `expression`.
+#'   `transformation` and, on direct edges, `expression`. An indirect
+#'   edge whose column shapes the result in several ways (filtered and
+#'   sorted on, say) adds `transformations`, the full set of kinds with
+#'   the first one leading.
 #' @family lineage exporters
 #' @seealso [extract_lineage()] to compute lineage automatically
 #' @export
@@ -283,6 +286,11 @@ lineage_semantics <- function(lineage) {
     # (filter/join/group/sort) edges have no expression
     if (!is.null(e$data$transformation)) {
       edge$transformation <- e$data$transformation
+      # An indirect edge reached through several kinds carries them all,
+      # first kind leading
+      if (length(e$data$transformations) > 1) {
+        edge$transformations <- I(as.character(e$data$transformations))
+      }
       if (!is.null(e$data$expression)) {
         edge$expression <- e$data$expression
       }

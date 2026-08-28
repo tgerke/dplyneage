@@ -24,7 +24,9 @@ classifies each edge (\code{"identity"} for plain column passthrough,
 output column's defining expression; both are \code{NA} for hand-built
 edges. With \code{include_indirect = TRUE}, indirect edges are classified by
 how the source column is used — \code{"filter"}, \code{"join"}, \code{"group_by"}, or
-\code{"sort"} — with \code{NA} for \code{expression}.
+\code{"sort"} — with \code{NA} for \code{expression}. A column used in several of
+those ways keeps one edge classified by the first kind; the full set
+is in the \code{\link[=lineage_json]{lineage_json()}} artifact and the OpenLineage export.
 }
 \examples{
 lineage <- list(
