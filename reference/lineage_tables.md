@@ -28,8 +28,10 @@ A data frame with columns `table`, `type` (`"source"`, `"transform"`, or
 ## See also
 
 Other lineage accessors:
+[`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md),
 [`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md),
 [`lineage_edges()`](https://tgerke.github.io/dplyneage/reference/lineage_edges.md),
+[`lineage_unused()`](https://tgerke.github.io/dplyneage/reference/lineage_unused.md),
 [`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
 
 ## Examples

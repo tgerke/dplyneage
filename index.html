@@ -11,8 +11,8 @@
 <script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Column Lineage Visualization for dplyr Pipelines">
-<meta name="description" content="Implements column lineage visualizations using React Flow for dplyr and dbplyr pipelines. Provides a tidyverse-style interface for tracking data transformations through pipeline operations.">
-<meta property="og:description" content="Implements column lineage visualizations using React Flow for dplyr and dbplyr pipelines. Provides a tidyverse-style interface for tracking data transformations through pipeline operations.">
+<meta name="description" content="Extracts column-level lineage from dplyr and dbplyr pipelines and from SQL queries, and renders it as an interactive React Flow diagram. The same lineage is available as plain data for impact analysis, for comparing pipeline versions (including a continuous-integration check that fails on breaking provenance changes), and for export to JSON, GraphML, Mermaid, and OpenLineage interchange formats.">
+<meta property="og:description" content="Extracts column-level lineage from dplyr and dbplyr pipelines and from SQL queries, and renders it as an interactive React Flow diagram. The same lineage is available as plain data for impact analysis, for comparing pipeline versions (including a continuous-integration check that fails on breaking provenance changes), and for export to JSON, GraphML, Mermaid, and OpenLineage interchange formats.">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">dplyneage</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -113,17 +113,19 @@
 <li>walks the pipeline’s lazy query tree in pure R, tracing every output column to its source columns (joins, aggregations, unions, and multi-source computed columns all resolve exactly)</li>
 <li>falls back to sqlglot’s lineage engine when the pipeline injects raw SQL with <code><a href="https://dbplyr.tidyverse.org/reference/sql.html" class="external-link">dbplyr::sql()</a></code>, or when you pass a SQL string directly (that path handles aliases, CTEs, and subqueries, and reads table schemas from your connection so unqualified columns attribute correctly)</li>
 </ul>
-<p>The resulting diagram is fully interactive: drag tables to rearrange, zoom and pan, and hover columns to highlight their connections. Computed columns carry their defining expression as an edge label, and aggregation edges animate.</p>
+<p>The resulting diagram is fully interactive: drag tables to rearrange, zoom and pan, and hover columns to highlight their connections. Click a column and the diagram isolates its trace cone — everything upstream and downstream of that column — until you click again or press Escape. Computed columns carry their defining expression as an edge label, and aggregation edges animate. <code><a href="reference/lineage_flow.html">lineage_flow()</a></code> also takes <code>theme = "dark"</code> (or <code>"auto"</code>), <code>minimap = TRUE</code> for an overview map, and a PNG download button lives in the zoom controls.</p>
 </div>
 <div class="section level2">
 <h2 id="local-data-frames">Local data frames<a class="anchor" aria-label="anchor" href="#local-data-frames"></a>
 </h2>
-<p>Lineage extraction needs the lazy query tree that dbplyr builds before anything executes. A pipeline on a plain tibble has no such tree — dplyr runs each verb immediately — so <code><a href="reference/extract_lineage.html">extract_lineage()</a></code> can’t trace it. The workaround is one line: <code><a href="https://dbplyr.tidyverse.org/reference/memdb.html" class="external-link">dbplyr::memdb_frame()</a></code> puts the data in a throwaway in-memory SQLite database and hands back a lazy table, and the identical pipeline becomes traceable.</p>
+<p>Lineage extraction needs the lazy query tree that dbplyr builds before anything executes. A pipeline on a plain tibble has no such tree — dplyr runs each verb immediately — so <code><a href="reference/extract_lineage.html">extract_lineage()</a></code> can’t trace it. The fix is one line: <code><a href="https://dbplyr.tidyverse.org/reference/tbl_lazy.html" class="external-link">dbplyr::tbl_lazy()</a></code> wraps the frame in a lazy table with no database behind it, and the identical pipeline becomes traceable.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">sales</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dbplyr.tidyverse.org/reference/memdb.html" class="external-link">memdb_frame</a></span><span class="op">(</span></span>
-<span>  customer_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span>,</span>
-<span>  amount <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">100</span>, <span class="fl">250</span>, <span class="fl">40</span><span class="op">)</span>,</span>
-<span>  .name <span class="op">=</span> <span class="st">"sales"</span></span>
+<code class="sourceCode R"><span><span class="va">sales</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dbplyr.tidyverse.org/reference/tbl_lazy.html" class="external-link">tbl_lazy</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>    customer_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span>,</span>
+<span>    amount <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">100</span>, <span class="fl">250</span>, <span class="fl">40</span><span class="op">)</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  name <span class="op">=</span> <span class="st">"sales"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">sales</span> <span class="op">|&gt;</span></span>
@@ -132,7 +134,7 @@
 <span>  <span class="fu"><a href="reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"350px"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="reference/figures/README-unnamed-chunk-4-1.png" alt="Column-level lineage diagram tracing the summarised output table's total column back to the amount column of the sales source table"></p>
-<p>For a data frame you already have, <code>copy_to(dbplyr::memdb(), df, name = "df")</code> does the same copy. Lineage depends only on the pipeline’s structure, never on the data, so for large frames copying a slice is enough — <code>copy_to(dbplyr::memdb(), head(df), name = "df")</code> yields the same diagram as copying every row. See the <a href="https://tgerke.github.io/dplyneage/articles/getting-started.html#local-data-frames">Local data frames</a> section of the getting-started vignette for more.</p>
+<p>A <code><a href="https://dbplyr.tidyverse.org/reference/tbl_lazy.html" class="external-link">tbl_lazy()</a></code> pipeline can’t be collected, since there is no database to run it against; lineage never runs the query, so a diagram doesn’t need one. To keep the pipeline runnable too, <code><a href="https://dbplyr.tidyverse.org/reference/memdb.html" class="external-link">dbplyr::memdb_frame()</a></code> builds the data in throwaway in-memory SQLite instead, and <code>copy_to(dbplyr::memdb(), df, name = "df")</code> does the same for a frame you already have. Lineage depends only on the pipeline’s structure, never on the data, so copying a slice with <code>head(df)</code> yields the same diagram as copying every row. See the <a href="https://tgerke.github.io/dplyneage/articles/getting-started.html#local-data-frames">Local data frames</a> section of the getting-started vignette for more.</p>
 </div>
 <div class="section level2">
 <h2 id="multi-model-pipelines">Multi-model pipelines<a class="anchor" aria-label="anchor" href="#multi-model-pipelines"></a>
@@ -235,7 +237,7 @@
 <div class="section level2">
 <h2 id="lineage-as-data">Lineage as data<a class="anchor" aria-label="anchor" href="#lineage-as-data"></a>
 </h2>
-<p>Diagrams are for people; the same lineage is also useful as plain data. <code><a href="reference/lineage_edges.html">lineage_edges()</a></code> flattens it to one classified row per column edge, and <code><a href="reference/lineage_upstream.html">lineage_upstream()</a></code> / <code><a href="reference/lineage_upstream.html">lineage_downstream()</a></code> answer impact questions directly:</p>
+<p>Diagrams are for people; the same lineage is also useful as plain data. <code><a href="reference/lineage_edges.html">lineage_edges()</a></code> flattens it to one classified row per column edge, and <code><a href="reference/lineage_upstream.html">lineage_upstream()</a></code> / <code><a href="reference/lineage_upstream.html">lineage_downstream()</a></code> answer impact questions directly — for one <code>"table.column"</code>, or for a whole table at once when you pass just its name. <code><a href="reference/lineage_unused.html">lineage_unused()</a></code> runs the reverse check, listing every source or intermediate column with no path to any target: the columns you could drop without changing what ships.</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">lineage</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"orders"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"customers"</span><span class="op">)</span>, by <span class="op">=</span> <span class="st">"customer_id"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -255,14 +257,22 @@
 <span></span>
 <span><span class="fu"><a href="reference/lineage_upstream.html">lineage_upstream</a></span><span class="op">(</span><span class="va">lineage</span>, <span class="st">"output.total_spent"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "orders.amount"</span></span></code></pre></div>
-<p><code><a href="reference/lineage_diff.html">lineage_diff()</a></code> compares two extractions — run it across branches in CI and provenance changes surface before they ship. For interchange, <code><a href="reference/lineage_json.html">lineage_json()</a></code> gives you a small, stable document you can query with jq, feed to a data catalog, or commit next to your pipeline code:</p>
+<p><code><a href="reference/lineage_diff.html">lineage_diff()</a></code> compares two extractions and classifies every change by blast radius: breaking when the change reaches columns that anything downstream consumes, non-breaking for pure additions. <code><a href="reference/lineage_check.html">lineage_check()</a></code> turns that into a one-call CI gate — it errors on breaking changes and annotates the pull request on GitHub Actions (<a href="https://tgerke.github.io/dplyneage/articles/lineage-ci.html">worked example</a>). For interchange, <code><a href="reference/lineage_json.html">lineage_json()</a></code> gives you a small, stable document you can query with jq, feed to a data catalog, or commit next to your pipeline code:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="reference/lineage_json.html">lineage_json</a></span><span class="op">(</span><span class="va">lineage</span><span class="op">)</span></span>
 <span><span class="co">#&gt; {</span></span>
+<span><span class="co">#&gt;   "format_version": 1,</span></span>
 <span><span class="co">#&gt;   "metadata": {</span></span>
-<span><span class="co">#&gt;     "sql": "SELECT customer_id, first_name, SUM(amount) AS total_spent\nFROM (\n  SELECT orders.*, first_name, last_name, email\n  FROM orders\n  LEFT JOIN customers\n    ON (orders.customer_id = customers.customer_id)\n) AS q01\nGROUP BY customer_id, first_name",</span></span>
 <span><span class="co">#&gt;     "dialect": "duckdb",</span></span>
 <span><span class="co">#&gt;     "engine": "r",</span></span>
+<span><span class="co">#&gt;     "models": {</span></span>
+<span><span class="co">#&gt;       "output": {</span></span>
+<span><span class="co">#&gt;         "sql": "SELECT customer_id, first_name, SUM(amount) AS total_spent\nFROM (\n  SELECT orders.*, first_name, last_name, email\n  FROM orders\n  LEFT JOIN customers\n    ON (orders.customer_id = customers.customer_id)\n) AS q01\nGROUP BY customer_id, first_name",</span></span>
+<span><span class="co">#&gt;         "engine": "r",</span></span>
+<span><span class="co">#&gt;         "dialect": "duckdb",</span></span>
+<span><span class="co">#&gt;         "namespace": "duckdb"</span></span>
+<span><span class="co">#&gt;       }</span></span>
+<span><span class="co">#&gt;     },</span></span>
 <span><span class="co">#&gt;     "node_count": 3,</span></span>
 <span><span class="co">#&gt;     "edge_count": 3</span></span>
 <span><span class="co">#&gt;   },</span></span>
@@ -323,8 +333,88 @@
 <span></span>
 <span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/read_graph.html" class="external-link">read_graph</a></span><span class="op">(</span><span class="va">path</span>, format <span class="op">=</span> <span class="st">"graphml"</span><span class="op">)</span></span>
 <span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"output.total_spent"</span>, mode <span class="op">=</span> <span class="st">"in"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; + 2/6 vertices, named, from fb656f2:</span></span>
+<span><span class="co">#&gt; + 2/6 vertices, named, from 219589f:</span></span>
 <span><span class="co">#&gt; [1] output.total_spent orders.amount</span></span></code></pre></div>
+<p>For data catalogs, <code><a href="reference/lineage_openlineage.html">lineage_openlineage()</a></code> emits <a href="https://openlineage.io/" class="external-link">OpenLineage</a> events, the interchange format Marquez, DataHub, and OpenMetadata ingest. Dataset namespaces come from the table’s actual connection, schema facets carry column types, and <code>events = "job"</code> produces the spec’s run-less design-time events, one per model. <code><a href="reference/lineage_emit.html">lineage_emit()</a></code> POSTs any of it to a running backend:</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="reference/lineage_openlineage.html">lineage_openlineage</a></span><span class="op">(</span><span class="va">lineage</span>, events <span class="op">=</span> <span class="st">"job"</span><span class="op">)</span>          <span class="co"># run-less JobEvents, NDJSON</span></span>
+<span><span class="fu"><a href="reference/lineage_emit.html">lineage_emit</a></span><span class="op">(</span><span class="va">lineage</span>, url <span class="op">=</span> <span class="st">"http://localhost:5000"</span><span class="op">)</span>  <span class="co"># straight into Marquez</span></span></code></pre></div>
+<p>The <a href="https://tgerke.github.io/dplyneage/articles/openlineage.html">OpenLineage article</a> covers the event contents and a verified round-trip into a Marquez quickstart.</p>
+</div>
+<div class="section level2">
+<h2 id="how-it-compares">How it compares<a class="anchor" aria-label="anchor" href="#how-it-compares"></a>
+</h2>
+<p>No other maintained R package extracts column-level lineage: <a href="https://cran.r-project.org/package=dtrackr" class="external-link">dtrackr</a> documents pipeline <em>steps</em>, lineager tracks row provenance, and <a href="https://cran.r-project.org/package=rdtLite" class="external-link">rdtLite</a> records execution history. None answer “which source columns feed this output column?” Outside R, that question is well served for SQL text but not for dataframe code, which is the corner dplyneage sits in: dbplyr renders dplyr pipelines as SQL, so the same lineage machinery covers your R code and your warehouse queries alike.</p>
+<table style="width:100%;" class="table">
+<colgroup>
+<col width="16%">
+<col width="16%">
+<col width="16%">
+<col width="16%">
+<col width="16%">
+<col width="16%">
+</colgroup>
+<thead><tr>
+<th></th>
+<th>dplyneage</th>
+<th><a href="https://sqlglot.com/" class="external-link">sqlglot.lineage</a></th>
+<th><a href="https://sqllineage.readthedocs.io/" class="external-link">sqllineage</a></th>
+<th><a href="https://www.getdbt.com/" class="external-link">dbt</a></th>
+<th><a href="https://sqlmesh.com/" class="external-link">SQLMesh</a></th>
+</tr></thead>
+<tbody>
+<tr>
+<td>Column-level lineage</td>
+<td>dual engine (R + sqlglot)</td>
+<td>SELECT projections</td>
+<td>broader DML</td>
+<td>Enterprise (Fusion: free in local dev)</td>
+<td>free UI</td>
+</tr>
+<tr>
+<td>dplyr / dbplyr pipelines</td>
+<td>native</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Indirect (filter/join/group/sort) columns</td>
+<td>opt-in</td>
+<td>—</td>
+<td>—</td>
+<td>excluded</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Breaking-change classification</td>
+<td>
+<code><a href="reference/lineage_check.html">lineage_check()</a></code> CI gate</td>
+<td>—</td>
+<td>—</td>
+<td>Advanced CI (paid)</td>
+<td>semantic diff</td>
+</tr>
+<tr>
+<td>OpenLineage export</td>
+<td>built in</td>
+<td>—</td>
+<td>—</td>
+<td>external integration</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Free and local</td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+<td>partly</td>
+<td>yes</td>
+</tr>
+</tbody>
+</table>
+<p>The scope has edges on purpose: orchestration, materialization, dashboard-level lineage, and catalog UIs belong to the platforms. dplyneage aims to be the extraction and artifact layer — the lineage itself, as a diagram you can read and a document you can commit, diff, and hand to the tools that do the rest. The longer form of this comparison, with per-tool notes and the roadmap rationale, is in <a href="https://github.com/tgerke/dplyneage/blob/main/.github/POSITIONING.md" class="external-link">POSITIONING.md</a>. (Comparison as of August 2026.)</p>
 </div>
 <div class="section level2">
 <h2 id="learn-more">Learn more<a class="anchor" aria-label="anchor" href="#learn-more"></a>
@@ -332,6 +422,8 @@
 <ul>
 <li>
 <code><a href="articles/getting-started.html">vignette("getting-started")</a></code> walks from a first diagram through CTEs, multi-source columns, and schemas</li>
+<li>The <a href="https://tgerke.github.io/dplyneage/articles/lineage-ci.html">lineage checks in CI</a> article sets up the provenance gate on GitHub Actions</li>
+<li>The <a href="https://tgerke.github.io/dplyneage/articles/openlineage.html">OpenLineage article</a> sends lineage into a data catalog</li>
 <li>
 <code><a href="articles/python-integration.html">vignette("python-integration")</a></code> covers how the Python dependency is managed</li>
 <li>Full function reference at <a href="https://tgerke.github.io/dplyneage/">tgerke.github.io/dplyneage</a>

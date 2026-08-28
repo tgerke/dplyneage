@@ -2,10 +2,13 @@
 <url><loc>https://tgerke.github.io/dplyneage/404.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/LICENSE-text.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/LICENSE.html</loc></url>
+<url><loc>https://tgerke.github.io/dplyneage/POSITIONING.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/articles/building-reactflow.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/articles/ducklake-lineage.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/articles/getting-started.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/articles/index.html</loc></url>
+<url><loc>https://tgerke.github.io/dplyneage/articles/lineage-ci.html</loc></url>
+<url><loc>https://tgerke.github.io/dplyneage/articles/openlineage.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/articles/python-integration.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/authors.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/index.html</loc></url>
@@ -22,8 +25,10 @@
 <url><loc>https://tgerke.github.io/dplyneage/reference/has_bundle.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/reference/has_sqlglot.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/reference/index.html</loc></url>
+<url><loc>https://tgerke.github.io/dplyneage/reference/lineage_check.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/reference/lineage_diff.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/reference/lineage_edges.html</loc></url>
+<url><loc>https://tgerke.github.io/dplyneage/reference/lineage_emit.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/reference/lineage_example.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/reference/lineage_flow-shiny.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/reference/lineage_flow.html</loc></url>
@@ -32,6 +37,7 @@
 <url><loc>https://tgerke.github.io/dplyneage/reference/lineage_mermaid.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/reference/lineage_openlineage.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/reference/lineage_tables.html</loc></url>
+<url><loc>https://tgerke.github.io/dplyneage/reference/lineage_unused.html</loc></url>
 <url><loc>https://tgerke.github.io/dplyneage/reference/lineage_upstream.html</loc></url>
 </urlset>
 

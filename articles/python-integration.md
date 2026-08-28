@@ -101,8 +101,8 @@ one ran.
 
 1.  **R/lineage_r_engine.R**: The pure-R engine
     - Walks dbplyr’s lazy query tree, reading exact column provenance
-      through selects, mutates, joins, and set operations — no SQL
-      parsing, no Python
+      through selects, mutates, window functions, joins, and set
+      operations — no SQL parsing, no Python
 2.  **R/zzz.R**: Package initialization
     - `.onLoad()`: declares the sqlglot requirement via `py_require()`
       and imports the bundled Python module with `delay_load` (Python
@@ -154,12 +154,13 @@ unqualified ones may not be traceable, and `SELECT *` cannot be expanded
 
 ## SQL Dialects
 
-sqlglot supports many SQL dialects. Specify the dialect when extracting
-lineage:
+sqlglot supports many SQL dialects. A dbplyr pipeline that reaches the
+sqlglot engine infers its dialect from the database connection; for SQL
+strings, pass it explicitly:
 
 ``` r
 
-extract_lineage(query, dialect = "duckdb")     # default
+extract_lineage(query, dialect = "duckdb")     # default for SQL strings
 extract_lineage(query, dialect = "postgres")
 extract_lineage(query, dialect = "snowflake")
 extract_lineage(query, dialect = "bigquery")

@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">dplyneage</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -159,8 +159,8 @@ ran.</p>
 <strong>R/lineage_r_engine.R</strong>: The pure-R engine
 <ul>
 <li>Walks dbplyr’s lazy query tree, reading exact column provenance
-through selects, mutates, joins, and set operations — no SQL parsing, no
-Python</li>
+through selects, mutates, window functions, joins, and set operations —
+no SQL parsing, no Python</li>
 </ul>
 </li>
 <li>
@@ -232,10 +232,11 @@ be expanded (you’ll get a warning).</p>
 <div class="section level2">
 <h2 id="sql-dialects">SQL Dialects<a class="anchor" aria-label="anchor" href="#sql-dialects"></a>
 </h2>
-<p>sqlglot supports many SQL dialects. Specify the dialect when
-extracting lineage:</p>
+<p>sqlglot supports many SQL dialects. A dbplyr pipeline that reaches
+the sqlglot engine infers its dialect from the database connection; for
+SQL strings, pass it explicitly:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="va">query</span>, dialect <span class="op">=</span> <span class="st">"duckdb"</span><span class="op">)</span>     <span class="co"># default</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="va">query</span>, dialect <span class="op">=</span> <span class="st">"duckdb"</span><span class="op">)</span>     <span class="co"># default for SQL strings</span></span>
 <span><span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="va">query</span>, dialect <span class="op">=</span> <span class="st">"postgres"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="va">query</span>, dialect <span class="op">=</span> <span class="st">"snowflake"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="va">query</span>, dialect <span class="op">=</span> <span class="st">"bigquery"</span><span class="op">)</span></span>

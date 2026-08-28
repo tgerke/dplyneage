@@ -1,5 +1,265 @@
 # Changelog
 
+## dplyneage (development version)
+
+Correctness fixes and the feature tiers from an August 2026 audit of the
+package against current column-level lineage tooling (SQLMesh, dbt,
+sqlglot, OpenLineage). The remaining roadmap from the audit is filed as
+tiered issues on GitHub.
+
+- [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
+  grows its widget chrome: `theme = "dark"` (or `"auto"`, following the
+  viewer’s OS preference) redraws the whole diagram on a dark palette;
+  `legend = TRUE` (the default) overlays a key for the node colors and
+  edge styles actually present; `minimap = TRUE` adds a pannable
+  overview map; and the zoom controls gain a button that downloads the
+  diagram as a PNG (`export_button`). In Shiny, clicking a column now
+  reports `input$<outputId>_selected` as a `list(table =, column =)`
+  (`NULL` when the trace is released), ready for
+  [`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)/[`lineage_downstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
+  server-side. Every new piece degrades by omission under a stale cached
+  bundle, though `theme = "dark"` needs the current bundle to render
+  node text legibly. `srcjs/package-lock.json` is now committed so
+  bundle rebuilds are reproducible.
+  ([\#11](https://github.com/tgerke/dplyneage/issues/11))
+
+- Clicking a column in a
+  [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
+  diagram now isolates its trace cone — the interaction dbt Catalog and
+  SQLMesh converge on: the column’s transitive upstream and downstream
+  subgraph keeps its full styling while every other table, column, and
+  edge dims. Clicking the column again, clicking the background, or
+  pressing Escape releases the cone. Hover highlighting still works
+  inside a cone and never resurrects an edge outside it.
+  ([\#10](https://github.com/tgerke/dplyneage/issues/10))
+
+- Two viewer fixes in
+  [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md):
+  pressing Backspace with a node selected no longer deletes it from the
+  diagram (a lineage diagram states provenance, so viewers must not be
+  able to edit it, matching the earlier `nodesConnectable` fix), and
+  re-rendering the widget — as Shiny does — now unmounts the previous
+  React tree instead of leaking it.
+
+- The static SVG fallback — drawn when the bundled React Flow assets
+  cannot load — is now a real lineage diagram: table boxes with their
+  headers, colors, and column rows; edges anchored to the columns they
+  connect, dashed when indirect, with arrowheads matching each edge’s
+  color; and a drawing sized to the graph’s bounds instead of a fixed
+  800x400 frame. ([\#13](https://github.com/tgerke/dplyneage/issues/13))
+
+- [`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
+  and
+  [`lineage_downstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
+  accept a table name as well as a `"table.column"` string, tracing from
+  every column of the table at once (the table’s own columns are not
+  part of the answer). Matching stays exact — names are never split on
+  dots, and a string that is both a column key and a schema-qualified
+  table id resolves as the column key it already was. New
+  [`lineage_unused()`](https://tgerke.github.io/dplyneage/reference/lineage_unused.md)
+  reports the dead columns: every column on a source or transform table
+  with no path to any target, which in a multi-model lineage surfaces
+  base-table columns nothing reads and intermediate outputs no
+  downstream model consumes.
+  ([\#12](https://github.com/tgerke/dplyneage/issues/12))
+
+- [`lineage_openlineage()`](https://tgerke.github.io/dplyneage/reference/lineage_openlineage.md)
+  now emits spec-faithful dataset namespaces.
+  [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
+  captures an OpenLineage namespace URI from the table’s connection
+  while it is alive (`postgres://host:port`, `mysql://host:port`,
+  `duckdb:<path>`, `sqlite:<path>`, and friends; in-memory databases get
+  the bare scheme), stores it per model in the lineage metadata, and
+  each dataset in the event resolves to the namespace of the model that
+  referenced it, with a `dataSource` facet carrying the URI. The
+  `namespace` argument default changed from `"dplyneage"` to `NULL`,
+  meaning “use what was captured”; datasets with nothing captured (local
+  frames, hand-built graphs) keep the old `"dplyneage"`, as does the job
+  namespace, which names the producer rather than a data store. Passing
+  a string still overrides everything. A new `output_name` argument
+  names the synthetic `output` dataset of a single-query extraction
+  after the table its result lands in.
+  ([\#6](https://github.com/tgerke/dplyneage/issues/6))
+
+- OpenLineage events now carry the facets catalogs actually read. The
+  job gains a `jobType` facet and, for single-model lineage, a `sql`
+  facet with the analyzed query and dialect. Schema facet fields include
+  column types when they are known — harvested from the connection on
+  the sqlglot path, or taken from a `schema` argument with named entries
+  like `list(orders = list(amount = "DOUBLE"))` on any path; the types
+  also appear as a `types` map on
+  [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+  source nodes. New arguments: `event_type` (any spec run state, was
+  hardcoded `"COMPLETE"`), `nominal_time`, and `parent` for the matching
+  run facets. One placement change: indirect edges
+  (filter/join/group/sort columns) move from each output column’s
+  `inputFields` to the `columnLineage` facet’s dataset-level `dataset`
+  array, which the spec defines for exactly these whole-dataset
+  dependencies — consumers reading per-column `inputFields` no longer
+  see them fanned out to every column. All `schemaURL`s now use the
+  spec’s `#/$defs/...` fragments.
+  ([\#7](https://github.com/tgerke/dplyneage/issues/7))
+
+- [`lineage_openlineage()`](https://tgerke.github.io/dplyneage/reference/lineage_openlineage.md)
+  can emit OpenLineage’s run-less static events, the spec’s design-time
+  path — which is what extracting lineage from code without running it
+  is. `events = "job"` produces one `JobEvent` per model (inputs are the
+  datasets the model reads, upstream models included; each carries its
+  own `sql` facet), and `events = "dataset"` one `DatasetEvent` per
+  dataset; neither fabricates a run. Kinds combine, and anything beyond
+  a single pretty document serializes as NDJSON, one compact event per
+  line — the format `FileTransport` writes, so a committed events file
+  can be replayed into any backend later.
+  ([\#8](https://github.com/tgerke/dplyneage/issues/8))
+
+- New
+  [`lineage_emit()`](https://tgerke.github.io/dplyneage/reference/lineage_emit.md)
+  sends OpenLineage events to a backend over HTTP, one POST per event,
+  with `url` and `api_key` falling back to the `OPENLINEAGE_URL` and
+  `OPENLINEAGE_API_KEY` environment variables and failures raising a
+  classed `dplyneage_emit_failure` condition. Requires the httr2
+  package. A new site article, [OpenLineage export and catalog
+  round-trips](https://tgerke.github.io/dplyneage/articles/openlineage.html),
+  documents the event surface and a verified round-trip into a Marquez
+  quickstart, column-level lineage included.
+  ([\#9](https://github.com/tgerke/dplyneage/issues/9))
+
+- Indirect edges no longer lose secondary classifications. A source
+  column that shapes the same output in several ways (filtered on and
+  window-sorted on, say) used to keep only the first kind the engine
+  emitted; the graph now records the full set on the edge. The diagram
+  still draws one dashed edge and
+  [`lineage_edges()`](https://tgerke.github.io/dplyneage/reference/lineage_edges.md)
+  still shows the first kind, but the
+  [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+  edge gains a `transformations` array (additive, `format_version`
+  stays 1) and the OpenLineage `columnLineage` facet’s dataset array
+  lists every kind.
+  ([\#18](https://github.com/tgerke/dplyneage/issues/18))
+
+- The sqlglot engine no longer counts the `ORDER BY` inside
+  `WITHIN GROUP` as a result ordering. On dialects where dbplyr renders
+  [`median()`](https://rdrr.io/r/stats/median.html)/[`quantile()`](https://rdrr.io/r/stats/quantile.html)
+  as ordered-set aggregates, the ordered column drew spurious dashed
+  `sort` edges under `include_indirect = TRUE` that the R engine
+  (correctly) never drew; the column is an argument of the aggregate and
+  already a direct source. Source column names from the sqlglot engine
+  also no longer carry dialect quoting: tracing postgres-flavored SQL
+  used to yield columns like `"amount"` with the quote characters
+  embedded, breaking cross-engine agreement.
+  ([\#17](https://github.com/tgerke/dplyneage/issues/17))
+
+- [`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
+  now classifies every change by blast radius. Each element gains a
+  `severity` column: `"breaking"` when the change’s target column fed
+  anything downstream in the old lineage, or sat on a target node, whose
+  columns are the consumed surface; `"non-breaking"` for pure additions
+  and edits to columns nothing consumed. All changes previously looked
+  alike, so a CI gate could only fail on any change at all. The print
+  method flags breaking rows.
+  ([\#2](https://github.com/tgerke/dplyneage/issues/2))
+
+- New `lineage_check(old, new)` turns the diff into a CI gate: one line
+  per finding, a classed error (`dplyneage_lineage_check_failure`,
+  threshold set by `fail_on`) when changes cross it, and
+  `::error`/`::warning` annotations emitted automatically on GitHub
+  Actions runners. A new site article, [lineage checks in
+  CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html),
+  ships a copy-paste Actions job that diffs lineage between a pull
+  request and main.
+  ([\#3](https://github.com/tgerke/dplyneage/issues/3))
+
+- [`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
+  no longer reports a phantom `NA` row when one side of the comparison
+  has no edges. [`paste0()`](https://rdrr.io/r/base/paste.html) recycles
+  zero-length inputs, so an empty edge frame produced the key `"."`
+  instead of no keys, and the diff invented one added (or removed) edge
+  of `NA`s. The same guard now covers node-free lineages and traversals.
+
+- The
+  [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+  document is now versioned: a top-level `format_version` key
+  (currently 1) leads the artifact, bumping only when a change would
+  break an existing consumer. Metadata also takes one shape for single
+  queries and pipelines: both carry a `models` map of per-model `sql`,
+  `engine`, and `dialect`, with a single query keyed by its output
+  table. The top-level `sql` key is gone, so readers of a committed
+  0.3.0 artifact should take SQL from `models` instead.
+  ([\#4](https://github.com/tgerke/dplyneage/issues/4))
+
+- The R engine now reads window partition and ordering state from the
+  lazy tree, so the two engines agree on window functions. A windowed
+  expression’s grouping columns and its ordering columns
+  ([`window_order()`](https://dbplyr.tidyverse.org/reference/window_order.html),
+  ranking arguments, `order_by =`) previously created no edges at all;
+  they are now direct sources of the windowed column, matching the
+  `OVER` clause the sqlglot engine parses, and window ordering columns
+  draw dashed `sort` edges under `include_indirect = TRUE`.
+  ([\#5](https://github.com/tgerke/dplyneage/issues/5))
+
+- [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
+  no longer errors on
+  [`copy_inline()`](https://dbplyr.tidyverse.org/reference/copy_inline.html)
+  frames. Their values are inlined into the SQL as literals, so the
+  columns now trace as source-free, matching how the sqlglot engine
+  treats `VALUES`. An unexpected base-table shape now signals the
+  classed condition that triggers the sqlglot fallback, instead of an
+  unclassed error that defeated it.
+
+- Multi-model stitching warns when a source table resembles a model it
+  did not link to. Stitching matches names exactly, so a model named
+  `silver` read back as `main.silver` or `SILVER` used to render a
+  silently disconnected graph with no hint why. Naming the model with
+  the table’s full name (`list("main.silver" = ...)`) has always
+  stitched, and the warning points there.
+
+- [`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
+  now compares edge definitions, not just endpoints. An edge whose
+  transformation or expression changed (say `sum(amount)` rewritten to
+  `mean(amount)`) previously printed “No lineage changes”; it is now
+  reported in the new `changed_edges` element. The new
+  [`lineage_has_changes()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
+  answers the CI question in one call.
+
+- With `include_indirect = TRUE`, raw SQL inside
+  [`filter()`](https://dplyr.tidyverse.org/reference/filter.html),
+  [`group_by()`](https://dplyr.tidyverse.org/reference/group_by.html),
+  or [`arrange()`](https://dplyr.tidyverse.org/reference/arrange.html)
+  falls back to the sqlglot engine. The R engine cannot see the columns
+  inside an [`sql()`](https://dplyr.tidyverse.org/reference/sql.html)
+  string and previously dropped such clauses without warning, losing
+  indirect edges.
+
+- `dialect` now defaults to `NULL`, which infers the dialect from a lazy
+  table’s database connection. A Postgres
+  [`tbl()`](https://dplyr.tidyverse.org/reference/tbl.html) that fell
+  back to sqlglot used to be parsed as `"duckdb"` unless you remembered
+  to pass `dialect = "postgres"` yourself. SQL strings and unrecognized
+  connections keep the `"duckdb"` default.
+
+- [`lineage_openlineage()`](https://tgerke.github.io/dplyneage/reference/lineage_openlineage.md)
+  no longer advances the caller’s RNG state. Run ids draw under a
+  private seed and `.Random.seed` is restored, so exporting lineage
+  mid-analysis cannot change a later
+  [`set.seed()`](https://rdrr.io/r/base/Random.html) sequence’s results.
+
+- Diagrams no longer let viewers draw new edges between columns. A
+  lineage diagram states provenance; a hand-drawn edge could only
+  misstate it.
+
+- Local data frames gained a lighter route:
+  `dbplyr::tbl_lazy(df, name = "df")` makes a pipeline traceable with no
+  database at all, which is how the package’s own test suite has always
+  run.
+  [`memdb_frame()`](https://dbplyr.tidyverse.org/reference/memdb.html)
+  remains the route when the pipeline should also be collectable. The
+  data-frame error message, README, and getting-started vignette now
+  describe both.
+
+- Removed the pre-rewrite demo scripts in `inst/examples/`, which still
+  called the deleted `install_sqlglot()` and described a heuristic
+  attribution design the engines replaced.
+
 ## dplyneage 0.3.0
 
 First CRAN release. Apart from dropping a deprecated function, the work

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">dplyneage</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -107,10 +107,24 @@
 
         <dt>
 
-          <code><a href="lineage_diff.html">lineage_diff()</a></code>
+          <code><a href="lineage_unused.html">lineage_unused()</a></code>
+
+        </dt>
+        <dd>Report columns with no path to any target</dd>
+
+        <dt>
+
+          <code><a href="lineage_diff.html">lineage_diff()</a></code> <code><a href="lineage_diff.html">lineage_has_changes()</a></code>
 
         </dt>
         <dd>Compare two lineage extractions</dd>
+
+        <dt>
+
+          <code><a href="lineage_check.html">lineage_check()</a></code>
+
+        </dt>
+        <dd>Gate a CI run on lineage changes</dd>
       </dl></div><div class="section level2">
       <h2 id="manual-lineage-creation">Manual Lineage Creation<a class="anchor" aria-label="anchor" href="#manual-lineage-creation"></a></h2>
 
@@ -170,7 +184,14 @@
           <code><a href="lineage_openlineage.html">lineage_openlineage()</a></code>
 
         </dt>
-        <dd>Export lineage as an OpenLineage run event</dd>
+        <dd>Export lineage as OpenLineage events</dd>
+
+        <dt>
+
+          <code><a href="lineage_emit.html">lineage_emit()</a></code>
+
+        </dt>
+        <dd>Send OpenLineage events to a backend over HTTP</dd>
       </dl></div><div class="section level2">
       <h2 id="python-integration">Python Integration<a class="anchor" aria-label="anchor" href="#python-integration"></a></h2>
 

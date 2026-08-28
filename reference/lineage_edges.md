@@ -9,7 +9,11 @@ column passthrough, `"aggregation"`, or `"transformation"`) and
 `expression` records the output column's defining expression; both are
 `NA` for hand-built edges. With `include_indirect = TRUE`, indirect
 edges are classified by how the source column is used — `"filter"`,
-`"join"`, `"group_by"`, or `"sort"` — with `NA` for `expression`.
+`"join"`, `"group_by"`, or `"sort"` — with `NA` for `expression`. A
+column used in several of those ways keeps one edge classified by the
+first kind; the full set is in the
+[`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+artifact and the OpenLineage export.
 
 ## Usage
 
@@ -36,8 +40,10 @@ A data frame with columns `source_table`, `source_column`,
 ## See also
 
 Other lineage accessors:
+[`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md),
 [`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md),
 [`lineage_tables()`](https://tgerke.github.io/dplyneage/reference/lineage_tables.md),
+[`lineage_unused()`](https://tgerke.github.io/dplyneage/reference/lineage_unused.md),
 [`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
 
 ## Examples

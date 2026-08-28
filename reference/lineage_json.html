@@ -17,7 +17,7 @@ changes when a pipeline is edited), or feeding to a data catalog."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">dplyneage</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -85,16 +85,42 @@ readability. Use <code>FALSE</code> for a single-line document.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A JSON string. With <code>metadata</code> (present on <code><a href="extract_lineage.html">extract_lineage()</a></code>
-results), <code>nodes</code> (objects with <code>id</code>, <code>type</code>, and <code>columns</code>), and
-<code>edges</code> (objects with <code>source</code>, <code>source_column</code>, <code>target</code>, and
-<code>target_column</code>; edges produced by <code><a href="extract_lineage.html">extract_lineage()</a></code> also carry
-<code>transformation</code> and <code>expression</code>).</p>
+    <p>A JSON string; see the Document shape section.</p>
     </div>
+    <div class="section level2">
+    <h2 id="document-shape">Document shape<a class="anchor" aria-label="anchor" href="#document-shape"></a></h2>
+
+
+<p>The top-level keys, in order:</p><ul><li><p><code>format_version</code>: integer version of this document shape, currently</p><ol><li><p>It bumps only when a change would break an existing consumer;
+added fields do not bump it.</p></li>
+</ol></li>
+<li><p><code>metadata</code>: present on <code><a href="extract_lineage.html">extract_lineage()</a></code> results. Carries
+<code>dialect</code>, <code>engine</code>, <code>models</code>, <code>node_count</code>, and <code>edge_count</code>.
+<code>models</code> maps each model name to its <code>sql</code>, <code>engine</code>, and
+<code>dialect</code>; a single-query extraction is a one-model map keyed by
+the output table's name, so consumers read per-model SQL the same
+way for both shapes. A model extracted from a table on a live
+database connection also carries <code>namespace</code>, the OpenLineage
+namespace URI inferred from that connection. The top-level
+<code>dialect</code> and <code>engine</code> collapse across models, to <code>"mixed"</code> when
+models disagree.</p></li>
+<li><p><code>nodes</code>: objects with <code>id</code>, <code>type</code> (<code>"source"</code>, <code>"transform"</code>, or
+<code>"target"</code>), and <code>columns</code>. A source node whose column types were
+captured (from a live connection's schema, or a typed <code>schema</code>
+argument) also carries <code>types</code>, a column-to-type map covering the
+typed subset of its columns.</p></li>
+<li><p><code>edges</code>: objects with <code>source</code>, <code>source_column</code>, <code>target</code>, and
+<code>target_column</code>. Edges from <code><a href="extract_lineage.html">extract_lineage()</a></code> also carry
+<code>transformation</code> and, on direct edges, <code>expression</code>. An indirect
+edge whose column shapes the result in several ways (filtered and
+sorted on, say) adds <code>transformations</code>, the full set of kinds with
+the first one leading.</p></li>
+</ul></div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="extract_lineage.html">extract_lineage()</a></code> to compute lineage automatically</p>
 <p>Other lineage exporters:
+<code><a href="lineage_emit.html">lineage_emit()</a></code>,
 <code><a href="lineage_graphml.html">lineage_graphml()</a></code>,
 <code><a href="lineage_mermaid.html">lineage_mermaid()</a></code>,
 <code><a href="lineage_openlineage.html">lineage_openlineage()</a></code></p></div>
@@ -113,6 +139,7 @@ results), <code>nodes</code> (objects with <code>id</code>, <code>type</code>, a
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">lineage_json</span><span class="op">(</span><span class="va">lineage</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> {</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   "format_version": 1,</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   "nodes": [</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     {</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       "id": "orders",</span>
@@ -142,10 +169,17 @@ results), <code>nodes</code> (objects with <code>id</code>, <code>type</code>, a
 <span class="r-in"><span><span class="st">                 FROM orders GROUP BY customer_id"</span><span class="op">)</span> <span class="op">|&gt;</span></span></span>
 <span class="r-in"><span>  <span class="fu">lineage_json</span><span class="op">(</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> {</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   "format_version": 1,</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   "metadata": {</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     "sql": "SELECT customer_id, SUM(amount) AS total\n                 FROM orders GROUP BY customer_id",</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     "dialect": "duckdb",</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     "engine": "sqlglot",</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     "models": {</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       "output": {</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>         "sql": "SELECT customer_id, SUM(amount) AS total\n                 FROM orders GROUP BY customer_id",</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>         "engine": "sqlglot",</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>         "dialect": "duckdb"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       }</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     },</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     "node_count": 2,</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     "edge_count": 2</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   },</span>

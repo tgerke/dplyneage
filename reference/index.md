@@ -25,8 +25,13 @@ Query, compare, and traverse extracted lineage as plain data
 - [`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
   [`lineage_downstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
   : Trace a column's ancestry or descendants
+- [`lineage_unused()`](https://tgerke.github.io/dplyneage/reference/lineage_unused.md)
+  : Report columns with no path to any target
 - [`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
+  [`lineage_has_changes()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
   : Compare two lineage extractions
+- [`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md)
+  : Gate a CI run on lineage changes
 
 ## Manual Lineage Creation
 
@@ -49,7 +54,9 @@ catalogs
 - [`lineage_mermaid()`](https://tgerke.github.io/dplyneage/reference/lineage_mermaid.md)
   : Export lineage as a Mermaid flowchart
 - [`lineage_openlineage()`](https://tgerke.github.io/dplyneage/reference/lineage_openlineage.md)
-  : Export lineage as an OpenLineage run event
+  : Export lineage as OpenLineage events
+- [`lineage_emit()`](https://tgerke.github.io/dplyneage/reference/lineage_emit.md)
+  : Send OpenLineage events to a backend over HTTP
 
 ## Python Integration
 

@@ -48,6 +48,7 @@ draw dashed.
 to compute lineage automatically
 
 Other lineage exporters:
+[`lineage_emit()`](https://tgerke.github.io/dplyneage/reference/lineage_emit.md),
 [`lineage_graphml()`](https://tgerke.github.io/dplyneage/reference/lineage_graphml.md),
 [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md),
 [`lineage_openlineage()`](https://tgerke.github.io/dplyneage/reference/lineage_openlineage.md)

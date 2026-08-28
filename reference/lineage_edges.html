@@ -7,7 +7,9 @@ classifies each edge (&quot;identity&quot; for plain column passthrough,
 output column's defining expression; both are NA for hand-built
 edges. With include_indirect = TRUE, indirect edges are classified by
 how the source column is used — &quot;filter&quot;, &quot;join&quot;, &quot;group_by&quot;, or
-&quot;sort&quot; — with NA for expression."><meta property="og:description" content="Flattens a lineage object's column-level edges into one row per edge,
+&quot;sort&quot; — with NA for expression. A column used in several of
+those ways keeps one edge classified by the first kind; the full set
+is in the lineage_json() artifact and the OpenLineage export."><meta property="og:description" content="Flattens a lineage object's column-level edges into one row per edge,
 for filtering, joining, and summarising with ordinary data frame tools.
 For edges produced by extract_lineage(), the transformation column
 classifies each edge (&quot;identity&quot; for plain column passthrough,
@@ -15,7 +17,9 @@ classifies each edge (&quot;identity&quot; for plain column passthrough,
 output column's defining expression; both are NA for hand-built
 edges. With include_indirect = TRUE, indirect edges are classified by
 how the source column is used — &quot;filter&quot;, &quot;join&quot;, &quot;group_by&quot;, or
-&quot;sort&quot; — with NA for expression."></head><body>
+&quot;sort&quot; — with NA for expression. A column used in several of
+those ways keeps one edge classified by the first kind; the full set
+is in the lineage_json() artifact and the OpenLineage export."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -23,7 +27,7 @@ how the source column is used — &quot;filter&quot;, &quot;join&quot;, &quot;gr
 
     <a class="navbar-brand me-2" href="../index.html">dplyneage</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -64,7 +68,9 @@ classifies each edge (<code>"identity"</code> for plain column passthrough,
 output column's defining expression; both are <code>NA</code> for hand-built
 edges. With <code>include_indirect = TRUE</code>, indirect edges are classified by
 how the source column is used — <code>"filter"</code>, <code>"join"</code>, <code>"group_by"</code>, or
-<code>"sort"</code> — with <code>NA</code> for <code>expression</code>.</p>
+<code>"sort"</code> — with <code>NA</code> for <code>expression</code>. A column used in several of
+those ways keeps one edge classified by the first kind; the full set
+is in the <code><a href="lineage_json.html">lineage_json()</a></code> artifact and the OpenLineage export.</p>
     </div>
 
     <div class="section level2">
@@ -90,8 +96,10 @@ how the source column is used — <code>"filter"</code>, <code>"join"</code>, <c
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p>Other lineage accessors:
+<code><a href="lineage_check.html">lineage_check()</a></code>,
 <code><a href="lineage_diff.html">lineage_diff()</a></code>,
 <code><a href="lineage_tables.html">lineage_tables()</a></code>,
+<code><a href="lineage_unused.html">lineage_unused()</a></code>,
 <code><a href="lineage_upstream.html">lineage_upstream()</a></code></p></div>
     </div>
 

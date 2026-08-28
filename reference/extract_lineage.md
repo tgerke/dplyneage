@@ -11,7 +11,7 @@ operations like `UNION`, and multi-source expressions such as
 ``` r
 extract_lineage(
   sql,
-  dialect = "duckdb",
+  dialect = NULL,
   schema = NULL,
   show_sql = FALSE,
   engine = c("auto", "sqlglot", "r"),
@@ -31,18 +31,22 @@ extract_lineage(
   when one is handled by the sqlglot engine instead, its database
   connection is used to harvest table schemas automatically. Plain data
   frames are not accepted — dplyr executes each verb on them
-  immediately, leaving no query tree to read. Wrap the data with
+  immediately, leaving no query tree to read. Wrap the frame first:
+  `dbplyr::tbl_lazy(df, name = "df")` builds a lazy table with no
+  database at all, which is enough for lineage;
   [`dbplyr::memdb_frame()`](https://dbplyr.tidyverse.org/reference/memdb.html)
-  (or copy an existing frame with
-  `copy_to(dbplyr::memdb(), df, name = "df")`) and the same pipeline
-  becomes traceable; see
+  (or `copy_to(dbplyr::memdb(), df, name = "df")`) additionally makes
+  the pipeline collectable. See
   [`vignette("getting-started")`](https://tgerke.github.io/dplyneage/articles/getting-started.md).
 
 - dialect:
 
-  SQL dialect the query is written in, e.g. `"duckdb"` (the default),
-  `"postgres"`, `"mysql"`, `"snowflake"`, `"bigquery"`. Any dialect
-  sqlglot understands works here.
+  SQL dialect the query is written in, e.g. `"duckdb"`, `"postgres"`,
+  `"mysql"`, `"snowflake"`, `"bigquery"`. Any dialect sqlglot
+  understands works here. The default `NULL` infers the dialect from a
+  lazy table's database connection (falling back to `"duckdb"` for
+  connections it does not recognize); SQL strings are parsed as
+  `"duckdb"` unless a dialect is given.
 
 - schema:
 
@@ -82,8 +86,9 @@ extract_lineage(
 
 A list with `nodes` and `edges` ready to pass to
 [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md),
-plus `metadata` recording the analyzed SQL, the dialect, the engine
-used, and node/edge counts.
+plus `metadata` recording the dialect, the engine used, node/edge
+counts, and a `models` map holding each model's analyzed SQL, engine,
+and dialect (one entry, keyed by the output table, for a single query).
 
 ## Details
 
@@ -101,13 +106,17 @@ Both engines trace select-list lineage by default: columns used only in
 [`filter()`](https://dplyr.tidyverse.org/reference/filter.html), join
 conditions, or
 [`arrange()`](https://dplyr.tidyverse.org/reference/arrange.html) do not
-create lineage edges. Set `include_indirect = TRUE` to add them as
-dashed edges — a column that only filters the result still breaks the
-pipeline if it is dropped, so impact analysis usually wants them.
-Indirect edges connect each filter/join/group/sort column to every
-output column, since these conditions shape the whole result, and are
-classified by how the column is used (`"filter"`, `"join"`,
-`"group_by"`, `"sort"`).
+create lineage edges. A window function's partition and ordering columns
+do — they sit inside the expression's `OVER` clause, so
+[`row_number()`](https://dplyr.tidyverse.org/reference/row_number.html)
+under `group_by(g)` and `window_order(d)` draws direct edges from both
+`g` and `d`. Set `include_indirect = TRUE` to add the rest as dashed
+edges — a column that only filters the result still breaks the pipeline
+if it is dropped, so impact analysis usually wants them. Indirect edges
+connect each filter/join/group/sort column (window `ORDER BY` columns
+included) to every output column, since these conditions shape the whole
+result, and are classified by how the column is used (`"filter"`,
+`"join"`, `"group_by"`, `"sort"`).
 
 A named list stitches a multi-model pipeline into one graph. Each
 element (lazy table or SQL string) is analyzed on its own, and any
@@ -131,7 +140,7 @@ for a tour from simple pipelines to CTEs and multi-source columns.
 extract_lineage("SELECT c.id, c.name FROM customers c") |>
   lineage_flow()
 
-{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"c.id","transformation":"identity"}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"c.name","transformation":"identity"}}]},"evals":[],"jsHooks":[]}
+{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"c.id","transformation":"identity"}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"c.name","transformation":"identity"}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}
 # Supply a schema so unqualified columns attribute to the right table
 # and SELECT * expands
 extract_lineage(
@@ -161,7 +170,7 @@ library(dplyr)
 
 con <- DBI::dbConnect(duckdb::duckdb())
 #> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/RtmplXhDiY/duckdb
+#> ℹ /tmp/RtmparfIgK/duckdb
 #> This is removed when the R session ends.
 #> • Extensions are re-downloaded each session.
 #> • Secrets are lost.
@@ -178,7 +187,7 @@ tbl(con, "customers") |>
   extract_lineage() |>
   lineage_flow()
 
-{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"orders","type":"tableNode","data":{"label":"orders","columns":"amount","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":170},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name","total_spent"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":52},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"id","transformation":"identity"}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"name","transformation":"identity"}},{"id":"e_orders.amount_to_output.total_spent","source":"orders","target":"output","sourceHandle":"amount","targetHandle":"total_spent","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"sum(amount, na.rm = TRUE)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"sum(amount, na.rm = TRUE)","transformation":"aggregation"}}]},"evals":[],"jsHooks":[]}
+{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"orders","type":"tableNode","data":{"label":"orders","columns":"amount","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":170},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name","total_spent"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":52},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"id","transformation":"identity"}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"name","transformation":"identity"}},{"id":"e_orders.amount_to_output.total_spent","source":"orders","target":"output","sourceHandle":"amount","targetHandle":"total_spent","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"sum(amount, na.rm = TRUE)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"sum(amount, na.rm = TRUE)","transformation":"aggregation"}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}
 # Multi-model pipelines: name each step and pass a named list; source
 # tables matching a model name stitch the layers into one DAG
 silver <- tbl(con, "orders") |>
@@ -191,6 +200,6 @@ gold <- tbl(con, "silver") |>
 extract_lineage(list(silver = silver, gold = gold)) |>
   lineage_flow()
 
-{"x":{"nodes":[{"id":"orders","type":"tableNode","data":{"label":"orders","columns":["customer_id","amount"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":16.5},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"silver","type":"tableNode","data":{"label":"silver","columns":["customer_id","total_spent"],"tableType":"transform","colors":{"bg":"#fef3f2","border":"#f59e0b","header":"#d97706"}},"position":{"x":400,"y":16.5},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"gold","type":"tableNode","data":{"label":"gold","columns":["customer_id","total_spent","big_spender"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":800,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_orders.customer_id_to_silver.customer_id","source":"orders","target":"silver","sourceHandle":"customer_id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"customer_id","transformation":"identity"}},{"id":"e_orders.amount_to_silver.total_spent","source":"orders","target":"silver","sourceHandle":"amount","targetHandle":"total_spent","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"sum(amount, na.rm = TRUE)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"sum(amount, na.rm = TRUE)","transformation":"aggregation"}},{"id":"e_silver.customer_id_to_gold.customer_id","source":"silver","target":"gold","sourceHandle":"customer_id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"customer_id","transformation":"identity"}},{"id":"e_silver.total_spent_to_gold.total_spent","source":"silver","target":"gold","sourceHandle":"total_spent","targetHandle":"total_spent","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"total_spent","transformation":"identity"}},{"id":"e_silver.total_spent_to_gold.big_spender","source":"silver","target":"gold","sourceHandle":"total_spent","targetHandle":"big_spender","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"label":"total_spent > 100","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"total_spent > 100","transformation":"transformation"}}]},"evals":[],"jsHooks":[]}
+{"x":{"nodes":[{"id":"orders","type":"tableNode","data":{"label":"orders","columns":["customer_id","amount"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":16.5},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"silver","type":"tableNode","data":{"label":"silver","columns":["customer_id","total_spent"],"tableType":"transform","colors":{"bg":"#fef3f2","border":"#f59e0b","header":"#d97706"}},"position":{"x":400,"y":16.5},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"gold","type":"tableNode","data":{"label":"gold","columns":["customer_id","total_spent","big_spender"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":800,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_orders.customer_id_to_silver.customer_id","source":"orders","target":"silver","sourceHandle":"customer_id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"customer_id","transformation":"identity"}},{"id":"e_orders.amount_to_silver.total_spent","source":"orders","target":"silver","sourceHandle":"amount","targetHandle":"total_spent","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"sum(amount, na.rm = TRUE)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"sum(amount, na.rm = TRUE)","transformation":"aggregation"}},{"id":"e_silver.customer_id_to_gold.customer_id","source":"silver","target":"gold","sourceHandle":"customer_id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"customer_id","transformation":"identity"}},{"id":"e_silver.total_spent_to_gold.total_spent","source":"silver","target":"gold","sourceHandle":"total_spent","targetHandle":"total_spent","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"total_spent","transformation":"identity"}},{"id":"e_silver.total_spent_to_gold.big_spender","source":"silver","target":"gold","sourceHandle":"total_spent","targetHandle":"big_spender","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"label":"total_spent > 100","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"total_spent > 100","transformation":"transformation"}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}
 DBI::dbDisconnect(con)
 ```

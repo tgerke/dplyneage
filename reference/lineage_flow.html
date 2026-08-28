@@ -7,7 +7,7 @@ with create_table_node() and create_column_edge()."><meta property="og:descripti
 as draggable nodes, column-to-column edges, and zoom/pan controls. Pass
 the result of extract_lineage() directly (it is detected
 automatically, so piping works), or build nodes and edges yourself
-with create_table_node() and create_column_edge()."><!-- dependencies from examples --><link href="libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet"><script src="libs/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="libs/reactflow-bundle-1.0.0/reactflow-bundle.min.js"></script><script src="libs/lineage_flow-binding-0.3.0/lineage_flow.js"></script></head><body>
+with create_table_node() and create_column_edge()."><!-- dependencies from examples --><link href="libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet"><script src="libs/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="libs/reactflow-bundle-1.0.0/reactflow-bundle.min.js"></script><script src="libs/lineage_flow-binding-0.3.0.9000/lineage_flow.js"></script></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -15,7 +15,7 @@ with create_table_node() and create_column_edge()."><!-- dependencies from examp
 
     <a class="navbar-brand me-2" href="../index.html">dplyneage</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -62,7 +62,11 @@ with <code><a href="create_table_node.html">create_table_node()</a></code> and <
 <span>  edges <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  width <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  height <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  elementId <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  elementId <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  minimap <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  legend <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  theme <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"light"</span>, <span class="st">"dark"</span>, <span class="st">"auto"</span><span class="op">)</span>,</span>
+<span>  export_button <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -90,11 +94,42 @@ its own edges.</p></dd>
 <dd><p>Explicit HTML element id for the widget. Usually left
 <code>NULL</code> so one is generated.</p></dd>
 
+
+<dt id="arg-minimap">minimap<a class="anchor" aria-label="anchor" href="#arg-minimap"></a></dt>
+<dd><p>If <code>TRUE</code>, draws a pannable overview map in the corner.
+Off by default; it earns its space on large multi-model graphs.</p></dd>
+
+
+<dt id="arg-legend">legend<a class="anchor" aria-label="anchor" href="#arg-legend"></a></dt>
+<dd><p>If <code>TRUE</code> (the default), overlays a small legend naming
+the node colors and edge styles present in the graph.</p></dd>
+
+
+<dt id="arg-theme">theme<a class="anchor" aria-label="anchor" href="#arg-theme"></a></dt>
+<dd><p><code>"light"</code> (the default), <code>"dark"</code>, or <code>"auto"</code>, which
+follows the viewer's <code>prefers-color-scheme</code> — the operating-system
+setting, not the theme of a surrounding Quarto or R Markdown
+document, so documents rendered dark should pass <code>theme = "dark"</code>
+explicitly.</p></dd>
+
+
+<dt id="arg-export-button">export_button<a class="anchor" aria-label="anchor" href="#arg-export-button"></a></dt>
+<dd><p>If <code>TRUE</code> (the default), the zoom controls gain a
+button that downloads the diagram as a PNG.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>An htmlwidget that prints in the RStudio viewer, R Markdown /
 Quarto documents, and Shiny apps.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>Clicking a column isolates its trace cone — the transitive upstream and
+downstream subgraph — and dims everything else; clicking it again,
+clicking the background, or pressing Escape releases it. In Shiny, the
+traced column is reported as <code>input$&lt;outputId&gt;_selected</code>, a list with
+<code>table</code> and <code>column</code> entries (<code>NULL</code> when nothing is traced).</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
@@ -118,11 +153,15 @@ Quarto documents, and Shiny apps.</p>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">lineage_flow</span><span class="op">(</span><span class="va">nodes</span>, <span class="va">edges</span><span class="op">)</span></span></span>
 <div class="lineage_flow html-widget html-fill-item" id="htmlwidget-1fb4450895fe099f74a1" style="width:100%;height:600px;"></div>
-<script type="application/json" data-for="htmlwidget-1fb4450895fe099f74a1">{"x":{"nodes":[{"id":"orders","type":"tableNode","data":{"label":"orders","columns":["order_id","amount"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"daily_totals","type":"tableNode","data":{"label":"daily_totals","columns":"total","tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_orders.amount_to_daily_totals.total","source":"orders","target":"daily_totals","sourceHandle":"amount","targetHandle":"total","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"SUM()","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9}}]},"evals":[],"jsHooks":[]}</script><span class="r-in"><span><span class="co"># Or pipe from extract_lineage()</span></span></span>
+<script type="application/json" data-for="htmlwidget-1fb4450895fe099f74a1">{"x":{"nodes":[{"id":"orders","type":"tableNode","data":{"label":"orders","columns":["order_id","amount"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"daily_totals","type":"tableNode","data":{"label":"daily_totals","columns":"total","tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_orders.amount_to_daily_totals.total","source":"orders","target":"daily_totals","sourceHandle":"amount","targetHandle":"total","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"SUM()","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}</script><span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Dark theme with the overview map</span></span></span>
+<span class="r-in"><span><span class="fu">lineage_flow</span><span class="op">(</span><span class="va">nodes</span>, <span class="va">edges</span>, theme <span class="op">=</span> <span class="st">"dark"</span>, minimap <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
+<div class="lineage_flow html-widget html-fill-item" id="htmlwidget-10b3b7155e8045a1b2ad" style="width:100%;height:600px;"></div>
+<script type="application/json" data-for="htmlwidget-10b3b7155e8045a1b2ad">{"x":{"nodes":[{"id":"orders","type":"tableNode","data":{"label":"orders","columns":["order_id","amount"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"daily_totals","type":"tableNode","data":{"label":"daily_totals","columns":"total","tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_orders.amount_to_daily_totals.total","source":"orders","target":"daily_totals","sourceHandle":"amount","targetHandle":"total","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"SUM()","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9}}],"options":{"minimap":true,"legend":true,"theme":"dark","exportButton":true}},"evals":[],"jsHooks":[]}</script><span class="r-in"><span><span class="co"># Or pipe from extract_lineage()</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="st">"SELECT id, name FROM customers"</span><span class="op">)</span> <span class="op">|&gt;</span></span></span>
 <span class="r-in"><span>  <span class="fu">lineage_flow</span><span class="op">(</span><span class="op">)</span></span></span>
-<div class="lineage_flow html-widget html-fill-item" id="htmlwidget-10b3b7155e8045a1b2ad" style="width:100%;height:600px;"></div>
-<script type="application/json" data-for="htmlwidget-10b3b7155e8045a1b2ad">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"id","transformation":"identity"}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"name","transformation":"identity"}}]},"evals":[],"jsHooks":[]}</script></code></pre></div>
+<div class="lineage_flow html-widget html-fill-item" id="htmlwidget-4018eef1a407a0df6b52" style="width:100%;height:600px;"></div>
+<script type="application/json" data-for="htmlwidget-4018eef1a407a0df6b52">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"id","transformation":"identity"}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"name","transformation":"identity"}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}</script></code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

@@ -66,7 +66,13 @@ tbl(con, "customers") |>
 
 Each output column connects back to the source column it came from. Try
 dragging the tables around, zooming with the mouse wheel, and hovering a
-column to highlight its connections.
+column to highlight its connections. Clicking a column isolates its
+trace cone — everything upstream and downstream of it — and Escape (or a
+background click) releases it. The legend in the corner names the
+colors;
+[`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
+also offers `theme = "dark"`, a `minimap`, and a PNG download button in
+the zoom controls.
 
 ## A realistic pipeline
 
@@ -203,18 +209,20 @@ anything touches the database. A pipeline on a plain tibble has no such
 tree: dplyr executes each verb immediately, so by the time you could ask
 about lineage, only the result is left.
 
-The workaround is one line.
-[`dbplyr::memdb_frame()`](https://dbplyr.tidyverse.org/reference/memdb.html)
-puts the data in a throwaway in-memory SQLite database (install the
-RSQLite package once) and hands back a lazy table, so the identical
-pipeline becomes traceable:
+The lightest fix is
+[`dbplyr::tbl_lazy()`](https://dbplyr.tidyverse.org/reference/tbl_lazy.html),
+which wraps the frame in a lazy table backed by no database at all. Such
+a pipeline can’t be collected, but lineage never runs the query, so a
+diagram doesn’t need it to be:
 
 ``` r
 
-sales <- dbplyr::memdb_frame(
-  customer_id = c(1, 1, 2),
-  amount = c(100, 250, 40),
-  .name = "sales"
+sales <- dbplyr::tbl_lazy(
+  data.frame(
+    customer_id = c(1, 1, 2),
+    amount = c(100, 250, 40)
+  ),
+  name = "sales"
 )
 
 sales |>
@@ -224,17 +232,20 @@ sales |>
   lineage_flow(height = "300px")
 ```
 
-For a data frame you already have,
-`copy_to(dbplyr::memdb(), df, name = "df")` does the same copy. Lineage
-depends only on the pipeline’s structure, never on the data, so for
-large frames copying a slice is enough —
-`copy_to(dbplyr::memdb(), head(df), name = "df")` yields the same
-diagram as copying every row.
+When the pipeline should stay runnable, use a real (if throwaway)
+database instead.
+[`dbplyr::memdb_frame()`](https://dbplyr.tidyverse.org/reference/memdb.html)
+builds the data in in-memory SQLite (install the RSQLite package once),
+and `copy_to(dbplyr::memdb(), df, name = "df")` does the same copy for a
+frame you already have. Lineage depends only on the pipeline’s
+structure, never on the data, so for large frames copying a slice is
+enough — `copy_to(dbplyr::memdb(), head(df), name = "df")` yields the
+same diagram as copying every row.
 
 The duckdb connection from earlier in this vignette works just as well
 (`copy_to(con, df)`);
-[`memdb_frame()`](https://dbplyr.tidyverse.org/reference/memdb.html) is
-simply the fastest route when no connection exists yet.
+[`tbl_lazy()`](https://dbplyr.tidyverse.org/reference/tbl_lazy.html) is
+simply the fastest route when no connection exists and none is needed.
 
 ## Building diagrams by hand
 
@@ -280,10 +291,17 @@ lineage as plain data. Two exporters cover the common cases.
 
 [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
 serializes the nodes, edges, and metadata to a small, stable JSON
-document. Because the output is deterministic, you can commit it
-alongside your pipeline code and let CI diff it: if a refactor silently
-changes where a column comes from, the diff shows it before it ships. It
-is also the natural handoff format for data catalogs or anything
+document, stamped with a `format_version` so consumers can rely on its
+shape (see
+[`?lineage_json`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+for the full schema). Because the output is deterministic, you can
+commit it alongside your pipeline code and let CI diff it: if a refactor
+silently changes where a column comes from, the diff shows it before it
+ships — the [lineage checks in
+CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html) article
+turns that into a one-call gate with
+[`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md).
+It is also the natural handoff format for data catalogs or anything
 scriptable with jq.
 
 ``` r
@@ -296,10 +314,18 @@ lineage <- tbl(con, "customers") |>
 
 lineage_json(lineage)
 #> {
+#>   "format_version": 1,
 #>   "metadata": {
-#>     "sql": "SELECT id, \"name\", SUM(amount) AS total_spent\nFROM (\n  SELECT customers.*, order_id, amount\n  FROM customers\n  LEFT JOIN orders\n    ON (customers.id = orders.customer_id)\n) AS q01\nGROUP BY id, \"name\"",
 #>     "dialect": "duckdb",
 #>     "engine": "r",
+#>     "models": {
+#>       "output": {
+#>         "sql": "SELECT id, \"name\", SUM(amount) AS total_spent\nFROM (\n  SELECT customers.*, order_id, amount\n  FROM customers\n  LEFT JOIN orders\n    ON (customers.id = orders.customer_id)\n) AS q01\nGROUP BY id, \"name\"",
+#>         "engine": "r",
+#>         "dialect": "duckdb",
+#>         "namespace": "duckdb"
+#>       }
+#>     },
 #>     "node_count": 3,
 #>     "edge_count": 3
 #>   },
@@ -366,20 +392,37 @@ g <- igraph::read_graph(path, format = "graphml")
 
 # Everything upstream of total_spent
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from a7c0a1c:
+#> + 2/6 vertices, named, from 0eacf3c:
 #> [1] output.total_spent orders.amount
 
 # Everything downstream of orders.amount
 igraph::subcomponent(g, "orders.amount", mode = "out")
-#> + 2/6 vertices, named, from a7c0a1c:
+#> + 2/6 vertices, named, from 0eacf3c:
 #> [1] orders.amount      output.total_spent
 ```
 
 Both functions return the serialized string when called without `path`,
 so they compose in pipes and tests.
 
+You don’t need a graph library for the everyday questions, though.
+[`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
+and
+[`lineage_downstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
+answer them straight from the lineage object — pass `"orders.amount"`
+for one column, or `"orders"` to trace every column of a table at once —
+and
+[`lineage_unused()`](https://tgerke.github.io/dplyneage/reference/lineage_unused.md)
+lists the columns with no path to any target, which is how dead weight
+in a multi-model pipeline shows up.
+
 ## Next steps
 
+- The [lineage checks in
+  CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html)
+  article sets up
+  [`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md)
+  as a GitHub Actions gate that fails pull requests on breaking
+  provenance changes
 - [`vignette("python-integration")`](https://tgerke.github.io/dplyneage/articles/python-integration.md)
   explains how the Python dependency is managed, and how to use your own
   environment

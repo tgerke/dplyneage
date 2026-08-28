@@ -200,9 +200,10 @@ dependency (provisioned automatically — see
 The diagram is the same at every version, and that’s the point:
 snapshots change what the data *was*, not where the columns *come from*.
 If a refactor ever does change provenance,
-[`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
-gives you a stable document you can commit and diff in CI — see
-[`vignette("getting-started")`](https://tgerke.github.io/dplyneage/articles/getting-started.md).
+[`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md)
+can fail the pull request that introduced it — the [lineage checks in
+CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html) article
+has a copy-paste GitHub Actions job.
 
 ## Next steps
 

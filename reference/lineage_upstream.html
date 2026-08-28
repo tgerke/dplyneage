@@ -3,11 +3,13 @@
 following edges transitively; lineage_downstream() lists every column
 column feeds into. This is the core impact-analysis question — "what
 breaks if this column changes?" — answered directly on the lineage
-object, without exporting to a graph tool.'><meta property="og:description" content='lineage_upstream() lists every column that feeds into column,
+object, without exporting to a graph tool. Passing a table name instead
+of a column traces from every column of that table at once.'><meta property="og:description" content='lineage_upstream() lists every column that feeds into column,
 following edges transitively; lineage_downstream() lists every column
 column feeds into. This is the core impact-analysis question — "what
 breaks if this column changes?" — answered directly on the lineage
-object, without exporting to a graph tool.'></head><body>
+object, without exporting to a graph tool. Passing a table name instead
+of a column traces from every column of that table at once.'></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -15,7 +17,7 @@ object, without exporting to a graph tool.'></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">dplyneage</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -52,7 +54,8 @@ object, without exporting to a graph tool.'></head><body>
 following edges transitively; <code>lineage_downstream()</code> lists every column
 <code>column</code> feeds into. This is the core impact-analysis question — "what
 breaks if this column changes?" — answered directly on the lineage
-object, without exporting to a graph tool.</p>
+object, without exporting to a graph tool. Passing a table name instead
+of a column traces from every column of that table at once.</p>
     </div>
 
     <div class="section level2">
@@ -74,20 +77,27 @@ object, without exporting to a graph tool.</p>
 
 <dt id="arg-column">column<a class="anchor" aria-label="anchor" href="#arg-column"></a></dt>
 <dd><p>A <code>"table.column"</code> string identifying the column to trace
-from, e.g. <code>"output.total_spent"</code>.</p></dd>
+from, e.g. <code>"output.total_spent"</code>, or a table name to trace from all
+of that table's columns. Names are matched exactly, never split on
+dots; a string that is both a column key and a schema-qualified table
+name (a node <code>"main"</code> with column <code>"silver"</code> alongside a node
+<code>"main.silver"</code>) is read as the column key.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A character vector of <code>"table.column"</code> identifiers, sorted.
-Empty when the column has no upstream (or downstream) connections.</p>
+Empty when the column has no upstream (or downstream) connections.
+For a table, the table's own columns are not part of the answer.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p>Other lineage accessors:
+<code><a href="lineage_check.html">lineage_check()</a></code>,
 <code><a href="lineage_diff.html">lineage_diff()</a></code>,
 <code><a href="lineage_edges.html">lineage_edges()</a></code>,
-<code><a href="lineage_tables.html">lineage_tables()</a></code></p></div>
+<code><a href="lineage_tables.html">lineage_tables()</a></code>,
+<code><a href="lineage_unused.html">lineage_unused()</a></code></p></div>
     </div>
 
     <div class="section level2">
@@ -104,6 +114,8 @@ Empty when the column has no upstream (or downstream) connections.</p>
 <span class="r-in"><span><span class="fu">lineage_upstream</span><span class="op">(</span><span class="va">lineage</span>, <span class="st">"daily_totals.total"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "orders.amount"</span>
 <span class="r-in"><span><span class="fu">lineage_downstream</span><span class="op">(</span><span class="va">lineage</span>, <span class="st">"orders.amount"</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "daily_totals.total"</span>
+<span class="r-in"><span><span class="fu">lineage_downstream</span><span class="op">(</span><span class="va">lineage</span>, <span class="st">"orders"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "daily_totals.total"</span>
 </code></pre></div>
     </div>

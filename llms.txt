@@ -93,9 +93,14 @@ Behind that one pipe,
   unqualified columns attribute correctly)
 
 The resulting diagram is fully interactive: drag tables to rearrange,
-zoom and pan, and hover columns to highlight their connections. Computed
-columns carry their defining expression as an edge label, and
+zoom and pan, and hover columns to highlight their connections. Click a
+column and the diagram isolates its trace cone — everything upstream and
+downstream of that column — until you click again or press Escape.
+Computed columns carry their defining expression as an edge label, and
 aggregation edges animate.
+[`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
+also takes `theme = "dark"` (or `"auto"`), `minimap = TRUE` for an
+overview map, and a PNG download button lives in the zoom controls.
 
 ## Local data frames
 
@@ -103,17 +108,19 @@ Lineage extraction needs the lazy query tree that dbplyr builds before
 anything executes. A pipeline on a plain tibble has no such tree — dplyr
 runs each verb immediately — so
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
-can’t trace it. The workaround is one line:
-[`dbplyr::memdb_frame()`](https://dbplyr.tidyverse.org/reference/memdb.html)
-puts the data in a throwaway in-memory SQLite database and hands back a
-lazy table, and the identical pipeline becomes traceable.
+can’t trace it. The fix is one line:
+[`dbplyr::tbl_lazy()`](https://dbplyr.tidyverse.org/reference/tbl_lazy.html)
+wraps the frame in a lazy table with no database behind it, and the
+identical pipeline becomes traceable.
 
 ``` r
 
-sales <- memdb_frame(
-  customer_id = c(1, 1, 2),
-  amount = c(100, 250, 40),
-  .name = "sales"
+sales <- tbl_lazy(
+  data.frame(
+    customer_id = c(1, 1, 2),
+    amount = c(100, 250, 40)
+  ),
+  name = "sales"
 )
 
 sales |>
@@ -127,11 +134,15 @@ sales |>
 total column back to the amount column of the sales source
 table](reference/figures/README-unnamed-chunk-4-1.png)
 
-For a data frame you already have,
-`copy_to(dbplyr::memdb(), df, name = "df")` does the same copy. Lineage
-depends only on the pipeline’s structure, never on the data, so for
-large frames copying a slice is enough —
-`copy_to(dbplyr::memdb(), head(df), name = "df")` yields the same
+A [`tbl_lazy()`](https://dbplyr.tidyverse.org/reference/tbl_lazy.html)
+pipeline can’t be collected, since there is no database to run it
+against; lineage never runs the query, so a diagram doesn’t need one. To
+keep the pipeline runnable too,
+[`dbplyr::memdb_frame()`](https://dbplyr.tidyverse.org/reference/memdb.html)
+builds the data in throwaway in-memory SQLite instead, and
+`copy_to(dbplyr::memdb(), df, name = "df")` does the same for a frame
+you already have. Lineage depends only on the pipeline’s structure,
+never on the data, so copying a slice with `head(df)` yields the same
 diagram as copying every row. See the [Local data
 frames](https://tgerke.github.io/dplyneage/articles/getting-started.html#local-data-frames)
 section of the getting-started vignette for more.
@@ -262,7 +273,12 @@ flattens it to one classified row per column edge, and
 [`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
 /
 [`lineage_downstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
-answer impact questions directly:
+answer impact questions directly — for one `"table.column"`, or for a
+whole table at once when you pass just its name.
+[`lineage_unused()`](https://tgerke.github.io/dplyneage/reference/lineage_unused.md)
+runs the reverse check, listing every source or intermediate column with
+no path to any target: the columns you could drop without changing what
+ships.
 
 ``` r
 
@@ -287,8 +303,14 @@ lineage_upstream(lineage, "output.total_spent")
 ```
 
 [`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
-compares two extractions — run it across branches in CI and provenance
-changes surface before they ship. For interchange,
+compares two extractions and classifies every change by blast radius:
+breaking when the change reaches columns that anything downstream
+consumes, non-breaking for pure additions.
+[`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md)
+turns that into a one-call CI gate — it errors on breaking changes and
+annotates the pull request on GitHub Actions ([worked
+example](https://tgerke.github.io/dplyneage/articles/lineage-ci.html)).
+For interchange,
 [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
 gives you a small, stable document you can query with jq, feed to a data
 catalog, or commit next to your pipeline code:
@@ -297,10 +319,18 @@ catalog, or commit next to your pipeline code:
 
 lineage_json(lineage)
 #> {
+#>   "format_version": 1,
 #>   "metadata": {
-#>     "sql": "SELECT customer_id, first_name, SUM(amount) AS total_spent\nFROM (\n  SELECT orders.*, first_name, last_name, email\n  FROM orders\n  LEFT JOIN customers\n    ON (orders.customer_id = customers.customer_id)\n) AS q01\nGROUP BY customer_id, first_name",
 #>     "dialect": "duckdb",
 #>     "engine": "r",
+#>     "models": {
+#>       "output": {
+#>         "sql": "SELECT customer_id, first_name, SUM(amount) AS total_spent\nFROM (\n  SELECT orders.*, first_name, last_name, email\n  FROM orders\n  LEFT JOIN customers\n    ON (orders.customer_id = customers.customer_id)\n) AS q01\nGROUP BY customer_id, first_name",
+#>         "engine": "r",
+#>         "dialect": "duckdb",
+#>         "namespace": "duckdb"
+#>       }
+#>     },
 #>     "node_count": 3,
 #>     "edge_count": 3
 #>   },
@@ -376,15 +406,72 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from fb656f2:
+#> + 2/6 vertices, named, from 219589f:
 #> [1] output.total_spent orders.amount
 ```
+
+For data catalogs,
+[`lineage_openlineage()`](https://tgerke.github.io/dplyneage/reference/lineage_openlineage.md)
+emits [OpenLineage](https://openlineage.io/) events, the interchange
+format Marquez, DataHub, and OpenMetadata ingest. Dataset namespaces
+come from the table’s actual connection, schema facets carry column
+types, and `events = "job"` produces the spec’s run-less design-time
+events, one per model.
+[`lineage_emit()`](https://tgerke.github.io/dplyneage/reference/lineage_emit.md)
+POSTs any of it to a running backend:
+
+``` r
+
+lineage_openlineage(lineage, events = "job")          # run-less JobEvents, NDJSON
+lineage_emit(lineage, url = "http://localhost:5000")  # straight into Marquez
+```
+
+The [OpenLineage
+article](https://tgerke.github.io/dplyneage/articles/openlineage.html)
+covers the event contents and a verified round-trip into a Marquez
+quickstart.
+
+## How it compares
+
+No other maintained R package extracts column-level lineage:
+[dtrackr](https://cran.r-project.org/package=dtrackr) documents pipeline
+*steps*, lineager tracks row provenance, and
+[rdtLite](https://cran.r-project.org/package=rdtLite) records execution
+history. None answer “which source columns feed this output column?”
+Outside R, that question is well served for SQL text but not for
+dataframe code, which is the corner dplyneage sits in: dbplyr renders
+dplyr pipelines as SQL, so the same lineage machinery covers your R code
+and your warehouse queries alike.
+
+|  | dplyneage | [sqlglot.lineage](https://sqlglot.com/) | [sqllineage](https://sqllineage.readthedocs.io/) | [dbt](https://www.getdbt.com/) | [SQLMesh](https://sqlmesh.com/) |
+|----|----|----|----|----|----|
+| Column-level lineage | dual engine (R + sqlglot) | SELECT projections | broader DML | Enterprise (Fusion: free in local dev) | free UI |
+| dplyr / dbplyr pipelines | native | — | — | — | — |
+| Indirect (filter/join/group/sort) columns | opt-in | — | — | excluded | — |
+| Breaking-change classification | [`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md) CI gate | — | — | Advanced CI (paid) | semantic diff |
+| OpenLineage export | built in | — | — | external integration | — |
+| Free and local | yes | yes | yes | partly | yes |
+
+The scope has edges on purpose: orchestration, materialization,
+dashboard-level lineage, and catalog UIs belong to the platforms.
+dplyneage aims to be the extraction and artifact layer — the lineage
+itself, as a diagram you can read and a document you can commit, diff,
+and hand to the tools that do the rest. The longer form of this
+comparison, with per-tool notes and the roadmap rationale, is in
+[POSITIONING.md](https://github.com/tgerke/dplyneage/blob/main/.github/POSITIONING.md).
+(Comparison as of August 2026.)
 
 ## Learn more
 
 - [`vignette("getting-started")`](https://tgerke.github.io/dplyneage/articles/getting-started.md)
   walks from a first diagram through CTEs, multi-source columns, and
   schemas
+- The [lineage checks in
+  CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html)
+  article sets up the provenance gate on GitHub Actions
+- The [OpenLineage
+  article](https://tgerke.github.io/dplyneage/articles/openlineage.html)
+  sends lineage into a data catalog
 - [`vignette("python-integration")`](https://tgerke.github.io/dplyneage/articles/python-integration.md)
   covers how the Python dependency is managed
 - Full function reference at
@@ -417,8 +504,13 @@ Query, compare, and traverse extracted lineage as plain data
 - [`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
   [`lineage_downstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
   : Trace a column's ancestry or descendants
+- [`lineage_unused()`](https://tgerke.github.io/dplyneage/reference/lineage_unused.md)
+  : Report columns with no path to any target
 - [`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
+  [`lineage_has_changes()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
   : Compare two lineage extractions
+- [`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md)
+  : Gate a CI run on lineage changes
 
 ## Manual Lineage Creation
 
@@ -441,7 +533,9 @@ catalogs
 - [`lineage_mermaid()`](https://tgerke.github.io/dplyneage/reference/lineage_mermaid.md)
   : Export lineage as a Mermaid flowchart
 - [`lineage_openlineage()`](https://tgerke.github.io/dplyneage/reference/lineage_openlineage.md)
-  : Export lineage as an OpenLineage run event
+  : Export lineage as OpenLineage events
+- [`lineage_emit()`](https://tgerke.github.io/dplyneage/reference/lineage_emit.md)
+  : Send OpenLineage events to a backend over HTTP
 
 ## Python Integration
 
@@ -469,6 +563,10 @@ The React Flow bundle ships pre-built; this helper checks it exists
 
 - [Column lineage for ducklake
   pipelines](https://tgerke.github.io/dplyneage/articles/ducklake-lineage.md):
+- [Lineage checks in
+  CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.md):
+- [OpenLineage export and catalog
+  round-trips](https://tgerke.github.io/dplyneage/articles/openlineage.md):
 
 ### Configuration
 

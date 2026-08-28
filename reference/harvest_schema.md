@@ -1,7 +1,8 @@
 # Harvest Table Schemas from a Database Connection
 
 Lists the columns of each base table referenced by the query so sqlglot
-can resolve unqualified columns and expand `*`. Returns NULL if the
+can resolve unqualified columns and expand `*`, with their database
+types when a zero-row probe query can report them. Returns NULL if the
 schema cannot be determined (lineage extraction still works, with
 reduced attribution accuracy).
 
@@ -27,4 +28,5 @@ harvest_schema(con, sql, dialect = "duckdb")
 
 ## Value
 
-Named list mapping table names to character vectors of columns, or NULL
+Named list mapping table names to named lists of column types (or bare
+character vectors of columns when types are unavailable), or NULL

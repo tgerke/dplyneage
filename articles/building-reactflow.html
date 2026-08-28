@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">dplyneage</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -129,13 +129,27 @@ repository:</p>
 </ul>
 <p>This bundle includes:</p>
 <ul>
-<li>React 18.2.0</li>
-<li>ReactDOM 18.2.0</li>
+<li>React 18.3.1</li>
+<li>ReactDOM 18.3.1</li>
 <li>
 <span class="citation">@xyflow/react</span> (React Flow)
 12.10.0</li>
-<li>All necessary CSS (injected automatically)</li>
+<li>html-to-image (for the PNG export button)</li>
+<li>All necessary CSS, light and dark (injected automatically)</li>
 </ul>
+<p>The bundle exposes everything the widget binding consumes on
+<code>window.ReactFlowBundle</code>: the React runtime, the
+<code>ReactFlow</code> component with <code>Background</code>,
+<code>Controls</code>, <code>ControlButton</code>, <code>MiniMap</code>,
+and <code>Panel</code>, the custom <code>TableNode</code> and
+<code>LineageEdge</code> components, the
+<code>getNodesBounds</code>/<code>getViewportForBounds</code> viewport
+helpers, and <code>toPng</code>. The binding guards each optional
+export, so a browser holding an older cached bundle degrades by omission
+(no minimap, no export button) rather than failing to render.
+<code>srcjs/package-lock.json</code> is committed so a rebuild from a
+fresh clone resolves the same dependency versions that produced the
+committed bundle.</p>
 </div>
 <div class="section level2">
 <h2 id="development-mode">Development Mode<a class="anchor" aria-label="anchor" href="#development-mode"></a>

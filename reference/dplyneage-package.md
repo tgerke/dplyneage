@@ -1,8 +1,11 @@
 # dplyneage: Column Lineage Visualization for 'dplyr' Pipelines
 
-Implements column lineage visualizations using 'React Flow' for 'dplyr'
-and 'dbplyr' pipelines. Provides a tidyverse-style interface for
-tracking data transformations through pipeline operations.
+Extracts column-level lineage from 'dplyr' and 'dbplyr' pipelines and
+from SQL queries, and renders it as an interactive 'React Flow' diagram.
+The same lineage is available as plain data for impact analysis, for
+comparing pipeline versions (including a continuous-integration check
+that fails on breaking provenance changes), and for export to JSON,
+'GraphML', 'Mermaid', and 'OpenLineage' interchange formats.
 
 ## See also
 

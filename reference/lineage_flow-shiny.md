@@ -1,7 +1,14 @@
 # Shiny bindings for lineage_flow
 
 Output and render functions for using lineage_flow within Shiny
-applications and interactive Rmd documents.
+applications and interactive Rmd documents. When the viewer clicks a
+column to trace it, the app receives `input$<outputId>_selected` — a
+list with `table` and `column` entries, or `NULL` once the trace is
+released — ready to feed
+[`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
+and
+[`lineage_downstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
+on the server side.
 
 ## Usage
 

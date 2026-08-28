@@ -58,10 +58,22 @@ The build process creates:
 
 This bundle includes:
 
-- React 18.2.0
-- ReactDOM 18.2.0
+- React 18.3.1
+- ReactDOM 18.3.1
 - @xyflow/react (React Flow) 12.10.0
-- All necessary CSS (injected automatically)
+- html-to-image (for the PNG export button)
+- All necessary CSS, light and dark (injected automatically)
+
+The bundle exposes everything the widget binding consumes on
+`window.ReactFlowBundle`: the React runtime, the `ReactFlow` component
+with `Background`, `Controls`, `ControlButton`, `MiniMap`, and `Panel`,
+the custom `TableNode` and `LineageEdge` components, the
+`getNodesBounds`/`getViewportForBounds` viewport helpers, and `toPng`.
+The binding guards each optional export, so a browser holding an older
+cached bundle degrades by omission (no minimap, no export button) rather
+than failing to render. `srcjs/package-lock.json` is committed so a
+rebuild from a fresh clone resolves the same dependency versions that
+produced the committed bundle.
 
 ## Development Mode
 

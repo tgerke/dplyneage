@@ -36,13 +36,41 @@ lineage_json(lineage, path = NULL, pretty = TRUE)
 
 ## Value
 
-A JSON string. With `metadata` (present on
-[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
-results), `nodes` (objects with `id`, `type`, and `columns`), and
-`edges` (objects with `source`, `source_column`, `target`, and
-`target_column`; edges produced by
-[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
-also carry `transformation` and `expression`).
+A JSON string; see the Document shape section.
+
+## Document shape
+
+The top-level keys, in order:
+
+- `format_version`: integer version of this document shape, currently
+
+  1.  It bumps only when a change would break an existing consumer;
+      added fields do not bump it.
+
+- `metadata`: present on
+  [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
+  results. Carries `dialect`, `engine`, `models`, `node_count`, and
+  `edge_count`. `models` maps each model name to its `sql`, `engine`,
+  and `dialect`; a single-query extraction is a one-model map keyed by
+  the output table's name, so consumers read per-model SQL the same way
+  for both shapes. A model extracted from a table on a live database
+  connection also carries `namespace`, the OpenLineage namespace URI
+  inferred from that connection. The top-level `dialect` and `engine`
+  collapse across models, to `"mixed"` when models disagree.
+
+- `nodes`: objects with `id`, `type` (`"source"`, `"transform"`, or
+  `"target"`), and `columns`. A source node whose column types were
+  captured (from a live connection's schema, or a typed `schema`
+  argument) also carries `types`, a column-to-type map covering the
+  typed subset of its columns.
+
+- `edges`: objects with `source`, `source_column`, `target`, and
+  `target_column`. Edges from
+  [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
+  also carry `transformation` and, on direct edges, `expression`. An
+  indirect edge whose column shapes the result in several ways (filtered
+  and sorted on, say) adds `transformations`, the full set of kinds with
+  the first one leading.
 
 ## See also
 
@@ -50,6 +78,7 @@ also carry `transformation` and `expression`).
 to compute lineage automatically
 
 Other lineage exporters:
+[`lineage_emit()`](https://tgerke.github.io/dplyneage/reference/lineage_emit.md),
 [`lineage_graphml()`](https://tgerke.github.io/dplyneage/reference/lineage_graphml.md),
 [`lineage_mermaid()`](https://tgerke.github.io/dplyneage/reference/lineage_mermaid.md),
 [`lineage_openlineage()`](https://tgerke.github.io/dplyneage/reference/lineage_openlineage.md)
@@ -68,6 +97,7 @@ lineage <- list(
 )
 lineage_json(lineage)
 #> {
+#>   "format_version": 1,
 #>   "nodes": [
 #>     {
 #>       "id": "orders",
@@ -97,10 +127,17 @@ extract_lineage("SELECT customer_id, SUM(amount) AS total
                  FROM orders GROUP BY customer_id") |>
   lineage_json()
 #> {
+#>   "format_version": 1,
 #>   "metadata": {
-#>     "sql": "SELECT customer_id, SUM(amount) AS total\n                 FROM orders GROUP BY customer_id",
 #>     "dialect": "duckdb",
 #>     "engine": "sqlglot",
+#>     "models": {
+#>       "output": {
+#>         "sql": "SELECT customer_id, SUM(amount) AS total\n                 FROM orders GROUP BY customer_id",
+#>         "engine": "sqlglot",
+#>         "dialect": "duckdb"
+#>       }
+#>     },
 #>     "node_count": 2,
 #>     "edge_count": 2
 #>   },

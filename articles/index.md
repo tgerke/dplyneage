@@ -9,6 +9,10 @@
 
 - [Column lineage for ducklake
   pipelines](https://tgerke.github.io/dplyneage/articles/ducklake-lineage.md):
+- [Lineage checks in
+  CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.md):
+- [OpenLineage export and catalog
+  round-trips](https://tgerke.github.io/dplyneage/articles/openlineage.md):
 
 ### Configuration
 

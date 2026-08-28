@@ -5,8 +5,10 @@ articles:
   building-reactflow: building-reactflow.html
   articles/ducklake-lineage: ducklake-lineage.html
   getting-started: getting-started.html
+  articles/lineage-ci: lineage-ci.html
+  articles/openlineage: openlineage.html
   python-integration: python-integration.html
-last_built: 2026-08-25T21:09Z
+last_built: 2026-08-28T16:27Z
 urls:
   reference: https://tgerke.github.io/dplyneage/reference
   article: https://tgerke.github.io/dplyneage/articles
