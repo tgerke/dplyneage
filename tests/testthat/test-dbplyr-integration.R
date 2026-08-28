@@ -121,11 +121,9 @@ test_that("the engines agree on window functions with include_indirect", {
   skip_if_no_db_stack()
   con <- local_duckdb()
 
-  # Single-SELECT shapes only. Two known asymmetries are out of scope:
+  # Single-SELECT shapes only. One known asymmetry is out of scope:
   # dbplyr-generated subqueries hit the sqlglot engine's derived-table
-  # skip in _indirect_refs, and median()/quantile() render
-  # WITHIN GROUP (ORDER BY x), which sqlglot counts as a sort ref even
-  # in a plain summarise. Transformation kinds are not compared either:
+  # skip in _indirect_refs. Transformation kinds are not compared either:
   # sqlglot classifies from rendered SQL (LAG and cumulative SUM are
   # AggFunc there) while the R engine classifies from the dplyr verb.
   queries <- list(
@@ -165,6 +163,40 @@ test_that("the engines agree on window functions with include_indirect", {
     expect_identical(edge_set(r_lineage), edge_set(sqlglot_lineage), label = nm)
     expect_identical(node_ids(r_lineage), node_ids(sqlglot_lineage), label = nm)
   }
+})
+
+test_that("WITHIN GROUP ordered-set aggregates add no sort edges", {
+  skip_if_no_sqlglot()
+  testthat::skip_if_not_installed("dplyr")
+  testthat::skip_if_not_installed("dbplyr", "2.5.0")
+
+  # On postgres-style dialects median() renders as
+  # PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY amount); that ORDER BY is
+  # an argument of the aggregate, not a result ordering (#17)
+  query <- dbplyr::lazy_frame(
+    customer_id = 1L, amount = 1.5,
+    con = dbplyr::simulate_postgres(), .name = "orders"
+  ) |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(med = median(amount, na.rm = TRUE))
+
+  sql <- as.character(dbplyr::remote_query(query))
+  expect_match(sql, "WITHIN GROUP", fixed = TRUE)
+
+  sqlglot_lineage <- extract_lineage(
+    sql,
+    dialect = "postgres",
+    schema = list(orders = c("customer_id", "amount")),
+    include_indirect = TRUE
+  )
+  expect_edges(sqlglot_lineage, c(
+    "orders.customer_id -> customer_id",
+    "orders.amount -> med",
+    "orders.customer_id -> med"
+  ))
+
+  r_lineage <- extract_lineage(query, engine = "r", include_indirect = TRUE)
+  expect_identical(edge_set(sqlglot_lineage), edge_set(r_lineage))
 })
 
 test_that("schema-qualified duckdb tables trace identically in both engines", {

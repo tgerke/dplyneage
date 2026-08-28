@@ -96,7 +96,13 @@ def _column_sources(column, sql, schema, dialect):
         if not isinstance(leaf.source, exp.Table):
             continue
         table = _table_name(leaf.source)
-        col = leaf.name.split(".")[-1]
+        # leaf.name renders the column as a SQL identifier, which keeps
+        # dialect quoting ('orders."amount"') on dialects where sqlglot
+        # won't normalize it away; parse rather than split on "."
+        try:
+            col = exp.to_column(leaf.name, dialect=dialect).name
+        except SqlglotError:
+            col = leaf.name.split(".")[-1]
         key = (table, col)
         if key not in seen:
             seen.add(key)
@@ -153,6 +159,11 @@ def _indirect_refs(qualified, dialect):
     for group in qualified.find_all(exp.Group):
         containers.append((group, "group_by"))
     for order in qualified.find_all(exp.Order):
+        # ORDER BY inside WITHIN GROUP (ordered-set aggregates such as
+        # percentile_cont) is an argument of the aggregate, not a result
+        # ordering; lineage() already reports the column as a direct source.
+        if order.find_ancestor(exp.WithinGroup):
+            continue
         containers.append((order, "sort"))
     for join in qualified.find_all(exp.Join):
         on = join.args.get("on")

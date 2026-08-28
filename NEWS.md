@@ -5,6 +5,16 @@ of the package against current column-level lineage tooling (SQLMesh,
 dbt, sqlglot, OpenLineage). The remaining roadmap from the audit is
 filed as tiered issues on GitHub.
 
+* The sqlglot engine no longer counts the `ORDER BY` inside
+  `WITHIN GROUP` as a result ordering. On dialects where dbplyr renders
+  `median()`/`quantile()` as ordered-set aggregates, the ordered column
+  drew spurious dashed `sort` edges under `include_indirect = TRUE` that
+  the R engine (correctly) never drew; the column is an argument of the
+  aggregate and already a direct source. Source column names from the
+  sqlglot engine also no longer carry dialect quoting: tracing
+  postgres-flavored SQL used to yield columns like `"amount"` with the
+  quote characters embedded, breaking cross-engine agreement. (#17)
+
 * `lineage_diff()` now classifies every change by blast radius. Each
   element gains a `severity` column: `"breaking"` when the change's
   target column fed anything downstream in the old lineage, or sat on
