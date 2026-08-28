@@ -20,6 +20,23 @@ filed as tiered issues on GitHub.
   A new `output_name` argument names the synthetic `output` dataset of a
   single-query extraction after the table its result lands in. (#6)
 
+* OpenLineage events now carry the facets catalogs actually read. The
+  job gains a `jobType` facet and, for single-model lineage, a `sql`
+  facet with the analyzed query and dialect. Schema facet fields
+  include column types when they are known — harvested from the
+  connection on the sqlglot path, or taken from a `schema` argument
+  with named entries like `list(orders = list(amount = "DOUBLE"))` on
+  any path; the types also appear as a `types` map on `lineage_json()`
+  source nodes. New arguments: `event_type` (any spec run state, was
+  hardcoded `"COMPLETE"`), `nominal_time`, and `parent` for the
+  matching run facets. One placement change: indirect edges
+  (filter/join/group/sort columns) move from each output column's
+  `inputFields` to the `columnLineage` facet's dataset-level `dataset`
+  array, which the spec defines for exactly these whole-dataset
+  dependencies — consumers reading per-column `inputFields` no longer
+  see them fanned out to every column. All `schemaURL`s now use the
+  spec's `#/$defs/...` fragments. (#7)
+
 * The sqlglot engine no longer counts the `ORDER BY` inside
   `WITHIN GROUP` as a result ordering. On dialects where dbplyr renders
   `median()`/`quantile()` as ordered-set aggregates, the ordered column

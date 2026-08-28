@@ -118,9 +118,26 @@ convert_pipeline_to_graph <- function(model_data) {
     }
   }
 
+  # Column types for base tables, merged across models: the first model
+  # whose harvested or supplied schema typed a table wins
+  base_types <- list()
+  for (d in model_data) {
+    for (tbl in names(d$column_types %||% list())) {
+      if (is.null(base_types[[tbl]])) {
+        base_types[[tbl]] <- d$column_types[[tbl]]
+      }
+    }
+  }
+
   specs <- c(
     lapply(base_names, function(nm) {
-      list(id = nm, columns = base_cols[[nm]], type = "source", layer = layers[[nm]])
+      list(
+        id = nm,
+        columns = base_cols[[nm]],
+        type = "source",
+        layer = layers[[nm]],
+        types = spec_types(base_types, nm, base_cols[[nm]])
+      )
     }),
     lapply(model_names, function(nm) {
       list(
@@ -264,13 +281,17 @@ build_layout_nodes <- function(specs) {
   n_columns <- vapply(specs, function(s) length(s$columns), integer(1))
   pos <- layout_positions(layers, n_columns)
   lapply(seq_along(specs), function(i) {
-    create_table_node(
+    node <- create_table_node(
       table_name = specs[[i]]$id,
       columns = specs[[i]]$columns,
       x = pos$x[[i]],
       y = pos$y[[i]],
       table_type = specs[[i]]$type
     )
+    if (length(specs[[i]]$types) > 0) {
+      node$data$columnTypes <- as.list(specs[[i]]$types)
+    }
+    node
   })
 }
 

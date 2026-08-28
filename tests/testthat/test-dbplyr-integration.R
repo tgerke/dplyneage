@@ -199,6 +199,33 @@ test_that("WITHIN GROUP ordered-set aggregates add no sort edges", {
   expect_identical(edge_set(sqlglot_lineage), edge_set(r_lineage))
 })
 
+test_that("the sqlglot path harvests column types from the connection", {
+  skip_if_no_db_stack()
+  con <- local_duckdb()
+
+  lineage <- dplyr::tbl(con, "orders") |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total = sum(amount, na.rm = TRUE)) |>
+    extract_lineage(engine = "sqlglot")
+
+  orders <- Filter(function(n) n$id == "orders", lineage$nodes)[[1]]
+  types <- orders$data$columnTypes
+  # dbColumnInfo() reports duckdb types at R-type granularity
+  expect_identical(types$amount, "numeric")
+  expect_identical(types$customer_id, "integer")
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(lineage, run_id = "x", event_time = "t"),
+    simplifyVector = FALSE
+  )
+  fields <- event$inputs[[1]]$facets$schema$fields
+  by_name <- stats::setNames(
+    fields,
+    vapply(fields, `[[`, character(1), "name")
+  )
+  expect_identical(by_name$amount$type, "numeric")
+})
+
 test_that("schema-qualified duckdb tables trace identically in both engines", {
   skip_if_no_db_stack()
   con <- local_duckdb()

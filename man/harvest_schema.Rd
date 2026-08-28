@@ -14,12 +14,14 @@ harvest_schema(con, sql, dialect = "duckdb")
 \item{dialect}{SQL dialect}
 }
 \value{
-Named list mapping table names to character vectors of columns,
+Named list mapping table names to named lists of column types
+(or bare character vectors of columns when types are unavailable),
 or NULL
 }
 \description{
 Lists the columns of each base table referenced by the query so sqlglot
-can resolve unqualified columns and expand \code{*}. Returns NULL if the
+can resolve unqualified columns and expand \code{*}, with their database
+types when a zero-row probe query can report them. Returns NULL if the
 schema cannot be determined (lineage extraction still works, with
 reduced attribution accuracy).
 }

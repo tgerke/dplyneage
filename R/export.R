@@ -32,7 +32,10 @@
 #'   `dialect` and `engine` collapse across models, to `"mixed"` when
 #'   models disagree.
 #' * `nodes`: objects with `id`, `type` (`"source"`, `"transform"`, or
-#'   `"target"`), and `columns`.
+#'   `"target"`), and `columns`. A source node whose column types were
+#'   captured (from a live connection's schema, or a typed `schema`
+#'   argument) also carries `types`, a column-to-type map covering the
+#'   typed subset of its columns.
 #' * `edges`: objects with `source`, `source_column`, `target`, and
 #'   `target_column`. Edges from [extract_lineage()] also carry
 #'   `transformation` and, on direct edges, `expression`.
@@ -256,12 +259,16 @@ lineage_semantics <- function(lineage) {
   check_lineage(lineage)
 
   nodes <- lapply(lineage$nodes, function(n) {
-    list(
+    node <- list(
       id = n$id,
       type = n$data$tableType,
       # I() keeps a single column serializing as a JSON array, not a scalar
       columns = I(as.character(unlist(n$data$columns)))
     )
+    if (!is.null(n$data$columnTypes)) {
+      node$types <- n$data$columnTypes
+    }
+    node
   })
 
   edges <- lapply(lineage$edges, function(e) {

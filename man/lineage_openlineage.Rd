@@ -12,7 +12,10 @@ lineage_openlineage(
   run_id = NULL,
   event_time = NULL,
   pretty = TRUE,
-  output_name = NULL
+  event_type = "COMPLETE",
+  output_name = NULL,
+  nominal_time = NULL,
+  parent = NULL
 )
 }
 \arguments{
@@ -41,14 +44,27 @@ reproducible output.}
 \item{pretty}{If \code{TRUE} (the default), indent the output for
 readability. Use \code{FALSE} for a single-line document.}
 
+\item{event_type}{The run state this event reports: \code{"COMPLETE"} (the
+default), \code{"START"}, \code{"RUNNING"}, \code{"ABORT"}, \code{"FAIL"}, or
+\code{"OTHER"}.}
+
 \item{output_name}{Name recorded for the output dataset in place of
 the synthetic \code{"output"} node id of a single-query extraction — use
 it when the query's result lands in a known table. Errors on
 multi-model lineage, whose models already carry their real names.}
+
+\item{nominal_time}{One or two ISO-8601 timestamps — the scheduled
+\code{nominalStartTime} and optionally \code{nominalEndTime} — emitted as the
+\code{nominalTime} run facet. \code{NULL} (the default) omits the facet.}
+
+\item{parent}{A \code{list(run_id = , job_name = )}, optionally with a
+\code{namespace}, identifying the orchestrating run this event belongs
+under (an Airflow task, a dbt run); emitted as the \code{parent} run
+facet. \code{NULL} (the default) omits the facet.}
 }
 \value{
-A JSON string containing one OpenLineage \code{RunEvent} of type
-\code{COMPLETE}.
+A JSON string containing one OpenLineage \code{RunEvent} of the
+requested \code{event_type}.
 }
 \description{
 Serializes a lineage object to an
@@ -88,6 +104,21 @@ datasets fall back to \code{"dplyneage"}. The job namespace is always
 \code{"dplyneage"}: OpenLineage job namespaces identify the producer, not
 the data store. Passing an explicit \code{namespace} overrides all of this,
 for datasets and job alike.
+}
+
+\section{Facets}{
+
+Beyond \code{schema}, \code{dataSource}, and \code{columnLineage} on datasets, the
+event carries job facets: \code{jobType} (\code{BATCH}/\code{DPLYNEAGE}/\code{QUERY}) and,
+for single-model lineage, \code{sql} with the analyzed query and its
+dialect. Schema facet fields include a \code{type} when column types were
+captured — from a live connection's tables, or a \code{schema} argument
+with named entries like \code{list(orders = list(amount = "DOUBLE"))}.
+Indirect edges land in the \code{columnLineage} facet's dataset-level
+\code{dataset} array rather than under individual output columns: filter,
+join, group and sort columns shape the whole result, which is exactly
+what that array expresses. Optional run facets (\code{nominalTime},
+\code{parent}) attach through the matching arguments.
 }
 
 \examples{

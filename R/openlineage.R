@@ -36,6 +36,19 @@
 #' the data store. Passing an explicit `namespace` overrides all of this,
 #' for datasets and job alike.
 #'
+#' @section Facets:
+#' Beyond `schema`, `dataSource`, and `columnLineage` on datasets, the
+#' event carries job facets: `jobType` (`BATCH`/`DPLYNEAGE`/`QUERY`) and,
+#' for single-model lineage, `sql` with the analyzed query and its
+#' dialect. Schema facet fields include a `type` when column types were
+#' captured — from a live connection's tables, or a `schema` argument
+#' with named entries like `list(orders = list(amount = "DOUBLE"))`.
+#' Indirect edges land in the `columnLineage` facet's dataset-level
+#' `dataset` array rather than under individual output columns: filter,
+#' join, group and sort columns shape the whole result, which is exactly
+#' what that array expresses. Optional run facets (`nominalTime`,
+#' `parent`) attach through the matching arguments.
+#'
 #' @inheritParams lineage_json
 #' @param path Optional file to write the JSON to. When supplied, the
 #'   string is returned invisibly.
@@ -50,12 +63,22 @@
 #' @param event_time Event timestamp in ISO-8601 format. The current UTC
 #'   time when `NULL` (the default); pass a fixed timestamp for
 #'   reproducible output.
+#' @param event_type The run state this event reports: `"COMPLETE"` (the
+#'   default), `"START"`, `"RUNNING"`, `"ABORT"`, `"FAIL"`, or
+#'   `"OTHER"`.
 #' @param output_name Name recorded for the output dataset in place of
 #'   the synthetic `"output"` node id of a single-query extraction — use
 #'   it when the query's result lands in a known table. Errors on
 #'   multi-model lineage, whose models already carry their real names.
-#' @return A JSON string containing one OpenLineage `RunEvent` of type
-#'   `COMPLETE`.
+#' @param nominal_time One or two ISO-8601 timestamps — the scheduled
+#'   `nominalStartTime` and optionally `nominalEndTime` — emitted as the
+#'   `nominalTime` run facet. `NULL` (the default) omits the facet.
+#' @param parent A `list(run_id = , job_name = )`, optionally with a
+#'   `namespace`, identifying the orchestrating run this event belongs
+#'   under (an Airflow task, a dbt run); emitted as the `parent` run
+#'   facet. `NULL` (the default) omits the facet.
+#' @return A JSON string containing one OpenLineage `RunEvent` of the
+#'   requested `event_type`.
 #' @family lineage exporters
 #' @seealso [extract_lineage()] to compute lineage automatically
 #' @export
@@ -80,7 +103,14 @@ lineage_openlineage <- function(lineage, path = NULL,
                                 run_id = NULL,
                                 event_time = NULL,
                                 pretty = TRUE,
-                                output_name = NULL) {
+                                event_type = "COMPLETE",
+                                output_name = NULL,
+                                nominal_time = NULL,
+                                parent = NULL) {
+  event_type <- match.arg(
+    event_type,
+    c("COMPLETE", "START", "RUNNING", "ABORT", "FAIL", "OTHER")
+  )
   semantics <- ol_rename_output(lineage_semantics(lineage), output_name)
   event <- build_openlineage(
     semantics,
@@ -88,7 +118,9 @@ lineage_openlineage <- function(lineage, path = NULL,
     job_name = job_name,
     run_id = run_id %||% ol_uuid(),
     event_time = event_time %||%
-      format(Sys.time(), "%Y-%m-%dT%H:%M:%OS3Z", tz = "UTC")
+      format(Sys.time(), "%Y-%m-%dT%H:%M:%OS3Z", tz = "UTC"),
+    event_type = event_type,
+    run_facets = ol_run_facets(nominal_time, parent)
   )
   out <- jsonlite::toJSON(event, auto_unbox = TRUE, pretty = pretty)
   write_export(out, path)
@@ -98,8 +130,21 @@ lineage_openlineage <- function(lineage, path = NULL,
 ol_producer <- "https://github.com/tgerke/dplyneage"
 
 #' @noRd
+ol_spec_url <- "https://openlineage.io/spec/2-0-2/OpenLineage.json"
+
+#' A facet _schemaURL, fragment included, as the reference clients emit
+#' @noRd
+ol_facet_url <- function(version, name) {
+  paste0(
+    "https://openlineage.io/spec/facets/", version, "/", name,
+    ".json#/$defs/", name
+  )
+}
+
+#' @noRd
 build_openlineage <- function(semantics, namespace, job_name, run_id,
-                              event_time) {
+                              event_time, event_type = "COMPLETE",
+                              run_facets = NULL) {
   types <- vapply(
     semantics$nodes,
     function(n) n$type %||% NA_character_,
@@ -109,16 +154,8 @@ build_openlineage <- function(semantics, namespace, job_name, run_id,
 
   node_ns <- ol_node_namespaces(semantics, namespace)
 
-  schema_facet <- function(columns) {
-    list(
-      `_producer` = ol_producer,
-      `_schemaURL` = "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json",
-      fields = lapply(as.character(columns), function(col) list(name = col))
-    )
-  }
-
   dataset_facets <- function(n) {
-    facets <- list(schema = schema_facet(n$columns))
+    facets <- list(schema = ol_schema_facet(n$columns, n$types))
     data_source <- ol_datasource_facet(node_ns[[n$id]])
     if (!is.null(data_source)) {
       facets$dataSource <- data_source
@@ -136,27 +173,132 @@ build_openlineage <- function(semantics, namespace, job_name, run_id,
 
   outputs <- lapply(semantics$nodes[is_output], function(n) {
     facets <- dataset_facets(n)
-    fields <- ol_column_lineage_fields(semantics$edges, n$id, node_ns)
-    if (length(fields) > 0) {
-      facets$columnLineage <- list(
-        `_producer` = ol_producer,
-        `_schemaURL` = "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json",
-        fields = fields
-      )
+    column_lineage <- ol_column_lineage_facet(semantics$edges, n$id, node_ns)
+    if (!is.null(column_lineage)) {
+      facets$columnLineage <- column_lineage
     }
     list(namespace = node_ns[[n$id]], name = n$id, facets = facets)
   })
 
+  run <- list(runId = run_id)
+  if (length(run_facets) > 0) {
+    run$facets <- run_facets
+  }
+
   list(
-    eventType = "COMPLETE",
+    eventType = event_type,
     eventTime = event_time,
-    run = list(runId = run_id),
-    job = list(namespace = namespace %||% "dplyneage", name = job_name),
+    run = run,
+    job = list(
+      namespace = namespace %||% "dplyneage",
+      name = job_name,
+      facets = ol_job_facets(semantics$metadata$models)
+    ),
     inputs = inputs,
     outputs = outputs,
     producer = ol_producer,
-    schemaURL = "https://openlineage.io/spec/2-0-2/OpenLineage.json#/definitions/RunEvent"
+    schemaURL = paste0(ol_spec_url, "#/$defs/RunEvent")
   )
+}
+
+#' @noRd
+ol_schema_facet <- function(columns, types = NULL) {
+  types <- as.list(types %||% list())
+  list(
+    `_producer` = ol_producer,
+    `_schemaURL` = ol_facet_url("1-2-0", "SchemaDatasetFacet"),
+    fields = lapply(as.character(columns), function(col) {
+      field <- list(name = col)
+      if (!is.null(types[[col]])) {
+        field$type <- types[[col]]
+      }
+      field
+    })
+  )
+}
+
+#' The jobType job facet: what kind of thing produced this lineage
+#' @noRd
+ol_job_type_facet <- function() {
+  list(
+    `_producer` = ol_producer,
+    `_schemaURL` = ol_facet_url("2-0-4", "JobTypeJobFacet"),
+    processingType = "BATCH",
+    integration = "DPLYNEAGE",
+    jobType = "QUERY"
+  )
+}
+
+#' The sql job facet, for lineage that carries exactly one model's query
+#' @noRd
+ol_sql_job_facet <- function(models) {
+  if (length(models) != 1 || is.null(models[[1]]$sql)) {
+    return(NULL)
+  }
+  facet <- list(
+    `_producer` = ol_producer,
+    `_schemaURL` = ol_facet_url("1-1-0", "SQLJobFacet"),
+    query = models[[1]]$sql
+  )
+  if (!is.null(models[[1]]$dialect)) {
+    facet$dialect <- models[[1]]$dialect
+  }
+  facet
+}
+
+#' @noRd
+ol_job_facets <- function(models) {
+  facets <- list(jobType = ol_job_type_facet())
+  sql <- ol_sql_job_facet(models)
+  if (!is.null(sql)) {
+    facets$sql <- sql
+  }
+  facets
+}
+
+#' Run facets from the nominal_time and parent arguments
+#' @noRd
+ol_run_facets <- function(nominal_time, parent) {
+  facets <- list()
+  if (!is.null(nominal_time)) {
+    if (!is.character(nominal_time) || !(length(nominal_time) %in% 1:2) ||
+      anyNA(nominal_time)) {
+      stop(
+        "nominal_time must be one or two ISO-8601 timestamps: ",
+        "nominalStartTime, and optionally nominalEndTime.",
+        call. = FALSE
+      )
+    }
+    facet <- list(
+      `_producer` = ol_producer,
+      `_schemaURL` = ol_facet_url("1-0-1", "NominalTimeRunFacet"),
+      nominalStartTime = nominal_time[[1]]
+    )
+    if (length(nominal_time) == 2) {
+      facet$nominalEndTime <- nominal_time[[2]]
+    }
+    facets$nominalTime <- facet
+  }
+  if (!is.null(parent)) {
+    if (!is.list(parent) || is.null(parent$run_id) ||
+      is.null(parent$job_name)) {
+      stop(
+        "parent must be a list with run_id and job_name ",
+        "(and optionally namespace).",
+        call. = FALSE
+      )
+    }
+    facets$parent <- list(
+      `_producer` = ol_producer,
+      `_schemaURL` = ol_facet_url("1-2-0", "ParentRunFacet"),
+      run = list(runId = parent$run_id),
+      job = list(
+        namespace = parent$namespace %||% "dplyneage",
+        name = parent$job_name
+      )
+    )
+  }
+  facets
 }
 
 #' Resolve each node's dataset namespace
@@ -247,12 +389,42 @@ ol_rename_output <- function(semantics, output_name) {
   semantics
 }
 
-#' Build the columnLineage facet's fields object for one output dataset
+# The classifications that shape the whole dataset rather than one column
+ol_indirect_kinds <- c("filter", "join", "group_by", "sort")
+
+#' Build the columnLineage facet for one output dataset
+#'
+#' Direct edges map output columns to their input fields. Indirect edges
+#' (filter/join/group/sort columns) go to the facet's dataset-level
+#' `dataset` array instead — they shape the whole result, and the graph
+#' fans each one out to every output column, which would bloat and
+#' distort per-column lineage. One array entry per source column, with
+#' the distinct kinds as its transformations. Returns NULL when there is
+#' nothing to report (an empty facet is spec-invalid).
 #' @noRd
-ol_column_lineage_fields <- function(edges, dataset, node_ns) {
+ol_column_lineage_facet <- function(edges, dataset, node_ns) {
   fields <- list()
+  dataset_deps <- list()
+  dep_order <- character()
   for (e in edges) {
     if (!identical(e$target, dataset)) next
+    if (!is.null(e$transformation) && e$transformation %in% ol_indirect_kinds) {
+      key <- paste0(e$source, "\r", e$source_column)
+      if (is.null(dataset_deps[[key]])) {
+        dataset_deps[[key]] <- list(
+          namespace = node_ns[[e$source]] %||% "dplyneage",
+          name = e$source,
+          field = e$source_column,
+          kinds = character(0)
+        )
+        dep_order <- c(dep_order, key)
+      }
+      dataset_deps[[key]]$kinds <- union(
+        dataset_deps[[key]]$kinds,
+        e$transformation
+      )
+      next
+    }
     input <- list(
       namespace = node_ns[[e$source]] %||% "dplyneage",
       name = e$source,
@@ -269,7 +441,34 @@ ol_column_lineage_fields <- function(edges, dataset, node_ns) {
       )
     )
   }
-  fields
+
+  dataset_array <- lapply(dep_order, function(key) {
+    dep <- dataset_deps[[key]]
+    list(
+      namespace = dep$namespace,
+      name = dep$name,
+      field = dep$field,
+      transformations = lapply(dep$kinds, ol_transformation)
+    )
+  })
+
+  if (length(fields) == 0 && length(dataset_array) == 0) {
+    return(NULL)
+  }
+  facet <- list(
+    `_producer` = ol_producer,
+    `_schemaURL` = ol_facet_url("1-2-0", "ColumnLineageDatasetFacet"),
+    # The spec requires `fields`; an empty named list serializes as {}
+    fields = if (length(fields) == 0) {
+      structure(list(), names = character(0))
+    } else {
+      fields
+    }
+  )
+  if (length(dataset_array) > 0) {
+    facet$dataset <- dataset_array
+  }
+  facet
 }
 
 # dplyneage's edge classifications map onto OpenLineage's transformation

@@ -177,11 +177,18 @@ extract_lineage_data <- function(sql, dialect, schema, show_sql, engine,
   }
 
   # Capture the connection-derived OpenLineage namespace while the
-  # connection is alive; nothing else about it survives extraction
+  # connection is alive; nothing else about it survives extraction.
+  # Column types ride along from whatever schema is in scope when a
+  # branch returns — the user's, or the harvested one on the sqlglot
+  # path (`schema` is read at call time, after any harvest).
   namespace <- if (is_lazy) infer_namespace(dbplyr::remote_con(sql)) else NULL
   with_namespace <- function(lineage_data) {
     if (!is.null(namespace)) {
       lineage_data$namespace <- namespace
+    }
+    types <- schema_types(schema)
+    if (length(types) > 0) {
+      lineage_data$column_types <- types
     }
     lineage_data
   }
@@ -433,14 +440,16 @@ ol_namespace_from_info <- function(dialect, info) {
 #' Harvest Table Schemas from a Database Connection
 #'
 #' Lists the columns of each base table referenced by the query so sqlglot
-#' can resolve unqualified columns and expand `*`. Returns NULL if the
+#' can resolve unqualified columns and expand `*`, with their database
+#' types when a zero-row probe query can report them. Returns NULL if the
 #' schema cannot be determined (lineage extraction still works, with
 #' reduced attribution accuracy).
 #'
 #' @param con A DBI connection
 #' @param sql SQL query string
 #' @param dialect SQL dialect
-#' @return Named list mapping table names to character vectors of columns,
+#' @return Named list mapping table names to named lists of column types
+#'   (or bare character vectors of columns when types are unavailable),
 #'   or NULL
 #' @keywords internal
 harvest_schema <- function(con, sql, dialect = "duckdb") {
@@ -462,15 +471,74 @@ harvest_schema <- function(con, sql, dialect = "duckdb") {
     parts <- strsplit(tbl$name, ".", fixed = TRUE)[[1]]
     ref <- if (length(parts) > 1) DBI::Id(parts) else tbl$name
     fields <- tryCatch(
-      DBI::dbListFields(con, ref),
+      harvest_column_types(con, ref),
       error = function(e) NULL
     )
+    if (is.null(fields)) {
+      fields <- tryCatch(
+        DBI::dbListFields(con, ref),
+        error = function(e) NULL
+      )
+    }
     if (!is.null(fields)) {
       schema[[tbl$name]] <- fields
     }
   }
 
   if (length(schema) == 0) NULL else schema
+}
+
+#' The typed entries of a schema, as {table: named chr of col -> type}
+#'
+#' A schema maps tables to either bare column vectors or named col ->
+#' type entries (user-supplied or harvested); only the latter carry
+#' types worth propagating.
+#' @noRd
+schema_types <- function(schema) {
+  if (is.null(schema)) {
+    return(list())
+  }
+  types <- list()
+  for (tbl in names(schema)) {
+    cols <- schema[[tbl]]
+    if (is.list(cols)) {
+      cols <- unlist(cols)
+    }
+    nms <- names(cols)
+    if (is.null(nms) || any(!nzchar(nms))) next
+    types[[tbl]] <- stats::setNames(as.character(cols), nms)
+  }
+  types
+}
+
+#' Types for one node's columns, when the extraction captured any
+#' @noRd
+spec_types <- function(column_types, table, columns) {
+  types <- column_types[[table]]
+  if (is.null(types)) {
+    return(NULL)
+  }
+  hit <- types[intersect(as.character(columns), names(types))]
+  if (length(hit) == 0) NULL else hit
+}
+
+#' Column names and types from a zero-row probe of one table
+#' @noRd
+harvest_column_types <- function(con, ref) {
+  res <- DBI::dbSendQuery(
+    con,
+    paste0("SELECT * FROM ", DBI::dbQuoteIdentifier(con, ref), " WHERE 1 = 0")
+  )
+  on.exit(DBI::dbClearResult(res))
+  info <- DBI::dbColumnInfo(res)
+  if (!is.data.frame(info) || nrow(info) == 0 ||
+    !all(c("name", "type") %in% names(info))) {
+    return(NULL)
+  }
+  # Some drivers (RPostgres) expose the database type as .typname; the
+  # DBI-standard type column holds the R type
+  type <- if (".typname" %in% names(info)) info$.typname else info$type
+  stats::setNames(as.list(as.character(type)), info$name)
 }
 
 #' Extract Lineage from SQL using sqlglot
@@ -570,11 +638,13 @@ convert_lineage_to_graph <- function(lineage_data) {
 
   # Node specs: sources in layer 0, output in layer 1
   specs <- lapply(source_tables, function(table_name) {
+    columns <- unlist(tables_with_columns[[table_name]])
     list(
       id = table_name,
-      columns = unlist(tables_with_columns[[table_name]]),
+      columns = columns,
       type = "source",
-      layer = 0L
+      layer = 0L,
+      types = spec_types(lineage_data$column_types %||% list(), table_name, columns)
     )
   })
   if (length(output_columns) > 0) {

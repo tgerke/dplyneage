@@ -34,7 +34,7 @@ test_that("lineage_openlineage emits a complete RunEvent", {
   )
 })
 
-test_that("indirect edges map to INDIRECT transformation subtypes", {
+test_that("indirect edges land in the columnLineage dataset array", {
   skip_if_not_installed("dplyr")
   skip_if_not_installed("dbplyr", "2.5.0")
 
@@ -47,11 +47,22 @@ test_that("indirect edges map to INDIRECT transformation subtypes", {
     lineage_openlineage(lineage, run_id = "x", event_time = "t"),
     simplifyVector = FALSE
   )
-  inputs <- event$outputs[[1]]$facets$columnLineage$fields$a$inputFields
-  filter_input <- Filter(function(f) f$field == "b", inputs)[[1]]
-  expect_identical(filter_input$transformations[[1]]$type, "INDIRECT")
-  expect_identical(filter_input$transformations[[1]]$subtype, "FILTER")
-  expect_null(filter_input$transformations[[1]]$description)
+  cl <- event$outputs[[1]]$facets$columnLineage
+
+  # The filter column shapes the whole dataset, not column a's lineage
+  a_fields <- vapply(
+    cl$fields$a$inputFields,
+    function(f) f$field,
+    character(1)
+  )
+  expect_false("b" %in% a_fields)
+
+  dep <- cl$dataset[[1]]
+  expect_identical(dep$name, "t1")
+  expect_identical(dep$field, "b")
+  expect_identical(dep$transformations[[1]]$type, "INDIRECT")
+  expect_identical(dep$transformations[[1]]$subtype, "FILTER")
+  expect_null(dep$transformations[[1]]$description)
 })
 
 test_that("multi-model pipelines put transforms in outputs", {
@@ -341,4 +352,202 @@ test_that("output_name rejects pipelines and non-strings", {
     lineage_openlineage(single, output_name = c("a", "b")),
     "single non-empty string"
   )
+})
+
+# Facets (#7) ------------------------------------------------------------
+
+test_that("single-model events carry sql and jobType job facets", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  lineage <- dbplyr::lazy_frame(customer_id = 1L, amount = 1, .name = "orders") |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total = sum(amount, na.rm = TRUE)) |>
+    extract_lineage(engine = "r")
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(lineage, run_id = "x", event_time = "t"),
+    simplifyVector = FALSE
+  )
+
+  job_type <- event$job$facets$jobType
+  expect_identical(job_type$processingType, "BATCH")
+  expect_identical(job_type$integration, "DPLYNEAGE")
+  expect_identical(job_type$jobType, "QUERY")
+
+  sql <- event$job$facets$sql
+  expect_identical(sql$query, lineage$metadata$models$output$sql)
+  expect_identical(sql$dialect, lineage$metadata$models$output$dialect)
+  expect_match(sql$`_schemaURL`, "SQLJobFacet.json#/\\$defs/SQLJobFacet$")
+})
+
+test_that("multi-model events omit the sql facet but keep jobType", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  silver <- dbplyr::lazy_frame(amount = 1, .name = "orders") |>
+    dplyr::mutate(total = amount)
+  gold <- dbplyr::lazy_frame(total = 1, .name = "silver") |>
+    dplyr::mutate(big = total > 100)
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(
+      extract_lineage(list(silver = silver, gold = gold)),
+      run_id = "x", event_time = "t"
+    ),
+    simplifyVector = FALSE
+  )
+  expect_null(event$job$facets$sql)
+  expect_identical(event$job$facets$jobType$integration, "DPLYNEAGE")
+})
+
+test_that("event_type is recorded and validated", {
+  lineage <- list(
+    nodes = list(create_table_node("orders", "amount")),
+    edges = list()
+  )
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(lineage, event_type = "START"),
+    simplifyVector = FALSE
+  )
+  expect_identical(event$eventType, "START")
+  expect_match(event$schemaURL, "OpenLineage.json#/\\$defs/RunEvent$")
+
+  expect_error(
+    lineage_openlineage(lineage, event_type = "DONE"),
+    "'arg' should be one of"
+  )
+})
+
+test_that("nominal_time and parent become run facets", {
+  lineage <- list(
+    nodes = list(create_table_node("orders", "amount")),
+    edges = list()
+  )
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(
+      lineage,
+      run_id = "x", event_time = "t",
+      nominal_time = c("2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z"),
+      parent = list(
+        run_id = "11111111-1111-4111-8111-111111111111",
+        job_name = "nightly_dag"
+      )
+    ),
+    simplifyVector = FALSE
+  )
+
+  nominal <- event$run$facets$nominalTime
+  expect_identical(nominal$nominalStartTime, "2026-01-01T00:00:00Z")
+  expect_identical(nominal$nominalEndTime, "2026-01-01T01:00:00Z")
+
+  parent <- event$run$facets$parent
+  expect_identical(parent$run$runId, "11111111-1111-4111-8111-111111111111")
+  expect_identical(parent$job$name, "nightly_dag")
+  expect_identical(parent$job$namespace, "dplyneage")
+
+  # No arguments, no run facets key at all
+  bare <- jsonlite::fromJSON(
+    lineage_openlineage(lineage, run_id = "x", event_time = "t"),
+    simplifyVector = FALSE
+  )
+  expect_null(bare$run$facets)
+
+  expect_error(
+    lineage_openlineage(lineage, nominal_time = 42),
+    "ISO-8601"
+  )
+  expect_error(
+    lineage_openlineage(lineage, parent = list(run_id = "x")),
+    "run_id and job_name"
+  )
+})
+
+test_that("schema facet fields carry types from a typed schema argument", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  lineage <- dbplyr::lazy_frame(customer_id = 1L, amount = 1, .name = "orders") |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total = sum(amount, na.rm = TRUE)) |>
+    extract_lineage(
+      engine = "r",
+      schema = list(orders = list(customer_id = "INTEGER", amount = "DOUBLE"))
+    )
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(lineage, run_id = "x", event_time = "t"),
+    simplifyVector = FALSE
+  )
+  fields <- event$inputs[[1]]$facets$schema$fields
+  by_name <- stats::setNames(fields, vapply(fields, `[[`, character(1), "name"))
+  expect_identical(by_name$amount$type, "DOUBLE")
+  expect_identical(by_name$customer_id$type, "INTEGER")
+  expect_match(
+    event$inputs[[1]]$facets$schema$`_schemaURL`,
+    "1-2-0/SchemaDatasetFacet.json#/\\$defs/SchemaDatasetFacet$"
+  )
+  # Output columns have no captured types
+  out_fields <- event$outputs[[1]]$facets$schema$fields
+  expect_null(out_fields[[1]]$type)
+
+  # The same types reach the lineage_json artifact
+  doc <- jsonlite::fromJSON(lineage_json(lineage), simplifyVector = FALSE)
+  orders <- Filter(function(n) n$id == "orders", doc$nodes)[[1]]
+  expect_identical(orders$types$amount, "DOUBLE")
+})
+
+test_that("a dataset-array-only columnLineage facet keeps an empty fields object", {
+  skip_if_not_installed("dplyr")
+  skip_if_not_installed("dbplyr", "2.5.0")
+
+  # The output column is a constant: no direct lineage, only the filter's
+  # dataset-level dependency
+  lineage <- dbplyr::lazy_frame(a = 1, b = 2, .name = "t1") |>
+    dplyr::filter(b > 0) |>
+    dplyr::transmute(flag = 1) |>
+    extract_lineage(engine = "r", include_indirect = TRUE)
+
+  json <- lineage_openlineage(
+    lineage,
+    run_id = "x", event_time = "t", pretty = FALSE
+  )
+  event <- jsonlite::fromJSON(json, simplifyVector = FALSE)
+  cl <- event$outputs[[1]]$facets$columnLineage
+  expect_identical(length(cl$fields), 0L)
+  expect_match(json, "\"fields\":{}", fixed = TRUE)
+  expect_identical(cl$dataset[[1]]$field, "b")
+})
+
+test_that("multiple indirect kinds merge into one dataset array entry", {
+  # extract_lineage() dedups indirect edges per column pair, so two kinds
+  # on one source column only arise on hand-built (or future) graphs
+  filter_edge <- create_column_edge("t1", "b", "out", "x")
+  filter_edge$data <- list(transformation = "filter")
+  sort_edge <- create_column_edge("t1", "b", "out", "y")
+  sort_edge$data <- list(transformation = "sort")
+
+  lineage <- list(
+    nodes = list(
+      create_table_node("t1", c("a", "b")),
+      create_table_node("out", c("x", "y"), table_type = "target")
+    ),
+    edges = list(filter_edge, sort_edge)
+  )
+
+  event <- jsonlite::fromJSON(
+    lineage_openlineage(lineage, run_id = "x", event_time = "t"),
+    simplifyVector = FALSE
+  )
+  deps <- event$outputs[[1]]$facets$columnLineage$dataset
+  expect_length(deps, 1L)
+  expect_identical(deps[[1]]$field, "b")
+  subtypes <- vapply(
+    deps[[1]]$transformations,
+    function(t) t$subtype,
+    character(1)
+  )
+  expect_setequal(subtypes, c("FILTER", "SORT"))
 })
