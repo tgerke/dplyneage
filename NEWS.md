@@ -5,6 +5,21 @@ the package against current column-level lineage tooling (SQLMesh,
 dbt, sqlglot, OpenLineage). The remaining roadmap from the audit is
 filed as tiered issues on GitHub.
 
+* Clicking a column in a `lineage_flow()` diagram now isolates its
+  trace cone — the interaction dbt Catalog and SQLMesh converge on: the
+  column's transitive upstream and downstream subgraph keeps its full
+  styling while every other table, column, and edge dims. Clicking the
+  column again, clicking the background, or pressing Escape releases
+  the cone. Hover highlighting still works inside a cone and never
+  resurrects an edge outside it. (#10)
+
+* Two viewer fixes in `lineage_flow()`: pressing Backspace with a node
+  selected no longer deletes it from the diagram (a lineage diagram
+  states provenance, so viewers must not be able to edit it, matching
+  the earlier `nodesConnectable` fix), and re-rendering the widget —
+  as Shiny does — now unmounts the previous React tree instead of
+  leaking it.
+
 * The static SVG fallback — drawn when the bundled React Flow assets
   cannot load — is now a real lineage diagram: table boxes with their
   headers, colors, and column rows; edges anchored to the columns they

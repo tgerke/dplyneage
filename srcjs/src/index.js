@@ -17,14 +17,20 @@ import '@xyflow/react/dist/style.css';
 // Custom Table Node Component for column-level lineage
 const TableNode = ({ data, isConnectable, id }) => {
   // Ensure columns is always an array (handle R's single-element vectors)
-  const columns = Array.isArray(data.columns) 
-    ? data.columns 
+  const columns = Array.isArray(data.columns)
+    ? data.columns
     : (data.columns ? [data.columns] : []);
   const colors = data.colors || { bg: '#f0f7ff', border: '#3b82f6', header: '#1d4ed8' };
-  
-  // Get the hover callback from data if available
+
+  // Get the hover/click callbacks from data if available
   const onColumnHover = data.onColumnHover || (() => {});
-  
+  const onColumnClick = data.onColumnClick || null;
+  // Trace-cone state injected by the widget binding: dimmed marks a node
+  // entirely outside the traced cone, dimmedColumns the rows outside it
+  // on a node partially inside, selectedColumn the traced anchor
+  const dimmedColumns = data.dimmedColumns || [];
+  const selectedColumn = data.selectedColumn || null;
+
   return (
     <div style={{
       background: 'white',
@@ -33,7 +39,9 @@ const TableNode = ({ data, isConnectable, id }) => {
       minWidth: '200px',
       fontSize: '13px',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+      opacity: data.dimmed ? 0.3 : 1,
+      transition: 'opacity 0.2s ease'
     }}>
       {/* Table Header */}
       <div style={{
@@ -48,25 +56,41 @@ const TableNode = ({ data, isConnectable, id }) => {
       }}>
         {data.label}
       </div>
-      
+
       {/* Column List */}
       <div style={{ background: colors.bg }}>
-        {columns.map((column, index) => (
+        {columns.map((column, index) => {
+          const isDimmed = dimmedColumns.indexOf(column) !== -1;
+          const isSelected = selectedColumn === column;
+          return (
           <div key={column} style={{
             padding: '8px 14px',
             borderBottom: index < columns.length - 1 ? '1px solid #e5e7eb' : 'none',
             display: 'flex',
             alignItems: 'center',
             position: 'relative',
-            transition: 'background 0.15s ease'
+            transition: 'background 0.15s ease',
+            background: isSelected ? '#fef3c7' : 'transparent',
+            opacity: isDimmed ? 0.35 : 1,
+            cursor: onColumnClick ? 'pointer' : 'default'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#ffffff';
+            if (isDimmed) return;
+            if (!isSelected) {
+              e.currentTarget.style.background = '#ffffff';
+            }
             onColumnHover(id, column);
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.background = isSelected ? '#fef3c7' : 'transparent';
             onColumnHover(null, null);
+          }}
+          onClick={(e) => {
+            if (onColumnClick) {
+              // Keep row clicks out of React Flow's node-selection state
+              e.stopPropagation();
+              onColumnClick(id, column);
+            }
           }}
           >
             {/* Left handle for incoming connections */}
@@ -90,7 +114,7 @@ const TableNode = ({ data, isConnectable, id }) => {
               alignItems: 'center',
               gap: '6px',
               color: '#1f2937',
-              fontWeight: 500
+              fontWeight: isSelected ? 600 : 500
             }}>
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                 <rect x="1" y="1" width="10" height="10" rx="2" stroke={colors.border} strokeWidth="1.5"/>
@@ -114,7 +138,8 @@ const TableNode = ({ data, isConnectable, id }) => {
               isConnectable={isConnectable}
             />
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

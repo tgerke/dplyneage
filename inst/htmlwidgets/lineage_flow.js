@@ -5,8 +5,9 @@ HTMLWidgets.widget({
   type: 'output',
   factory: function(el, width, height) {
     // flow is set by renderReactFlow's onInit; observer waits out hidden
-    // containers before the first render
-    var state = { flow: null, observer: null };
+    // containers before the first render; root/container track the React
+    // mount so re-renders can unmount it first
+    var state = { flow: null, observer: null, root: null, container: null };
 
     function render(x) {
       if (typeof window.ReactFlowBundle !== 'undefined') {
@@ -22,6 +23,19 @@ HTMLWidgets.widget({
           state.observer.disconnect();
           state.observer = null;
         }
+        // Unmount the previous React tree (Shiny re-renders call
+        // renderValue again) so its effects — the Escape listener — are
+        // cleaned up instead of orphaned by the innerHTML wipe
+        if (state.root) {
+          try { state.root.unmount(); } catch (e) {}
+          state.root = null;
+        } else if (state.container && typeof window.ReactFlowBundle !== 'undefined' &&
+                   window.ReactFlowBundle.ReactDOM.unmountComponentAtNode) {
+          try {
+            window.ReactFlowBundle.ReactDOM.unmountComponentAtNode(state.container);
+          } catch (e) {}
+        }
+        state.container = null;
         state.flow = null;
 
         // React Flow mounted inside a hidden container (a non-active
@@ -103,6 +117,62 @@ function computeLaneFractions(nodes, edges) {
   return fractions;
 }
 
+// Column-level adjacency in both directions, keyed like the lane table
+// (nodeId NUL handle). Each step remembers the edge it rode so the cone
+// can restyle exactly the traversed edges.
+function buildAdjacency(edges) {
+  var out = {};
+  var inn = {};
+  edges.forEach(function(edge) {
+    var s = edge.source + '\u0000' + edge.sourceHandle;
+    var t = edge.target + '\u0000' + edge.targetHandle;
+    if (!out[s]) {
+      out[s] = [];
+    }
+    out[s].push({ key: t, edgeId: edge.id });
+    if (!inn[t]) {
+      inn[t] = [];
+    }
+    inn[t].push({ key: s, edgeId: edge.id });
+  });
+  return { out: out, inn: inn };
+}
+
+function walkCone(adj, startKey, columnKeys, edgeIds) {
+  var frontier = [startKey];
+  while (frontier.length > 0) {
+    var next = [];
+    frontier.forEach(function(key) {
+      (adj[key] || []).forEach(function(step) {
+        edgeIds[step.edgeId] = true;
+        if (!columnKeys[step.key]) {
+          columnKeys[step.key] = true;
+          next.push(step.key);
+        }
+      });
+    });
+    frontier = next;
+  }
+}
+
+// The transitive upstream + downstream subgraph of one column: the same
+// walk as R's bfs_reachable(), run both ways. Only traversed edges join
+// the cone, so cross-links between cone members that bypass the anchor
+// stay dimmed.
+function computeCone(adjacency, selected) {
+  var startKey = selected.nodeId + '\u0000' + selected.handleId;
+  var columnKeys = {};
+  columnKeys[startKey] = true;
+  var edgeIds = {};
+  walkCone(adjacency.out, startKey, columnKeys, edgeIds);
+  walkCone(adjacency.inn, startKey, columnKeys, edgeIds);
+  var nodeIds = {};
+  Object.keys(columnKeys).forEach(function(key) {
+    nodeIds[key.split('\u0000')[0]] = true;
+  });
+  return { columnKeys: columnKeys, edgeIds: edgeIds, nodeIds: nodeIds };
+}
+
 function renderReactFlow(el, x, width, height, state) {
   var React = window.ReactFlowBundle.React;
   var ReactDOM = window.ReactFlowBundle.ReactDOM;
@@ -144,6 +214,7 @@ function renderReactFlow(el, x, width, height, state) {
   });
 
   var laneFractions = computeLaneFractions(x.nodes || [], x.edges || []);
+  var adjacency = buildAdjacency(x.edges || []);
 
   var initialEdges = (x.edges || []).map(function(edge) {
     var data = Object.assign({}, edge.data);
@@ -165,20 +236,26 @@ function renderReactFlow(el, x, width, height, state) {
       var useState = React.useState;
       var useCallback = React.useCallback;
       var useMemo = React.useMemo;
-      
+      var useEffect = React.useEffect;
+
       var nodesState = useState(initialNodes);
       var nodes = nodesState[0];
       var setNodes = nodesState[1];
-      
+
       var edgesState = useState(initialEdges);
       var edges = edgesState[0];
       var setEdges = edgesState[1];
-      
+
       // State for tracking hovered column
       var hoveredHandleState = useState(null);
       var hoveredHandle = hoveredHandleState[0];
       var setHoveredHandle = hoveredHandleState[1];
-      
+
+      // Clicked column whose upstream/downstream cone is isolated
+      var selectedColumnState = useState(null);
+      var selectedColumn = selectedColumnState[0];
+      var setSelectedColumn = selectedColumnState[1];
+
       // Callback for when a column is hovered
       var onColumnHover = useCallback(function(nodeId, handleId) {
         if (nodeId && handleId) {
@@ -187,31 +264,92 @@ function renderReactFlow(el, x, width, height, state) {
           setHoveredHandle(null);
         }
       }, []);
-      
-      // Update nodes to inject the hover callback
+
+      // Clicking a column traces its cone; clicking it again releases it
+      var onColumnClick = useCallback(function(nodeId, handleId) {
+        setSelectedColumn(function(prev) {
+          if (prev && prev.nodeId === nodeId && prev.handleId === handleId) {
+            return null;
+          }
+          return { nodeId: nodeId, handleId: handleId };
+        });
+      }, []);
+
+      // Escape releases the traced cone from anywhere on the page
+      useEffect(function() {
+        function onKeyDown(event) {
+          if (event.key === 'Escape') {
+            setSelectedColumn(null);
+          }
+        }
+        document.addEventListener('keydown', onKeyDown);
+        return function() {
+          document.removeEventListener('keydown', onKeyDown);
+        };
+      }, []);
+
+      var coneInfo = useMemo(function() {
+        if (!selectedColumn) {
+          return null;
+        }
+        return computeCone(adjacency, selectedColumn);
+      }, [selectedColumn]);
+
+      // Update nodes to inject the callbacks and per-node cone state
       var nodesWithCallback = useMemo(function() {
         return nodes.map(function(node) {
+          var dimmed = false;
+          var dimmedColumns = [];
+          var selected = null;
+          if (coneInfo) {
+            dimmed = !coneInfo.nodeIds[node.id];
+            if (!dimmed) {
+              var cols = (node.data && node.data.columns) || [];
+              if (!Array.isArray(cols)) {
+                cols = [cols];
+              }
+              dimmedColumns = cols.filter(function(col) {
+                return !coneInfo.columnKeys[node.id + '\u0000' + col];
+              });
+            }
+            if (selectedColumn && selectedColumn.nodeId === node.id) {
+              selected = selectedColumn.handleId;
+            }
+          }
           return Object.assign({}, node, {
             data: Object.assign({}, node.data, {
-              onColumnHover: onColumnHover
+              onColumnHover: onColumnHover,
+              onColumnClick: onColumnClick,
+              dimmed: dimmed,
+              dimmedColumns: dimmedColumns,
+              selectedColumn: selected
             })
           });
         });
-      }, [nodes, onColumnHover]);
-      
-      // Update edges based on hovered handle
+      }, [nodes, onColumnHover, onColumnClick, coneInfo, selectedColumn]);
+
+      // Update edges from the traced cone and the hovered handle. Cone
+      // dimming wins: hovering never resurrects an edge outside the cone,
+      // and in-cone edges stay at full strength unless hover-highlighted.
       var styledEdges = useMemo(function() {
-        if (!hoveredHandle) {
+        if (!hoveredHandle && !coneInfo) {
           return edges;
         }
-        
+
         return edges.map(function(edge) {
+          if (coneInfo && !coneInfo.edgeIds[edge.id]) {
+            return Object.assign({}, edge, {
+              animated: false,
+              style: Object.assign({}, edge.style, { opacity: 0.15 })
+            });
+          }
+
           // Check if this edge is connected to the hovered handle
-          var isConnected = (
+          var isConnected = hoveredHandle && (
             (edge.source === hoveredHandle.nodeId && edge.sourceHandle === hoveredHandle.handleId) ||
             (edge.target === hoveredHandle.nodeId && edge.targetHandle === hoveredHandle.handleId)
           );
-          
+
           // Merge over the edge's own style so per-edge patterns
           // (e.g. the dashes on indirect edges) survive highlighting
           if (isConnected) {
@@ -219,14 +357,16 @@ function renderReactFlow(el, x, width, height, state) {
               animated: true,
               style: Object.assign({}, edge.style, { stroke: '#f59e0b', strokeWidth: 3 })
             });
-          } else {
-            return Object.assign({}, edge, {
-              animated: false,
-              style: Object.assign({}, edge.style, { stroke: '#d1d5db', strokeWidth: 2, opacity: 0.3 })
-            });
           }
+          if (coneInfo) {
+            return edge;
+          }
+          return Object.assign({}, edge, {
+            animated: false,
+            style: Object.assign({}, edge.style, { stroke: '#d1d5db', strokeWidth: 2, opacity: 0.3 })
+          });
         });
-      }, [edges, hoveredHandle]);
+      }, [edges, hoveredHandle, coneInfo]);
       
       // Handle node changes (dragging, selecting, etc.)
       var onNodesChange = useCallback(function(changes) {
@@ -254,14 +394,20 @@ function renderReactFlow(el, x, width, height, state) {
           onInit: function(flow) {
             state.flow = flow;
           },
+          // Clicking the background releases the traced cone
+          onPaneClick: function() {
+            setSelectedColumn(null);
+          },
           fitView: true,
           fitViewOptions: FIT_VIEW_OPTIONS,
           minZoom: 0.1,
           maxZoom: 4,
           nodesDraggable: true,
           // A lineage diagram states provenance; viewers must not be able
-          // to draw new edges into it
+          // to draw new edges into it, and Backspace on a selected node
+          // must not delete it
           nodesConnectable: false,
+          deleteKeyCode: null,
           elementsSelectable: true,
           snapToGrid: true,
           snapGrid: [15, 15],
@@ -280,9 +426,10 @@ function renderReactFlow(el, x, width, height, state) {
       );
     };
     
+    state.container = container;
     if (ReactDOM.createRoot) {
-      var root = ReactDOM.createRoot(container);
-      root.render(React.createElement(FlowComponent));
+      state.root = ReactDOM.createRoot(container);
+      state.root.render(React.createElement(FlowComponent));
     } else {
       ReactDOM.render(React.createElement(FlowComponent), container);
     }
