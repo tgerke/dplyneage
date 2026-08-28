@@ -93,10 +93,11 @@ package stands:
   namespaces, sql/job/run facets and schema types, static
   DatasetEvent/JobEvent emission, `lineage_emit()` over HTTP with a
   verified Marquez round-trip): shipped in 0.3.0.9000.
-- **Tier 3** (#10–#13): visualization and API parity — click-to-trace
-  cone, widget chrome (minimap, PNG export, dark mode, Shiny input),
-  table-level impact queries and a dead-column report, column-level
-  SVG fallback.
+- **Tier 3** (#10–#13, visualization and API parity: click-to-trace
+  cone, widget chrome — minimap, PNG export, dark mode, legend, Shiny
+  input — table-level impact queries and the `lineage_unused()`
+  dead-column report, column-level SVG fallback): shipped in
+  0.3.0.9000.
 - **Tier 4** (#14–#16): strategic bets — arrow/dtplyr/duckplyr
   engines, label and description propagation, targets integration.
 

@@ -90,9 +90,13 @@ Behind that one pipe, `extract_lineage()`:
   from your connection so unqualified columns attribute correctly)
 
 The resulting diagram is fully interactive: drag tables to rearrange,
-zoom and pan, and hover columns to highlight their connections. Computed
-columns carry their defining expression as an edge label, and
-aggregation edges animate.
+zoom and pan, and hover columns to highlight their connections. Click a
+column and the diagram isolates its trace cone — everything upstream and
+downstream of that column — until you click again or press Escape.
+Computed columns carry their defining expression as an edge label, and
+aggregation edges animate. `lineage_flow()` also takes `theme = "dark"`
+(or `"auto"`), `minimap = TRUE` for an overview map, and a PNG download
+button lives in the zoom controls.
 
 ## Local data frames
 
@@ -238,7 +242,10 @@ time-travel queries.
 Diagrams are for people; the same lineage is also useful as plain data.
 `lineage_edges()` flattens it to one classified row per column edge, and
 `lineage_upstream()` / `lineage_downstream()` answer impact questions
-directly:
+directly — for one `"table.column"`, or for a whole table at once when
+you pass just its name. `lineage_unused()` runs the reverse check,
+listing every source or intermediate column with no path to any target:
+the columns you could drop without changing what ships.
 
 ``` r
 lineage <- tbl(con, "orders") |>
@@ -358,7 +365,7 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from bd0a791:
+#> + 2/6 vertices, named, from 219589f:
 #> [1] output.total_spent orders.amount
 ```
 
