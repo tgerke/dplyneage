@@ -5,6 +5,13 @@ the package against current column-level lineage tooling (SQLMesh,
 dbt, sqlglot, OpenLineage). The remaining roadmap from the audit is
 filed as tiered issues on GitHub.
 
+* The static SVG fallback — drawn when the bundled React Flow assets
+  cannot load — is now a real lineage diagram: table boxes with their
+  headers, colors, and column rows; edges anchored to the columns they
+  connect, dashed when indirect, with arrowheads matching each edge's
+  color; and a drawing sized to the graph's bounds instead of a fixed
+  800x400 frame. (#13)
+
 * `lineage_upstream()` and `lineage_downstream()` accept a table name as
   well as a `"table.column"` string, tracing from every column of the
   table at once (the table's own columns are not part of the answer).

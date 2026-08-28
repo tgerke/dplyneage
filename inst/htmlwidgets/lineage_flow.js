@@ -306,53 +306,151 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
+// Geometry mirrors the R-side layout model in layout_positions(): 44px
+// header + 33px per column row, so edges anchor at the rows R assumed
+// when it spaced the nodes. Width is TableNode's minWidth.
+var SVG_NODE_W = 200;
+var SVG_HEADER_H = 44;
+var SVG_ROW_H = 33;
+
+function svgColumnsOf(node) {
+  var cols = (node.data && node.data.columns) || [];
+  return Array.isArray(cols) ? cols : [cols];
+}
+
+function svgNodeHeight(node) {
+  return SVG_HEADER_H + SVG_ROW_H * svgColumnsOf(node).length;
+}
+
+// Column-row anchor for an edge endpoint; header center when the handle
+// isn't among the node's declared columns
+function svgAnchorY(node, handle) {
+  var i = svgColumnsOf(node).indexOf(handle);
+  if (i === -1) {
+    return node.position.y + SVG_HEADER_H / 2;
+  }
+  return node.position.y + SVG_HEADER_H + SVG_ROW_H * i + SVG_ROW_H / 2;
+}
+
+function svgTruncate(text, max) {
+  text = String(text);
+  return text.length > max ? text.slice(0, max - 1) + '…' : text;
+}
+
 function renderSVG(el, x, width, height) {
   var nodes = x.nodes || [];
   var edges = x.edges || [];
-  
-  var svgWidth = width || 800;
-  var svgHeight = height || 400;
-  
-  var html = '<svg width="' + svgWidth + '" height="' + svgHeight + '" style="background: #fafafa; border: 1px solid #e0e0e0;">';
-  
-  html += '<defs><marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">';
-  html += '<polygon points="0 0, 10 3, 0 6" fill="#0088ff"/>';
-  html += '</marker></defs>';
-  
+  var FONT = 'font-family="system-ui, -apple-system, sans-serif"';
+
+  // Frame the drawing around the actual content
+  var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  nodes.forEach(function(node) {
+    minX = Math.min(minX, node.position.x);
+    minY = Math.min(minY, node.position.y);
+    maxX = Math.max(maxX, node.position.x + SVG_NODE_W);
+    maxY = Math.max(maxY, node.position.y + svgNodeHeight(node));
+  });
+  if (!nodes.length) {
+    minX = 0; minY = 0; maxX = 800; maxY = 200;
+  }
+  var pad = 20;
+  var viewBox = (minX - pad) + ' ' + (minY - pad) + ' ' +
+    (maxX - minX + 2 * pad) + ' ' + (maxY - minY + 2 * pad);
+  var svgHeight = Math.max(200, (el.offsetHeight || height || 400) - 44);
+
+  var html = '<svg width="100%" height="' + svgHeight + '" viewBox="' + viewBox + '" ' +
+    'preserveAspectRatio="xMidYMid meet" ' +
+    'style="background: #fafafa; border: 1px solid #e0e0e0; display: block;">';
+
+  // One arrowhead marker per distinct edge color, so arrows match lines
+  var markerIds = {};
+  var defs = '';
+  edges.forEach(function(edge) {
+    var stroke = (edge.style && edge.style.stroke) || '#64748b';
+    if (!markerIds[stroke]) {
+      var id = 'lineage-arrow-' + stroke.replace(/[^a-zA-Z0-9]/g, '');
+      markerIds[stroke] = id;
+      defs += '<marker id="' + id + '" markerWidth="8" markerHeight="8" ' +
+        'refX="7" refY="3" orient="auto" markerUnits="userSpaceOnUse">' +
+        '<polygon points="0 0, 8 3, 0 6" fill="' + escapeHtml(stroke) + '"/></marker>';
+    }
+  });
+  html += '<defs>' + defs + '</defs>';
+
+  // Edges under nodes, matching the React layering
   edges.forEach(function(edge) {
     var sourceNode = nodes.find(function(n) { return n.id === edge.source; });
     var targetNode = nodes.find(function(n) { return n.id === edge.target; });
-    
-    if (sourceNode && targetNode) {
-      var x1 = sourceNode.position.x + 75;
-      var y1 = sourceNode.position.y + 30;
-      var x2 = targetNode.position.x + 75;
-      var y2 = targetNode.position.y + 30;
-      
-      html += '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" ';
-      html += 'stroke="#0088ff" stroke-width="2" marker-end="url(#arrowhead)"/>';
+    if (!sourceNode || !targetNode) {
+      return;
     }
+
+    var x1 = sourceNode.position.x + SVG_NODE_W;
+    var y1 = svgAnchorY(sourceNode, edge.sourceHandle);
+    var x2 = targetNode.position.x - 6;
+    var y2 = svgAnchorY(targetNode, edge.targetHandle);
+    var dx = Math.max(40, Math.abs(x2 - x1) * 0.4);
+
+    var style = edge.style || {};
+    var stroke = style.stroke || '#64748b';
+    var strokeWidth = style.strokeWidth || 2;
+    html += '<path d="M ' + x1 + ' ' + y1 +
+      ' C ' + (x1 + dx) + ' ' + y1 + ', ' + (x2 - dx) + ' ' + y2 +
+      ', ' + x2 + ' ' + y2 + '" fill="none" ' +
+      'stroke="' + escapeHtml(stroke) + '" stroke-width="' + escapeHtml(strokeWidth) + '" ' +
+      (style.strokeDasharray ? 'stroke-dasharray="' + escapeHtml(style.strokeDasharray) + '" ' : '') +
+      'marker-end="url(#' + markerIds[stroke] + ')"/>';
   });
-  
+
   nodes.forEach(function(node) {
-    var x = node.position.x;
-    var y = node.position.y;
+    var nx = node.position.x;
+    var ny = node.position.y;
+    var columns = svgColumnsOf(node);
+    var nodeH = svgNodeHeight(node);
+    var colors = (node.data && node.data.colors) ||
+      { bg: '#f0f7ff', border: '#3b82f6', header: '#1d4ed8' };
     var label = (node.data && node.data.label) ? node.data.label : node.id;
-    
-    html += '<rect x="' + x + '" y="' + y + '" width="150" height="60" ';
-    html += 'fill="white" stroke="#1a192b" stroke-width="2" rx="8"/>';
-    
-    html += '<text x="' + (x + 75) + '" y="' + (y + 35) + '" ';
-    html += 'text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" ';
-    html += 'font-size="14" font-weight="500" fill="#1a192b">' + escapeHtml(label) + '</text>';
+
+    // Body, then header (rounded top squared off below), then rows, with
+    // the border stroked last so it stays crisp over the fills
+    html += '<rect x="' + nx + '" y="' + (ny + SVG_HEADER_H) + '" width="' + SVG_NODE_W +
+      '" height="' + (nodeH - SVG_HEADER_H) + '" fill="' + escapeHtml(colors.bg) + '"/>';
+    html += '<rect x="' + nx + '" y="' + ny + '" width="' + SVG_NODE_W +
+      '" height="' + SVG_HEADER_H + '" rx="8" fill="' + escapeHtml(colors.header) + '"/>';
+    html += '<rect x="' + nx + '" y="' + (ny + SVG_HEADER_H / 2) + '" width="' + SVG_NODE_W +
+      '" height="' + (SVG_HEADER_H / 2) + '" fill="' + escapeHtml(colors.header) + '"/>';
+    html += '<text x="' + (nx + 14) + '" y="' + (ny + SVG_HEADER_H / 2) + '" ' +
+      'dominant-baseline="central" ' + FONT + ' font-size="14" font-weight="600" ' +
+      'fill="#ffffff">' + escapeHtml(svgTruncate(label, 22)) + '</text>';
+
+    columns.forEach(function(column, i) {
+      var rowY = ny + SVG_HEADER_H + SVG_ROW_H * i;
+      var centerY = rowY + SVG_ROW_H / 2;
+      if (i > 0) {
+        html += '<line x1="' + nx + '" y1="' + rowY + '" x2="' + (nx + SVG_NODE_W) +
+          '" y2="' + rowY + '" stroke="#e5e7eb" stroke-width="1"/>';
+      }
+      html += '<text x="' + (nx + 14) + '" y="' + centerY + '" ' +
+        'dominant-baseline="central" ' + FONT + ' font-size="13" font-weight="500" ' +
+        'fill="#1f2937">' + escapeHtml(svgTruncate(column, 24)) + '</text>';
+      // Connection dots where the interactive handles would sit
+      html += '<circle cx="' + nx + '" cy="' + centerY + '" r="4" ' +
+        'fill="' + escapeHtml(colors.border) + '" stroke="#ffffff" stroke-width="1.5"/>';
+      html += '<circle cx="' + (nx + SVG_NODE_W) + '" cy="' + centerY + '" r="4" ' +
+        'fill="' + escapeHtml(colors.border) + '" stroke="#ffffff" stroke-width="1.5"/>';
+    });
+
+    html += '<rect x="' + nx + '" y="' + ny + '" width="' + SVG_NODE_W +
+      '" height="' + nodeH + '" rx="8" fill="none" ' +
+      'stroke="' + escapeHtml(colors.border) + '" stroke-width="2"/>';
   });
-  
+
   html += '</svg>';
-  
+
   html += '<div style="margin-top: 10px; padding: 8px 12px; background: #f0f0f0; ';
   html += 'border-radius: 4px; font-size: 12px; font-family: system-ui, sans-serif; color: #666;">';
-  html += 'Column Lineage Flow (SVG) | Nodes: ' + nodes.length + ' | Edges: ' + edges.length;
+  html += 'Column lineage (static SVG) | Tables: ' + nodes.length + ' | Edges: ' + edges.length;
   html += '</div>';
-  
+
   el.innerHTML = html;
 }
