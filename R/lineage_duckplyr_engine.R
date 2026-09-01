@@ -18,8 +18,12 @@
 #   are normalized to q1, q2, ... so the recorded SQL is deterministic
 #   across sessions
 # * duckplyr's ___*_na aggregate macros are renamed to the standard
-#   aggregates (___sum_na -> sum, ___mean_na -> avg, n() -> count(*))
+#   aggregates (___sum_na -> sum, ___mean_na -> avg, n() -> count(*)),
+#   as are the bare window spellings (mean(x) OVER, count_star() OVER),
 #   so sqlglot's AggFunc classification fires
+# * a star over a nameless scan cannot expand, so such queries are
+#   retried with a synthesized schema built from the relation's columns
+#   and every column name the SQL references
 #
 # Everything here was verified against duckplyr 1.2.1 / duckdb 1.5.1;
 # rel_from_altrep_df() and rapi_rel_to_sql() are unexported duckdb API,
@@ -140,12 +144,16 @@ extract_lineage_from_duckplyr <- function(x, include_indirect = FALSE,
     include_indirect = include_indirect
   )
   # A star that reaches a nameless in-memory scan cannot expand without
-  # a schema and yields zero columns (filter/arrange/limit-only, semi/
-  # anti joins, set ops of raw frames). Those pipelines keep the
-  # relation's own columns, so retry once with them for every scan.
-  if (length(result$columns) == 0 && length(rw$scans) > 0) {
+  # a schema: with no projection above it the query yields zero columns
+  # (filter/arrange/limit-only, semi/anti joins, set ops of raw frames),
+  # and under a later projection every column traces to a "*" source.
+  # Retry once with a synthesized schema for every scan: the relation's
+  # own columns plus every column name the SQL references, which covers
+  # whatever a projection above the scan reads from it.
+  if (needs_scan_schema(result) && length(rw$scans) > 0) {
+    referenced <- as.character(m$list_columns(rw$sql, dialect = "duckdb"))
     synthesized <- stats::setNames(
-      rep(list(rel_names), length(rw$scans)),
+      rep(list(unique(c(rel_names, referenced))), length(rw$scans)),
       rw$scans
     )
     result <- m$extract_lineage(
@@ -181,6 +189,25 @@ extract_lineage_from_duckplyr <- function(x, include_indirect = FALSE,
     )
   }
   out
+}
+
+#' Did a star reach a scan with no schema?
+#' @noRd
+needs_scan_schema <- function(result) {
+  if (length(result$columns) == 0) {
+    return(TRUE)
+  }
+  any(vapply(
+    result$columns,
+    function(col) {
+      any(vapply(
+        col$sources,
+        function(s) identical(s$column_name, "*"),
+        logical(1)
+      ))
+    },
+    logical(1)
+  ))
 }
 
 #' Rename output columns from the relation's names to the frame's
@@ -304,6 +331,9 @@ rewrite_duckplyr_sql <- function(sql) {
   )
   sql <- gsub("___coalesce\\(", "coalesce(", sql)
   sql <- gsub("\\bn\\(\\)", "count(*)", sql)
+  # Window aggregates render bare: mean(x) OVER (...), count_star() OVER ()
+  sql <- gsub("\\bmean\\(", "avg(", sql)
+  sql <- gsub("\\bcount_star\\(\\)", "count(*)", sql)
 
   list(sql = sql, scans = scans, files = files)
 }

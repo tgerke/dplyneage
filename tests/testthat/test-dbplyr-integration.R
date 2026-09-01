@@ -126,12 +126,23 @@ test_that("the engines agree on window functions with include_indirect", {
   skip_if_no_db_stack()
   con <- local_duckdb()
 
-  # Single-SELECT shapes only. One known asymmetry is out of scope:
-  # dbplyr-generated subqueries hit the sqlglot engine's derived-table
-  # skip in _indirect_refs. Transformation kinds are not compared either:
-  # sqlglot classifies from rendered SQL (LAG and cumulative SUM are
-  # AggFunc there) while the R engine classifies from the dplyr verb.
+  # Includes dbplyr's nested-select shapes: the sqlglot engine resolves
+  # clauses on a derived table back to the base columns behind them.
+  # Transformation kinds are not compared: sqlglot classifies from
+  # rendered SQL (LAG and cumulative SUM are AggFunc there) while the R
+  # engine classifies from the dplyr verb.
   queries <- list(
+    filter_on_derived = dplyr::tbl(con, "orders") |>
+      dplyr::mutate(bumped = amount + 1) |>
+      dplyr::filter(bumped > 5),
+    group_on_derived = dplyr::tbl(con, "orders") |>
+      dplyr::mutate(bucket = amount > 5) |>
+      dplyr::group_by(bucket) |>
+      dplyr::summarise(
+        n = dplyr::n(),
+        first = min(order_id, na.rm = TRUE),
+        .groups = "drop"
+      ),
     windowed = dplyr::tbl(con, "orders") |>
       dplyr::group_by(customer_id) |>
       dbplyr::window_order(order_date) |>

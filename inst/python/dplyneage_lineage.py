@@ -9,6 +9,7 @@ from sqlglot import exp, parse_one
 from sqlglot.errors import SqlglotError
 from sqlglot.lineage import lineage
 from sqlglot.optimizer.qualify import qualify
+from sqlglot.optimizer.scope import Scope, traverse_scope
 
 
 def _table_name(table):
@@ -57,6 +58,12 @@ def _normalize_schema(schema):
 
 def _cte_names(expression):
     return {cte.alias_or_name for cte in expression.find_all(exp.CTE)}
+
+
+def list_columns(sql, dialect="duckdb"):
+    """Return the distinct column names referenced anywhere in a query."""
+    parsed = parse_one(sql, dialect=dialect)
+    return sorted({col.name for col in parsed.find_all(exp.Column) if col.name})
 
 
 def list_tables(sql, dialect="duckdb"):
@@ -196,54 +203,100 @@ def _computed_kind(node, dialect):
     return best
 
 
-def _indirect_refs(qualified, dialect):
-    """Columns referenced in WHERE/HAVING/JOIN ON/GROUP BY/ORDER BY.
+def _resolve_column(scope, col, seen):
+    """Base-table (table, column) pairs behind one column reference."""
+    source = scope.sources.get(col.table)
+    if isinstance(source, exp.Table):
+        return [(_table_name(source), col.name)]
+    if isinstance(source, Scope):
+        return _scope_output_sources(source, col.name, seen)
+    return []
 
-    These shape the result without appearing in it (OpenLineage's
-    "indirect" lineage). Works on the qualified tree so column references
-    carry a table alias; the alias map covers every table in the tree, so
-    filters inside CTE bodies attribute to their base tables. Columns that
-    resolve to a CTE itself (an outer query filtering on a CTE output) are
-    skipped rather than mis-attributed.
-    """
-    ctes = _cte_names(qualified)
-    alias_to_table = {}
-    for table in qualified.find_all(exp.Table):
-        name = _table_name(table)
-        alias_to_table[table.alias_or_name] = name
-        alias_to_table.setdefault(name, name)
 
+def _scope_output_sources(scope, name, seen):
+    """Base-table columns behind output column `name` of a derived table,
+    CTE, or set-operation scope, following nested scopes recursively."""
+    key = (id(scope), name)
+    if key in seen:
+        return []
+    seen.add(key)
+    if scope.union_scopes:
+        pairs = []
+        for branch in scope.union_scopes:
+            pairs.extend(_scope_output_sources(branch, name, seen))
+        return pairs
+    for item in scope.expression.selects:
+        if item.alias_or_name == name:
+            pairs = []
+            for col in item.find_all(exp.Column):
+                pairs.extend(_resolve_column(scope, col, seen))
+            return pairs
+    return []
+
+
+def _scope_containers(scope):
+    """(node, kind) pairs for the clauses of one scope that shape its
+    result without projecting: WHERE/HAVING (filter), GROUP BY (group_by),
+    ORDER BY and window ORDER BY (sort), JOIN ON (join). ORDER BY inside
+    WITHIN GROUP is an argument of an ordered-set aggregate, already a
+    direct source, and is not a window, so it is never collected."""
+    expr = scope.expression
     containers = []
-    for where in qualified.find_all(exp.Where):
-        containers.append((where, "filter"))
-    for having in qualified.find_all(exp.Having):
-        containers.append((having, "filter"))
-    for group in qualified.find_all(exp.Group):
-        containers.append((group, "group_by"))
-    for order in qualified.find_all(exp.Order):
-        # ORDER BY inside WITHIN GROUP (ordered-set aggregates such as
-        # percentile_cont) is an argument of the aggregate, not a result
-        # ordering; lineage() already reports the column as a direct source.
-        if order.find_ancestor(exp.WithinGroup):
-            continue
-        containers.append((order, "sort"))
-    for join in qualified.find_all(exp.Join):
+    for key, kind in (
+        ("where", "filter"),
+        ("having", "filter"),
+        ("group", "group_by"),
+        ("order", "sort"),
+    ):
+        node = expr.args.get(key)
+        if node is not None:
+            containers.append((node, kind))
+    for join in expr.args.get("joins") or []:
         on = join.args.get("on")
         if on is not None:
             containers.append((on, "join"))
+    for window in expr.find_all(exp.Window):
+        order = window.args.get("order")
+        if order is not None and window.find_ancestor(exp.Select) is expr:
+            containers.append((order, "sort"))
+    return containers
 
+
+def _indirect_refs(qualified, dialect):
+    """Columns referenced in WHERE/HAVING/JOIN ON/GROUP BY/ORDER BY, window
+    ORDER BY included, resolved to base tables.
+
+    These shape the result without appearing in it (OpenLineage's
+    "indirect" lineage). Each scope's clauses resolve through that scope's
+    own sources: a base table attributes directly, and a derived table or
+    CTE is followed to the base columns behind the referenced output
+    column, so a filter on a computed column lands on the columns it was
+    computed from rather than on a phantom column of the base table.
+    """
+    try:
+        scopes = traverse_scope(qualified)
+    except SqlglotError:
+        return []
     refs = []
     seen = set()
-    for node, kind in containers:
-        for col in node.find_all(exp.Column):
-            table = alias_to_table.get(col.table)
-            if not table or col.table in ctes or table in ctes:
-                continue
-            key = (table, col.name, kind)
-            if key in seen:
-                continue
-            seen.add(key)
-            refs.append({"table": table, "column_name": col.name, "kind": kind})
+    for scope in scopes:
+        expr = scope.expression
+        if not isinstance(expr, exp.Select):
+            continue
+        for node, kind in _scope_containers(scope):
+            for col in node.find_all(exp.Column):
+                # Columns of a subquery nested in the clause belong to
+                # that subquery's scope, which is visited on its own
+                if col.find_ancestor(exp.Select) is not expr:
+                    continue
+                for table, column in _resolve_column(scope, col, set()):
+                    key = (table, column, kind)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    refs.append(
+                        {"table": table, "column_name": column, "kind": kind}
+                    )
     return refs
 
 

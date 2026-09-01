@@ -125,7 +125,7 @@ classify_dt_expression <- function(e) {
 dt_uses_groups <- function(exprs) {
   group_sensitive <- c(
     r_aggregate_funs, dt_aggregate_names,
-    "cumsum", "cummean", "cummax", "cummin", "shift", "frank", ".I"
+    "cumsum", "cummean", "cummax", "cummin", "shift", "frank", ".I", ".SD"
   )
   any(vapply(
     exprs,
@@ -253,7 +253,10 @@ lineage_walk.dtplyr_step_subset <- function(qry, con, collector = NULL) {
     return(dt_align_vars(inner, qry[["vars"]], "subset"))
   }
 
-  if (length(groups) > 0) {
+  # As in the mutate step, keys are indirect sources only when j depends
+  # on the grouping; a grouped transmute of row-wise expressions yields
+  # what the ungrouped one does
+  if (length(groups) > 0 && dt_uses_groups(list(j))) {
     note_indirect(collector, "group_by", groups, inner)
   }
   map <- dt_parse_j(j, inner)

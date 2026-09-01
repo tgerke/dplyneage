@@ -266,6 +266,67 @@ test_that("kinds and expressions survive passthrough projections", {
   )
 })
 
+test_that("indirect columns resolve through derived tables and CTEs", {
+  skip_if_no_sqlglot()
+
+  # dbplyr's shape for mutate() then filter(): the WHERE names a column
+  # of the derived table, which resolves to the columns it was computed
+  # from rather than to a phantom base column
+  nested <- extract_lineage(
+    "SELECT * FROM (SELECT *, a + b AS t FROM df) AS q01 WHERE t > 30",
+    schema = list(df = c("a", "b", "g")),
+    include_indirect = TRUE
+  )
+  edges <- lineage_edges(nested)
+  expect_setequal(
+    unique(edges[edges$transformation == "filter", "source_column"]),
+    c("a", "b")
+  )
+  expect_identical(node_columns(nested, "df"), c("a", "b", "g"))
+
+  # GROUP BY on a derived table's column
+  grouped <- extract_lineage(
+    "SELECT g, SUM(t) AS s
+     FROM (SELECT g, a + b AS t FROM df) AS q01 GROUP BY g",
+    schema = list(df = c("a", "b", "g")),
+    include_indirect = TRUE
+  )
+  edges <- lineage_edges(grouped)
+  expect_identical(
+    edges[edges$transformation == "group_by", "source_column"],
+    "g"
+  )
+
+  # A filter on a CTE's aggregate lands on the aggregated column
+  cte <- extract_lineage("
+    WITH r AS (
+      SELECT customer_id, SUM(amount) AS total FROM orders GROUP BY customer_id
+    )
+    SELECT customer_id FROM r WHERE total > 100
+  ", include_indirect = TRUE)
+  edges <- lineage_edges(cte)
+  expect_identical(
+    unique(edges[edges$transformation == "filter", "source_column"]),
+    "amount"
+  )
+
+  # A window's ORDER BY is a sort dependency of the other columns; the
+  # OVER clause's columns are direct sources of the windowed one
+  windowed <- extract_lineage(
+    "SELECT a, SUM(b) OVER (PARTITION BY g ORDER BY d) AS run FROM df",
+    schema = list(df = c("a", "b", "g", "d")),
+    include_indirect = TRUE
+  )
+  edges <- lineage_edges(windowed)
+  expect_identical(
+    unique(edges[edges$transformation == "sort", "source_column"]),
+    "d"
+  )
+  run <- edges[edges$target_column == "run", ]
+  expect_setequal(run$source_column, c("b", "g", "d"))
+  expect_identical(unique(run$transformation), "aggregation")
+})
+
 test_that("dialect is forwarded to sqlglot", {
   skip_if_no_sqlglot()
 

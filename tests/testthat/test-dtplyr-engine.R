@@ -243,6 +243,20 @@ test_that("filtering on a derived column resolves through to its bases", {
 
 # --- summarise and grouping -------------------------------------------
 
+test_that("a grouped transmute of row-wise expressions adds no key edges", {
+  skip_if_no_dtplyr_engine()
+
+  lineage <- orders_ldt() |>
+    dplyr::group_by(customer_id) |>
+    dplyr::transmute(doubled = amount * 2) |>
+    extract_lineage(include_indirect = TRUE)
+
+  expect_edges(lineage, c(
+    "orders.customer_id -> customer_id",
+    "orders.amount -> doubled"
+  ))
+})
+
 test_that("group_by + summarise classifies aggregates and keeps keys", {
   skip_if_no_dtplyr_engine()
 

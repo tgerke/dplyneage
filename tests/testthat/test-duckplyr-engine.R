@@ -383,6 +383,60 @@ test_that("engine choices route and refuse correctly", {
   )
 })
 
+test_that("window functions classify as aggregates without helper columns", {
+  skip_if_no_duckplyr_engine()
+
+  # duckplyr renders mean() OVER (PARTITION BY g) and orders the result
+  # by a ___row_number helper column; the helper never reaches the graph
+  lineage <- points_ddt() |>
+    dplyr::mutate(m = mean(x, na.rm = TRUE), .by = g) |>
+    extract_lineage(include_indirect = TRUE)
+
+  expect_edges(lineage, c(
+    "df.x -> x",
+    "df.g -> g",
+    "df.x -> m",
+    "df.g -> m"
+  ))
+  m_edge <- Filter(
+    function(e) identical(e$targetHandle, "m"),
+    lineage$edges
+  )[[1]]
+  expect_identical(m_edge$data$transformation, "aggregation")
+  expect_identical(node_columns(lineage, "df"), c("g", "x"))
+})
+
+test_that("filters before and after a mutate resolve to real columns", {
+  skip_if_no_duckplyr_engine()
+
+  # A filter below the projection leaves a star over the nameless scan;
+  # the retry schema covers the columns the projection reads
+  before <- points_ddt() |>
+    dplyr::filter(x > 1) |>
+    dplyr::mutate(z = x + 1) |>
+    extract_lineage(include_indirect = TRUE)
+  expect_edges(before, c(
+    "df.x -> x",
+    "df.g -> g",
+    "df.x -> z",
+    "df.x -> g"
+  ))
+
+  # A filter on the computed column resolves through the derived table
+  # to the column it was computed from, not to a phantom df.z
+  after <- points_ddt() |>
+    dplyr::mutate(z = x + 1) |>
+    dplyr::filter(z > 2) |>
+    extract_lineage(include_indirect = TRUE)
+  expect_edges(after, c(
+    "df.x -> x",
+    "df.g -> g",
+    "df.x -> z",
+    "df.x -> g"
+  ))
+  expect_identical(node_columns(after, "df"), c("g", "x"))
+})
+
 test_that("renames applied to the frame's names map onto the relation", {
   skip_if_no_duckplyr_engine()
 
