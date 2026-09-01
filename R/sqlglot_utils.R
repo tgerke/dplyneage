@@ -83,11 +83,16 @@
 #'   metadata but changes nothing about the analysis.
 #' @param schema Optional table schema used by the sqlglot engine to
 #'   attribute unqualified columns to the right table and to expand
-#'   `SELECT *`: a named list mapping table names to character vectors of
-#'   column names, e.g. `list(orders = c("order_id", "amount"))`. Only
-#'   relevant for SQL strings: the R engine reads exact provenance from
-#'   the lazy query tree, and a lazy table that falls back to sqlglot
-#'   harvests its schema from the database connection automatically.
+#'   `SELECT *`: a named list mapping table names to character vectors
+#'   of column names, e.g. `list(orders = c("order_id", "amount"))`. A
+#'   typed form also works, mapping column names to type strings
+#'   (`list(orders = c(order_id = "INTEGER", amount = "DOUBLE"))`);
+#'   the types then show as column tooltips, the same way a harvested
+#'   database schema's do. Mainly relevant for SQL strings: the R
+#'   walkers read exact provenance from the query tree, a dbplyr table
+#'   that falls back to sqlglot harvests its schema from the database
+#'   connection automatically, and duckplyr frames harvest file-reader
+#'   schemas themselves (entries given here win).
 #' @param labels Optional human-readable column labels: a named list
 #'   mapping node ids to named character vectors, e.g.
 #'   `list(orders = c(amount = "Order amount in USD"))`. Node ids are
@@ -210,6 +215,7 @@ extract_lineage <- function(sql, dialect = NULL, schema = NULL, labels = NULL,
 extract_lineage_data <- function(sql, dialect, schema, labels, show_sql, engine,
                                  include_indirect = FALSE) {
   kind <- lineage_input_kind(sql)
+  schema <- normalize_schema_arg(schema)
   if (!kind %in% c("dbplyr", "sql")) {
     return(extract_lineage_data_native(
       kind, sql, dialect, schema, labels, show_sql, engine, include_indirect
@@ -603,6 +609,30 @@ spec_types <- function(column_types, table, columns) {
   }
   hit <- types[intersect(as.character(columns), names(types))]
   if (length(hit) == 0) NULL else hit
+}
+
+#' Make schema= entries survive the trip to Python
+#'
+#' reticulate converts a named character vector to a bare Python list,
+#' dropping the names: a typed entry like `c(oid = "BIGINT")` would
+#' arrive as a table whose only column is literally named "BIGINT",
+#' and every reference in the query would fail to bind (empty
+#' sources). Named lists convert to dicts, so typed entries are
+#' re-wrapped; bare column-name vectors pass through untouched.
+#' @noRd
+normalize_schema_arg <- function(schema) {
+  if (is.null(schema)) {
+    return(NULL)
+  }
+  lapply(schema, function(cols) {
+    if (
+      is.atomic(cols) && !is.null(names(cols)) && all(nzchar(names(cols)))
+    ) {
+      as.list(cols)
+    } else {
+      cols
+    }
+  })
 }
 
 #' Validate and normalize labels= to {table: named chr of col -> label}

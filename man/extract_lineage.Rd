@@ -45,11 +45,16 @@ metadata but changes nothing about the analysis.}
 
 \item{schema}{Optional table schema used by the sqlglot engine to
 attribute unqualified columns to the right table and to expand
-\verb{SELECT *}: a named list mapping table names to character vectors of
-column names, e.g. \code{list(orders = c("order_id", "amount"))}. Only
-relevant for SQL strings: the R engine reads exact provenance from
-the lazy query tree, and a lazy table that falls back to sqlglot
-harvests its schema from the database connection automatically.}
+\verb{SELECT *}: a named list mapping table names to character vectors
+of column names, e.g. \code{list(orders = c("order_id", "amount"))}. A
+typed form also works, mapping column names to type strings
+(\code{list(orders = c(order_id = "INTEGER", amount = "DOUBLE"))});
+the types then show as column tooltips, the same way a harvested
+database schema's do. Mainly relevant for SQL strings: the R
+walkers read exact provenance from the query tree, a dbplyr table
+that falls back to sqlglot harvests its schema from the database
+connection automatically, and duckplyr frames harvest file-reader
+schemas themselves (entries given here win).}
 
 \item{labels}{Optional human-readable column labels: a named list
 mapping node ids to named character vectors, e.g.

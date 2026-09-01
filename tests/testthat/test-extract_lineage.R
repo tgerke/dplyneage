@@ -31,6 +31,29 @@ test_that("simple single-table select", {
   expect_identical(lineage$metadata$dialect, "duckdb")
 })
 
+test_that("typed schemas bind columns and carry their types", {
+  skip_if_no_sqlglot()
+
+  # A named vector maps columns to types. reticulate turns named
+  # atomic vectors into bare Python lists (names dropped), so without
+  # normalize_schema_arg() this schema would arrive as a table whose
+  # only columns are the type strings, and every source would be empty
+  lineage <- extract_lineage(
+    "SELECT c.name, order_date FROM customers AS c JOIN orders AS o ON c.id = o.customer_id",
+    schema = list(
+      customers = c(id = "INTEGER", name = "VARCHAR"),
+      orders = c(customer_id = "INTEGER", order_date = "DATE")
+    )
+  )
+
+  expect_edges(lineage, c(
+    "customers.name -> name",
+    "orders.order_date -> order_date"
+  ))
+  orders_node <- Filter(function(n) n$id == "orders", lineage$nodes)[[1]]
+  expect_identical(orders_node$data$columnTypes$order_date, "DATE")
+})
+
 test_that("unqualified columns in a join resolve via schema", {
   skip_if_no_sqlglot()
 

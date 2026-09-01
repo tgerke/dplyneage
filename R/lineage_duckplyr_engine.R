@@ -268,11 +268,12 @@ merge_schemas <- function(...) {
 
 #' DESCRIBE file scans and compute() temp tables on duckplyr's connection
 #'
-#' Returns `schema` (table -> bare column-name vector: sqlglot lineage
-#' loses source attribution when handed col-to-type dicts, so types
-#' never go into the binding schema) and the typed `column_types`. The
-#' schema is keyed by the synthesized in-SQL identifier; `column_types`
-#' by the real path, which is what the lineage carries after
+#' Returns `schema` (table -> bare column-name vector; binding only
+#' needs names, and the typed form would need the named-list wrapping
+#' normalize_schema_arg() does — see that helper for the reticulate
+#' name-dropping trap) and the typed `column_types`. The schema is
+#' keyed by the synthesized in-SQL identifier; `column_types` by the
+#' real path, which is what the lineage carries after
 #' restore_table_case(). Everything is tryCatch-wrapped: schema
 #' harvesting must never break extraction.
 #' @noRd
