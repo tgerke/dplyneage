@@ -184,6 +184,20 @@ walker cannot trace (e.g. raw SQL injected with <code><a href="https://dbplyr.ti
 falls back to sqlglot automatically; dtplyr and arrow pipelines
 compile to data.table code and Acero plans rather than SQL, so an
 untraceable construct there is an error instead.</p>
+<p>Every engine traces the same verbs. <code><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select()</a></code>, <code><a href="https://dplyr.tidyverse.org/reference/rename.html" class="external-link">rename()</a></code>, and
+<code><a href="https://dplyr.tidyverse.org/reference/relocate.html" class="external-link">relocate()</a></code> draw identity edges to the new name and position.
+<code><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate()</a></code> and <code><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute()</a></code> draw an edge from every column an
+expression reads, whether the expression arrives through <code><a href="https://dplyr.tidyverse.org/reference/across.html" class="external-link">across()</a></code>,
+refers to a column defined earlier in the same call, overwrites its
+own input, or runs per group with <code>.by</code>; <code><a href="https://dplyr.tidyverse.org/reference/summarise.html" class="external-link">summarise()</a></code>, joins, set
+operations, <code><a href="https://dplyr.tidyverse.org/reference/distinct.html" class="external-link">distinct()</a></code>, and window functions resolve the same way,
+since each walker reads the compiled form its backend produced rather
+than the verbs. What a backend refuses fails before lineage runs:
+<code><a href="https://dplyr.tidyverse.org/reference/rowwise.html" class="external-link">rowwise()</a></code> has no lazy method anywhere, dbplyr and dtplyr reject
+<code>across(where(...))</code>, arrow rejects anonymous functions inside
+<code><a href="https://dplyr.tidyverse.org/reference/across.html" class="external-link">across()</a></code>, and duckplyr falls back to eager dplyr for grouped
+<code><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate()</a></code> and for functions it cannot translate (see
+<code><a href="../articles/getting-started.html">vignette("getting-started")</a></code>).</p>
 <p>Source nodes take their names from the backend: table paths for
 dbplyr, the <code>name</code> given to <code><a href="https://dtplyr.tidyverse.org/reference/lazy_dt.html" class="external-link">dtplyr::lazy_dt()</a></code> (auto-named <code>_DT1</code>,
 <code>_DT2</code>, ... otherwise, so passing <code>name</code> is worthwhile), and file
@@ -257,7 +271,7 @@ CTEs and multi-source columns.</p></div>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbConnect.html" class="external-link">dbConnect</a></span><span class="op">(</span><span class="fu">duckdb</span><span class="fu">::</span><span class="fu"><a href="https://r.duckdb.org/reference/duckdb.html" class="external-link">duckdb</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> duckdb keeps downloaded extensions and secrets in a temporary directory:</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB;">ℹ</span> /tmp/RtmpVvSiRi/duckdb</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB;">ℹ</span> /tmp/RtmpoYKGmR/duckdb</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> This is removed when the R session ends.</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">•</span> Extensions are re-downloaded each session.</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">•</span> Secrets are lost.</span>

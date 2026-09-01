@@ -145,6 +145,33 @@ falls back to sqlglot automatically; dtplyr and arrow pipelines compile
 to data.table code and Acero plans rather than SQL, so an untraceable
 construct there is an error instead.
 
+Every engine traces the same verbs.
+[`select()`](https://dplyr.tidyverse.org/reference/select.html),
+[`rename()`](https://dplyr.tidyverse.org/reference/rename.html), and
+[`relocate()`](https://dplyr.tidyverse.org/reference/relocate.html) draw
+identity edges to the new name and position.
+[`mutate()`](https://dplyr.tidyverse.org/reference/mutate.html) and
+[`transmute()`](https://dplyr.tidyverse.org/reference/transmute.html)
+draw an edge from every column an expression reads, whether the
+expression arrives through
+[`across()`](https://dplyr.tidyverse.org/reference/across.html), refers
+to a column defined earlier in the same call, overwrites its own input,
+or runs per group with `.by`;
+[`summarise()`](https://dplyr.tidyverse.org/reference/summarise.html),
+joins, set operations,
+[`distinct()`](https://dplyr.tidyverse.org/reference/distinct.html), and
+window functions resolve the same way, since each walker reads the
+compiled form its backend produced rather than the verbs. What a backend
+refuses fails before lineage runs:
+[`rowwise()`](https://dplyr.tidyverse.org/reference/rowwise.html) has no
+lazy method anywhere, dbplyr and dtplyr reject `across(where(...))`,
+arrow rejects anonymous functions inside
+[`across()`](https://dplyr.tidyverse.org/reference/across.html), and
+duckplyr falls back to eager dplyr for grouped
+[`mutate()`](https://dplyr.tidyverse.org/reference/mutate.html) and for
+functions it cannot translate (see
+[`vignette("getting-started")`](https://tgerke.github.io/dplyneage/articles/getting-started.md)).
+
 Source nodes take their names from the backend: table paths for dbplyr,
 the `name` given to
 [`dtplyr::lazy_dt()`](https://dtplyr.tidyverse.org/reference/lazy_dt.html)
@@ -225,7 +252,7 @@ library(dplyr)
 
 con <- DBI::dbConnect(duckdb::duckdb())
 #> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/RtmpVvSiRi/duckdb
+#> ℹ /tmp/RtmpoYKGmR/duckdb
 #> This is removed when the R session ends.
 #> • Extensions are re-downloaded each session.
 #> • Secrets are lost.

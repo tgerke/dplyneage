@@ -7,6 +7,65 @@ package against current column-level lineage tooling (SQLMesh, dbt,
 sqlglot, OpenLineage). The remaining roadmap from the audit is filed as
 tiered issues on GitHub.
 
+- The sqlglot engine (raw SQL, the dbplyr fallback, and every duckplyr
+  frame) classifies a column by the outermost hop that computes it, with
+  identity hops transparent, the rule the R walkers already applied. A
+  computed column read back through a wrapper (dbplyr’s nested selects
+  for chained
+  [`mutate()`](https://dplyr.tidyverse.org/reference/mutate.html) calls,
+  the `SELECT *` duckplyr adds after every later verb, a CTE selected by
+  name) used to come out `identity` with the bare column as its
+  expression, which also let labels and types propagate across it as if
+  it were a passthrough. Set-operation branches take the strongest kind.
+
+- Indirect columns resolve through derived tables and CTEs on the
+  sqlglot engine. A
+  [`filter()`](https://dplyr.tidyverse.org/reference/filter.html),
+  [`group_by()`](https://dplyr.tidyverse.org/reference/group_by.html),
+  or [`arrange()`](https://dplyr.tidyverse.org/reference/arrange.html)
+  on a column a
+  [`mutate()`](https://dplyr.tidyverse.org/reference/mutate.html)
+  computed was either skipped (the dbplyr fallback) or, on duckplyr,
+  attributed to a phantom column of the base table; it now lands on the
+  columns the computed one was built from. On duckplyr, the
+  `___row_number` ordering helper no longer leaks as a sort source, bare
+  window spellings (`mean(x) OVER`, `count_star() OVER`) classify as
+  aggregations, and a
+  [`filter()`](https://dplyr.tidyverse.org/reference/filter.html) before
+  a [`mutate()`](https://dplyr.tidyverse.org/reference/mutate.html) on
+  an in-memory frame no longer traces every column to `*`.
+
+- duckplyr lineage reports the frame’s column names after
+  [`rename_with()`](https://dplyr.tidyverse.org/reference/rename.html)
+  or `names<-`, which set names on the frame while the duckdb relation
+  kept projecting the old ones. When duckplyr has run a verb eagerly
+  because it cannot translate it, the error now says so and points at
+  `DUCKPLYR_FALLBACK_INFO` to find the step, instead of suggesting the
+  frame be re-created.
+
+- dtplyr records grouping keys as indirect sources of a
+  [`transmute()`](https://dplyr.tidyverse.org/reference/transmute.html)
+  only when its expressions depend on the grouping, as the mutate step
+  already did and as the other engines do.
+
+- The mutate family is pinned by one shared table of shapes run on all
+  five paths:
+  [`mutate()`](https://dplyr.tidyverse.org/reference/mutate.html) in its
+  argument forms,
+  [`transmute()`](https://dplyr.tidyverse.org/reference/transmute.html),
+  [`across()`](https://dplyr.tidyverse.org/reference/across.html) with
+  formulas, `.names`, function lists, and tidyselect helpers, references
+  within one call, overwrites, conditionals, renames and relocates,
+  chains through
+  [`select()`](https://dplyr.tidyverse.org/reference/select.html),
+  [`summarise()`](https://dplyr.tidyverse.org/reference/summarise.html),
+  and [`filter()`](https://dplyr.tidyverse.org/reference/filter.html),
+  and the windowed shapes. A shape a backend cannot run asserts that
+  backend’s error rather than skipping.
+  [`?extract_lineage`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
+  now lists what every engine traces, and the getting-started vignette
+  gains a section on computed columns.
+
 - [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
   reads three more lazy backends. dtplyr `lazy_dt()` pipelines and arrow
   queries are walked natively in R, covering the translated expression

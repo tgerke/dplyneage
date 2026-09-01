@@ -105,15 +105,16 @@
 <span>    total_spent <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">amount</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
 <span>    .groups <span class="op">=</span> <span class="st">"drop"</span></span>
 <span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>avg_order <span class="op">=</span> <span class="va">total_spent</span> <span class="op">/</span> <span class="va">total_orders</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"600px"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="reference/figures/README-unnamed-chunk-3-1.png" alt="Column-level lineage diagram with the customers and orders tables on the left and the summarised output table on the right, with edges tracing each output column back to its source columns"></p>
+<p><img src="reference/figures/README-unnamed-chunk-3-1.png" alt="Column-level lineage diagram with the customers and orders tables on the left and the summarised output table on the right, with edges tracing each output column, including the derived avg_order column, back to its source columns"></p>
 <p>Behind that one pipe, <code><a href="reference/extract_lineage.html">extract_lineage()</a></code>:</p>
 <ul>
 <li>walks the pipeline’s lazy query tree in pure R, tracing every output column to its source columns (joins, aggregations, unions, and multi-source computed columns all resolve exactly)</li>
 <li>falls back to sqlglot’s lineage engine when the pipeline injects raw SQL with <code><a href="https://dbplyr.tidyverse.org/reference/sql.html" class="external-link">dbplyr::sql()</a></code>, or when you pass a SQL string directly (that path handles aliases, CTEs, and subqueries, and reads table schemas from your connection so unqualified columns attribute correctly)</li>
 </ul>
-<p>The resulting diagram is fully interactive: drag tables to rearrange, zoom and pan, and hover columns to highlight their connections; when a column’s type or label was captured, the hover also shows a small card with both. Click a column and the diagram isolates its trace cone (everything upstream and downstream of that column) until you click again or press Escape. Computed columns carry their defining expression as an edge label, and aggregation edges animate. <code><a href="reference/lineage_flow.html">lineage_flow()</a></code> also takes <code>theme = "dark"</code> (or <code>"auto"</code>), <code>minimap = TRUE</code> for an overview map, and a PNG download button lives in the zoom controls.</p>
+<p>The resulting diagram is fully interactive: drag tables to rearrange, zoom and pan, and hover columns to highlight their connections; when a column’s type or label was captured, the hover also shows a small card with both. Click a column and the diagram isolates its trace cone (everything upstream and downstream of that column) until you click again or press Escape. Computed columns carry their defining expression as an edge label (<code>avg_order</code> here, which traces through the two aggregates it divides back to <code>orders.amount</code> and <code>orders.order_id</code>), and aggregation edges animate. <code><a href="reference/lineage_flow.html">lineage_flow()</a></code> also takes <code>theme = "dark"</code> (or <code>"auto"</code>), <code>minimap = TRUE</code> for an overview map, and a PNG download button lives in the zoom controls.</p>
 </div>
 <div class="section level2">
 <h2 id="local-data-frames">Local data frames<a class="anchor" aria-label="anchor" href="#local-data-frames"></a>
@@ -243,6 +244,7 @@
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"customers"</span><span class="op">)</span>, by <span class="op">=</span> <span class="st">"customer_id"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">customer_id</span>, <span class="va">first_name</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/summarise.html" class="external-link">summarise</a></span><span class="op">(</span>total_spent <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">amount</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, .groups <span class="op">=</span> <span class="st">"drop"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>big_spender <span class="op">=</span> <span class="va">total_spent</span> <span class="op">&gt;</span> <span class="fl">400</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="reference/lineage_edges.html">lineage_edges</a></span><span class="op">(</span><span class="va">lineage</span><span class="op">)</span></span>
@@ -250,10 +252,12 @@
 <span><span class="co">#&gt; 1       orders   customer_id       output   customer_id       identity</span></span>
 <span><span class="co">#&gt; 2    customers    first_name       output    first_name       identity</span></span>
 <span><span class="co">#&gt; 3       orders        amount       output   total_spent    aggregation</span></span>
+<span><span class="co">#&gt; 4       orders        amount       output   big_spender transformation</span></span>
 <span><span class="co">#&gt;                  expression</span></span>
 <span><span class="co">#&gt; 1               customer_id</span></span>
 <span><span class="co">#&gt; 2                first_name</span></span>
 <span><span class="co">#&gt; 3 sum(amount, na.rm = TRUE)</span></span>
+<span><span class="co">#&gt; 4         total_spent &gt; 400</span></span>
 <span></span>
 <span><span class="fu"><a href="reference/lineage_upstream.html">lineage_upstream</a></span><span class="op">(</span><span class="va">lineage</span>, <span class="st">"output.total_spent"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "orders.amount"</span></span></code></pre></div>
@@ -267,14 +271,14 @@
 <span><span class="co">#&gt;     "engine": "r",</span></span>
 <span><span class="co">#&gt;     "models": {</span></span>
 <span><span class="co">#&gt;       "output": {</span></span>
-<span><span class="co">#&gt;         "sql": "SELECT customer_id, first_name, SUM(amount) AS total_spent\nFROM (\n  SELECT orders.*, first_name, last_name, email\n  FROM orders\n  LEFT JOIN customers\n    ON (orders.customer_id = customers.customer_id)\n) AS q01\nGROUP BY customer_id, first_name",</span></span>
+<span><span class="co">#&gt;         "sql": "SELECT *, total_spent &gt; 400.0 AS big_spender\nFROM (\n  SELECT customer_id, first_name, SUM(amount) AS total_spent\n  FROM (\n    SELECT orders.*, first_name, last_name, email\n    FROM orders\n    LEFT JOIN customers\n      ON (orders.customer_id = customers.customer_id)\n  ) AS q01\n  GROUP BY customer_id, first_name\n) AS q01",</span></span>
 <span><span class="co">#&gt;         "engine": "r",</span></span>
 <span><span class="co">#&gt;         "dialect": "duckdb",</span></span>
 <span><span class="co">#&gt;         "namespace": "duckdb"</span></span>
 <span><span class="co">#&gt;       }</span></span>
 <span><span class="co">#&gt;     },</span></span>
 <span><span class="co">#&gt;     "node_count": 3,</span></span>
-<span><span class="co">#&gt;     "edge_count": 3</span></span>
+<span><span class="co">#&gt;     "edge_count": 4</span></span>
 <span><span class="co">#&gt;   },</span></span>
 <span><span class="co">#&gt;   "nodes": [</span></span>
 <span><span class="co">#&gt;     {</span></span>
@@ -290,7 +294,7 @@
 <span><span class="co">#&gt;     {</span></span>
 <span><span class="co">#&gt;       "id": "output",</span></span>
 <span><span class="co">#&gt;       "type": "target",</span></span>
-<span><span class="co">#&gt;       "columns": ["customer_id", "first_name", "total_spent"]</span></span>
+<span><span class="co">#&gt;       "columns": ["customer_id", "first_name", "total_spent", "big_spender"]</span></span>
 <span><span class="co">#&gt;     }</span></span>
 <span><span class="co">#&gt;   ],</span></span>
 <span><span class="co">#&gt;   "edges": [</span></span>
@@ -317,6 +321,14 @@
 <span><span class="co">#&gt;       "target_column": "total_spent",</span></span>
 <span><span class="co">#&gt;       "transformation": "aggregation",</span></span>
 <span><span class="co">#&gt;       "expression": "sum(amount, na.rm = TRUE)"</span></span>
+<span><span class="co">#&gt;     },</span></span>
+<span><span class="co">#&gt;     {</span></span>
+<span><span class="co">#&gt;       "source": "orders",</span></span>
+<span><span class="co">#&gt;       "source_column": "amount",</span></span>
+<span><span class="co">#&gt;       "target": "output",</span></span>
+<span><span class="co">#&gt;       "target_column": "big_spender",</span></span>
+<span><span class="co">#&gt;       "transformation": "transformation",</span></span>
+<span><span class="co">#&gt;       "expression": "total_spent &gt; 400"</span></span>
 <span><span class="co">#&gt;     }</span></span>
 <span><span class="co">#&gt;   ]</span></span>
 <span><span class="co">#&gt; }</span></span></code></pre></div>
@@ -333,7 +345,7 @@
 <span></span>
 <span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/read_graph.html" class="external-link">read_graph</a></span><span class="op">(</span><span class="va">path</span>, format <span class="op">=</span> <span class="st">"graphml"</span><span class="op">)</span></span>
 <span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"output.total_spent"</span>, mode <span class="op">=</span> <span class="st">"in"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; + 2/6 vertices, named, from 304be66:</span></span>
+<span><span class="co">#&gt; + 2/7 vertices, named, from 3027d2b:</span></span>
 <span><span class="co">#&gt; [1] output.total_spent orders.amount</span></span></code></pre></div>
 <p>For data catalogs, <code><a href="reference/lineage_openlineage.html">lineage_openlineage()</a></code> emits <a href="https://openlineage.io/" class="external-link">OpenLineage</a> events, the interchange format Marquez, DataHub, and OpenMetadata ingest. Dataset namespaces come from the table’s actual connection, schema facets carry column types and descriptions (from <code>label</code> attributes, database comments, or a <code>labels</code> argument), and <code>events = "job"</code> produces the spec’s run-less design-time events, one per model. <code><a href="reference/lineage_emit.html">lineage_emit()</a></code> POSTs any of it to a running backend:</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">

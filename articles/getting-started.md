@@ -103,6 +103,97 @@ hands the whole query to sqlglot instead (with a message). You can also
 force a specific engine with `engine = "r"` or `engine = "sqlglot"`; see
 [`?extract_lineage`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md).
 
+## Computed columns
+
+Most columns in a pipeline are computed rather than selected, and
+[`mutate()`](https://dplyr.tidyverse.org/reference/mutate.html) is where
+that happens. Lineage treats a computed column like any other: its edges
+start at every column the expression reads. This pipeline builds a few
+of them the usual ways: a plain expression, a
+[`case_when()`](https://dplyr.tidyverse.org/reference/case-and-replace-when.html)
+written against a column defined two lines earlier, an
+[`across()`](https://dplyr.tidyverse.org/reference/across.html) that
+names its outputs, and a per-customer share computed with `.by`.
+
+``` r
+
+computed <- tbl(con, "orders") |>
+  mutate(
+    amount_eur = amount * 0.92,
+    tier = case_when(
+      amount_eur >= 180 ~ "large",
+      amount_eur >= 90 ~ "medium",
+      TRUE ~ "small"
+    ),
+    across(c(amount, amount_eur), round, .names = "{.col}_rounded")
+  ) |>
+  mutate(
+    customer_share = amount / sum(amount, na.rm = TRUE),
+    .by = customer_id
+  ) |>
+  extract_lineage()
+
+lineage_flow(computed, height = "400px")
+```
+
+Every new column traces to `orders.amount`, including `tier`, which was
+written against `amount_eur` rather than `amount`: a reference to a
+column defined earlier in the same
+[`mutate()`](https://dplyr.tidyverse.org/reference/mutate.html) resolves
+through it to the source. The two
+[`across()`](https://dplyr.tidyverse.org/reference/across.html) outputs
+each trace to their own input. `customer_share` also draws an edge from
+`customer_id`, because on a SQL backend the `.by` column becomes the
+`PARTITION BY` of a window function and so sits inside the expression
+that computes the share; the [`sum()`](https://rdrr.io/r/base/sum.html)
+in that expression makes the edge an aggregation, which the diagram
+animates.
+
+[`lineage_edges()`](https://tgerke.github.io/dplyneage/reference/lineage_edges.md)
+gives the same lineage as a table, one row per edge, with each computed
+column’s classification and defining expression:
+
+``` r
+
+lineage_edges(computed)
+#>   source_table source_column target_table      target_column transformation
+#> 1       orders      order_id       output           order_id       identity
+#> 2       orders   customer_id       output        customer_id       identity
+#> 3       orders        amount       output             amount       identity
+#> 4       orders        amount       output         amount_eur transformation
+#> 5       orders        amount       output               tier transformation
+#> 6       orders        amount       output     amount_rounded transformation
+#> 7       orders        amount       output amount_eur_rounded transformation
+#> 8       orders        amount       output     customer_share    aggregation
+#> 9       orders   customer_id       output     customer_share    aggregation
+#>                                                                            expression
+#> 1                                                                            order_id
+#> 2                                                                         customer_id
+#> 3                                                                              amount
+#> 4                                                                       amount * 0.92
+#> 5 case_when(amount_eur >= 180 ~ "large", amount_eur >= 90 ~ "medium", TRUE ~ "small")
+#> 6                                                                       round(amount)
+#> 7                                                                   round(amount_eur)
+#> 8                                                    amount/sum(amount, na.rm = TRUE)
+#> 9                                                    amount/sum(amount, na.rm = TRUE)
+```
+
+The rest of the family follows the same rule. Overwriting a column
+(`mutate(amount = amount * 0.92)`) keeps an edge from the source column,
+now classified as a transformation instead of an identity.
+[`transmute()`](https://dplyr.tidyverse.org/reference/transmute.html)
+and `mutate(.keep = "none")` drop the passthrough columns and their
+identity edges with them, and `mutate(x = NULL)` drops one.
+[`rename()`](https://dplyr.tidyverse.org/reference/rename.html) and
+[`relocate()`](https://dplyr.tidyverse.org/reference/relocate.html)
+change nothing about provenance, so their columns keep identity edges to
+the original names. All of this holds on
+[`tbl_lazy()`](https://dbplyr.tidyverse.org/reference/tbl_lazy.html)
+frames, dtplyr, and arrow as well as on a database, with one backend
+difference: data.table and Acero have no window clause, so on dtplyr and
+arrow a `.by` column stays an indirect source (see [Other lazy
+backends](#other-lazy-backends)).
+
 ## Where lineage gets hard
 
 These are the cases that break naive lineage tools. dplyneage handles
@@ -295,12 +386,24 @@ Three backend habits affect the diagram you get:
   grouping keys stay indirect on dtplyr and arrow (dashed `group_by`
   edges under `include_indirect = TRUE`) instead of becoming direct
   sources the way rendered SQL makes them.
-- duckplyr silently hands unsupported verbs (grouped
+- duckplyr hands anything it cannot translate back to eager dplyr
+  without a message:
+  [`group_by()`](https://dplyr.tidyverse.org/reference/group_by.html)
+  followed by
   [`mutate()`](https://dplyr.tidyverse.org/reference/mutate.html),
-  [`rowwise()`](https://dplyr.tidyverse.org/reference/rowwise.html))
-  back to eager dplyr, and the result is a plain tibble with no tree
-  left to read. Prefer `summarise(.by = )` forms, and extract lineage
-  before anything materializes.
+  [`rowwise()`](https://dplyr.tidyverse.org/reference/rowwise.html), and
+  functions with no duckdb translation
+  ([`case_when()`](https://dplyr.tidyverse.org/reference/case-and-replace-when.html),
+  [`paste0()`](https://rdrr.io/r/base/paste.html),
+  [`between()`](https://dplyr.tidyverse.org/reference/between.html), and
+  [`rename_with()`](https://dplyr.tidyverse.org/reference/rename.html)
+  are common ones). The result comes back as an ordinary tibble, or as a
+  duckplyr frame with no relation left behind it, and
+  [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
+  says so either way. `Sys.setenv(DUCKPLYR_FALLBACK_INFO = TRUE)` makes
+  duckplyr name the step that fell back; extract lineage from the step
+  before it, or rewrite it (a `.by` mutate whose aggregates pass
+  `na.rm = TRUE` stays lazy, for instance).
 
 Column labels travel on every backend: `label` attributes survive
 `lazy_dt()` and `arrow_table()`, and arrow schemas contribute column
@@ -518,12 +621,12 @@ g <- igraph::read_graph(path, format = "graphml")
 
 # Everything upstream of total_spent
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from 5d101c1:
+#> + 2/6 vertices, named, from a414072:
 #> [1] output.total_spent orders.amount
 
 # Everything downstream of orders.amount
 igraph::subcomponent(g, "orders.amount", mode = "out")
-#> + 2/6 vertices, named, from 5d101c1:
+#> + 2/6 vertices, named, from a414072:
 #> [1] orders.amount      output.total_spent
 ```
 
