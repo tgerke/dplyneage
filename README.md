@@ -17,11 +17,15 @@ joins, aggregations, CTEs, unions, and computed expressions), then
 renders the result as a draggable, zoomable [React
 Flow](https://reactflow.dev/) diagram with `lineage_flow()`.
 
-dbplyr pipelines are analyzed in pure R by walking their lazy query
-tree, so no Python is involved. Raw SQL goes through
-[sqlglot](https://github.com/tobymao/sqlglot)’s dedicated lineage engine
-instead, which means many dialects (DuckDB, PostgreSQL, Snowflake,
-BigQuery, …) work too.
+dbplyr, [dtplyr](https://dtplyr.tidyverse.org/), and
+[arrow](https://arrow.apache.org/docs/r/) pipelines are analyzed in pure
+R by walking their lazy query trees, so no Python is involved. Raw SQL
+goes through [sqlglot](https://github.com/tobymao/sqlglot)’s dedicated
+lineage engine instead, which means many dialects (DuckDB, PostgreSQL,
+Snowflake, BigQuery, …) work too, and
+[duckplyr](https://duckplyr.tidyverse.org/) frames take the same route:
+their lazy tree lives inside duckdb, so it is rendered to SQL and
+parsed.
 
 ## Installation
 
@@ -29,10 +33,11 @@ BigQuery, …) work too.
 pak::pak("tgerke/dplyneage")
 ```
 
-dbplyr pipelines need no Python at all, not even reticulate. For raw SQL
-input, install the reticulate package once; the Python dependency
-(sqlglot) is then provisioned automatically the first time it’s needed.
-See `vignette("python-integration")` if you manage your own Python
+dbplyr, dtplyr, and arrow pipelines need no Python at all, not even
+reticulate. For raw SQL input and duckplyr frames, install the
+reticulate package once; the Python dependency (sqlglot) is then
+provisioned automatically the first time it’s needed. See
+`vignette("python-integration")` if you manage your own Python
 environment.
 
 ## Usage
@@ -131,15 +136,17 @@ to run it against; lineage never runs the query, so a diagram doesn’t
 need one. To keep the pipeline runnable too, `dbplyr::memdb_frame()`
 builds the data in throwaway in-memory SQLite instead, and
 `copy_to(dbplyr::memdb(), df, name = "df")` does the same for a frame
-you already have. Lineage depends only on the pipeline’s structure,
-never on the data, so copying a slice with `head(df)` yields the same
-diagram as copying every row. Column `label` attributes on the frame
-(the convention haven and labelled use for imported SAS, SPSS, and Stata
-data) ride along too: they show as hover cards in the diagram, propagate
-to downstream columns along identity edges, and become field
-`description`s in the OpenLineage export. Database column comments
-(duckdb, postgres) and a `labels` argument feed the same machinery. See
-the [Local data
+you already have. If the pipeline already runs on dtplyr, duckplyr, or
+arrow, no wrapping is needed at all: `extract_lineage()` reads those
+backends’ lazy structures directly. Lineage depends only on the
+pipeline’s structure, never on the data, so copying a slice with
+`head(df)` yields the same diagram as copying every row. Column `label`
+attributes on the frame (the convention haven and labelled use for
+imported SAS, SPSS, and Stata data) ride along too: they show as hover
+cards in the diagram, propagate to downstream columns along identity
+edges, and become field `description`s in the OpenLineage export.
+Database column comments (duckdb, postgres) and a `labels` argument feed
+the same machinery. See the [Local data
 frames](https://tgerke.github.io/dplyneage/articles/getting-started.html#local-data-frames)
 section of the getting-started vignette for more.
 
@@ -372,7 +379,7 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from 0a76554:
+#> + 2/6 vertices, named, from 304be66:
 #> [1] output.total_spent orders.amount
 ```
 
@@ -403,14 +410,14 @@ No other maintained R package extracts column-level lineage:
 [rdtLite](https://cran.r-project.org/package=rdtLite) records execution
 history. None answer “which source columns feed this output column?”
 Outside R, that question is well served for SQL text but not for
-dataframe code, which is the corner dplyneage sits in: dbplyr renders
-dplyr pipelines as SQL, so the same lineage machinery covers your R code
-and your warehouse queries alike.
+dataframe code (only Spark has an equivalent), which is the corner
+dplyneage sits in: the same lineage machinery covers dplyr pipelines on
+four lazy backends and your warehouse queries alike.
 
 |  | dplyneage | [sqlglot.lineage](https://sqlglot.com/) | [sqllineage](https://sqllineage.readthedocs.io/) | [dbt](https://www.getdbt.com/) | [SQLMesh](https://sqlmesh.com/) |
 |----|----|----|----|----|----|
 | Column-level lineage | dual engine (R + sqlglot) | SELECT projections | broader DML | Enterprise (Fusion: free in local dev) | free UI |
-| dplyr / dbplyr pipelines | native | — | — | — | — |
+| dplyr pipelines (dbplyr, dtplyr, duckplyr, arrow) | native | — | — | — | — |
 | Indirect (filter/join/group/sort) columns | opt-in | — | — | excluded | — |
 | Breaking-change classification | `lineage_check()` CI gate | — | — | Advanced CI (paid) | semantic diff |
 | Column labels / descriptions | `label` attributes + DB comments, propagated | — | — | Catalog (Enterprise) | — |

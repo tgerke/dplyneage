@@ -15,16 +15,21 @@ extract_lineage(
 )
 }
 \arguments{
-\item{sql}{A dbplyr lazy table (\code{tbl_lazy}), a single SQL query string,
-or a named list of these (one element per pipeline model; see
-Details). Lazy tables are analyzed directly from their lazy query
-tree (the SQL recorded in \code{metadata} still comes from
-\code{\link[dbplyr:sql_render]{dbplyr::sql_render()}}); when one is handled by the sqlglot engine
-instead, its database connection is used to harvest table schemas
-automatically. Plain data frames are not accepted: dplyr executes
-each verb on them immediately, leaving no query tree to read. Wrap
-the frame first: \code{dbplyr::tbl_lazy(df, name = "df")} builds a lazy
-table with no database at all, which is enough for lineage;
+\item{sql}{A lazy table (a dbplyr \code{tbl_lazy}, a \code{\link[dtplyr:lazy_dt]{dtplyr::lazy_dt()}}
+pipeline, a duckplyr frame, or an arrow query, Table, or Dataset),
+a single SQL query string, or a named list of these (one element
+per pipeline model; see Details). Lazy inputs are analyzed directly
+from their query tree; the query text recorded in \code{metadata} comes
+from the backend (\code{\link[dbplyr:sql_render]{dbplyr::sql_render()}}, dtplyr's generated
+data.table call, or the rewritten duckdb SQL for duckplyr; arrow
+plans have none). When a dbplyr table is handled by the sqlglot
+engine instead, its database connection is used to harvest table
+schemas automatically. Plain data frames are not accepted: dplyr
+executes each verb on them immediately, leaving no query tree to
+read. Wrap the frame first: \code{dbplyr::tbl_lazy(df, name = "df")}
+builds a lazy table with no database at all, which is enough for
+lineage; \code{dtplyr::lazy_dt(df, name = "df")} and
+\code{duckplyr::as_duckdb_tibble(df)} do the same on those backends;
 \code{\link[dbplyr:memdb_frame]{dbplyr::memdb_frame()}} (or \code{copy_to(dbplyr::memdb(), df, name = "df")}) also makes the pipeline collectable. See
 \code{vignette("getting-started")}.}
 
@@ -33,7 +38,10 @@ table with no database at all, which is enough for lineage;
 sqlglot understands works here. The default \code{NULL} infers the
 dialect from a lazy table's database connection (falling back to
 \code{"duckdb"} for connections it does not recognize); SQL strings are
-parsed as \code{"duckdb"} unless a dialect is given.}
+parsed as \code{"duckdb"} unless a dialect is given. dtplyr and arrow
+pipelines have no SQL dialect and record the labels \code{"data.table"}
+and \code{"arrow"}; a value given here replaces that label in the
+metadata but changes nothing about the analysis.}
 
 \item{schema}{Optional table schema used by the sqlglot engine to
 attribute unqualified columns to the right table and to expand
@@ -55,14 +63,18 @@ on a local frame's columns (the haven/labelled convention), and
 column comments read from the table's live database connection
 (duckdb and postgres; other backends are skipped quietly).}
 
-\item{show_sql}{If \code{TRUE}, print the SQL being analyzed. Useful for
-seeing what dbplyr generated from your pipeline. Default: \code{FALSE}.}
+\item{show_sql}{If \code{TRUE}, print the query text being analyzed: the
+SQL a dbplyr pipeline generated, or dtplyr's data.table call.
+arrow pipelines have no query text to show. Default: \code{FALSE}.}
 
-\item{engine}{Which lineage engine to use. \code{"auto"} (the default) uses
-the pure-R engine for lazy tables when dbplyr (>= 2.5.0) is installed,
-falling back to sqlglot for SQL strings or unsupported constructs.
-\code{"r"} forces the pure-R engine and errors on anything it cannot trace.
-\code{"sqlglot"} always renders to SQL and analyzes with sqlglot.}
+\item{engine}{Which lineage engine to use. \code{"auto"} (the default)
+picks by input: the native R walker for dbplyr (falling back to
+sqlglot for unsupported constructs), dtplyr, and arrow input, and
+sqlglot for SQL strings and duckplyr frames. \code{"r"} forces the
+native walker and errors on anything it cannot trace; duckplyr
+frames always refuse it, since their relation is only readable
+through SQL. \code{"sqlglot"} needs SQL, so it accepts SQL strings,
+dbplyr lazy tables (rendered first), and duckplyr frames.}
 
 \item{include_indirect}{If \code{TRUE}, columns used in \code{filter()}/\code{WHERE},
 join conditions, \code{group_by()}, and \code{arrange()}/\verb{ORDER BY} also appear
@@ -78,33 +90,51 @@ table, for a single query).
 }
 \description{
 \code{extract_lineage()} traces every output column of a query back to the
-source table columns it was computed from. Pipe a dbplyr lazy table
-straight into it, or pass a SQL string. Aliases, CTEs, subqueries, set
-operations like \code{UNION}, and multi-source expressions such as
-\code{COALESCE(a.x, b.x)} all resolve to their true source columns.
+source table columns it was computed from. Pipe a lazy table straight
+into it (dbplyr, dtplyr, duckplyr, or arrow), or pass a SQL string.
+Aliases, CTEs, subqueries, set operations like \code{UNION}, and
+multi-source expressions such as \code{COALESCE(a.x, b.x)} all resolve to
+their true source columns.
 }
 \details{
-Two engines are available. dbplyr lazy tables are analyzed by a pure-R
-fast path that walks the pipeline's lazy query tree directly, no Python
-required. SQL strings are analyzed by
-\href{https://github.com/tobymao/sqlglot}{sqlglot}'s lineage engine via
-reticulate (a Suggests dependency: install reticulate to enable this
-engine; sqlglot itself is provisioned automatically). If a pipeline uses
-a construct the R engine cannot trace (e.g. raw SQL injected with
-\code{dbplyr::sql()}), it falls back to sqlglot automatically.
+Which engine runs depends on the input. dbplyr lazy tables, dtplyr
+\code{lazy_dt()} steps, and arrow queries are walked directly in R, no
+Python required; each records a matching \code{dialect} in the metadata
+(the connection's dialect, \code{"data.table"}, or \code{"arrow"}). SQL strings
+are analyzed by \href{https://github.com/tobymao/sqlglot}{sqlglot}'s
+lineage engine via reticulate (a Suggests dependency: install
+reticulate to enable it; sqlglot itself is provisioned
+automatically). duckplyr frames also need sqlglot: their lazy tree
+lives inside duckdb as an opaque relation, so it is rendered to
+duckdb SQL and parsed. If a dbplyr pipeline uses a construct the R
+walker cannot trace (e.g. raw SQL injected with \code{dbplyr::sql()}), it
+falls back to sqlglot automatically; dtplyr and arrow pipelines
+compile to data.table code and Acero plans rather than SQL, so an
+untraceable construct there is an error instead.
 
-Both engines trace select-list lineage by default: columns used only in
-\code{filter()}, join conditions, or \code{arrange()} do not create lineage
+Source nodes take their names from the backend: table paths for
+dbplyr, the \code{name} given to \code{\link[dtplyr:lazy_dt]{dtplyr::lazy_dt()}} (auto-named \verb{_DT1},
+\verb{_DT2}, ... otherwise, so passing \code{name} is worthwhile), and file
+paths for duckplyr file readers and arrow datasets. In-memory
+duckplyr frames and arrow tables carry no name of their own and get
+placeholders (\code{df}, \code{df_1}, ... and \code{arrow_table}, \code{arrow_table_2},
+...).
+
+Every engine traces select-list lineage by default: columns used only
+in \code{filter()}, join conditions, or \code{arrange()} do not create lineage
 edges. A window function's partition and ordering columns do: they sit
 inside the expression's \code{OVER} clause, so \code{row_number()} under
 \code{group_by(g)} and \code{window_order(d)} draws direct edges from both \code{g}
-and \code{d}. Set \code{include_indirect = TRUE} to add the rest as dashed
-edges: a column that only filters the result still breaks the
-pipeline if it is dropped, so impact analysis usually wants them.
-Indirect edges connect each filter/join/group/sort column (window
-\verb{ORDER BY} columns included) to every output column, since these
-conditions shape the whole result, and are classified by how the
-column is used (\code{"filter"}, \code{"join"}, \code{"group_by"}, \code{"sort"}).
+and \code{d}. That window rule belongs to the SQL backends; data.table and
+Acero have no \code{OVER} clause, so on dtplyr and arrow pipelines a
+windowed column's grouping keys stay indirect (\code{"group_by"}) instead
+of becoming direct sources. Set \code{include_indirect = TRUE} to add the
+rest as dashed edges: a column that only filters the result still
+breaks the pipeline if it is dropped, so impact analysis usually
+wants them. Indirect edges connect each filter/join/group/sort column
+(window \verb{ORDER BY} columns included) to every output column, since
+these conditions shape the whole result, and are classified by how
+the column is used (\code{"filter"}, \code{"join"}, \code{"group_by"}, \code{"sort"}).
 
 A named list stitches a multi-model pipeline into one graph. Each
 element (lazy table or SQL string) is analyzed on its own, and any
