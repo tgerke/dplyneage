@@ -42,6 +42,7 @@ Suggests:
     dplyr,
     dtplyr,
     duckdb,
+    duckplyr,
     httr2,
     igraph,
     knitr,

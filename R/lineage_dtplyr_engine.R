@@ -34,9 +34,11 @@ dtplyr_engine_available <- function() {
 #'
 #' Returns the same lineage_data shape as `extract_lineage_from_tbl()`,
 #' with `dialect = "data.table"` and the generated data.table call in
-#' the `sql` slot.
+#' the `sql` slot. `schema` is part of the uniform engine interface but
+#' unused here: types attach downstream in finalize_lineage_data().
 #' @noRd
-extract_lineage_from_dtplyr <- function(x, include_indirect = FALSE) {
+extract_lineage_from_dtplyr <- function(x, include_indirect = FALSE,
+                                        schema = NULL) {
   collector <- new.env(parent = emptyenv())
   collector$labels <- list()
   if (include_indirect) {

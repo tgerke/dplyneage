@@ -103,6 +103,29 @@ lineage_native_engines <- function() {
         "or extract lineage from an upstream step."
       ),
       extract = extract_lineage_from_dtplyr
+    ),
+    duckplyr = list(
+      available = duckplyr_engine_available,
+      requirement = paste0(
+        "duckplyr (>= 1.0.0) and a duckdb build exposing the ",
+        "relational API"
+      ),
+      what = "duckplyr pipelines",
+      code_label = "duckdb SQL",
+      supports = "sqlglot",
+      engine_errors = list(
+        r = paste0(
+          "engine = \"r\" walks a lazy query tree in R, but the duckdb ",
+          "relation behind a duckplyr frame is not inspectable from R. ",
+          "duckplyr lineage renders the relation to SQL for the sqlglot ",
+          "engine; use engine = \"auto\" or \"sqlglot\"."
+        )
+      ),
+      no_fallback = paste0(
+        "The duckdb relation could not be analyzed, and duckplyr ",
+        "frames have no further fallback."
+      ),
+      extract = extract_lineage_from_duckplyr
     )
   )
 }
@@ -135,15 +158,18 @@ extract_lineage_data_native <- function(kind, x, dialect, schema, labels,
   }
   labels <- normalize_labels(labels)
 
+  extract <- function() {
+    eng$extract(x, include_indirect = include_indirect, schema = schema)
+  }
   lineage_data <- if (engine == "auto") {
     tryCatch(
-      eng$extract(x, include_indirect = include_indirect),
+      extract(),
       dplyneage_unsupported_lineage = function(cnd) {
         stop(conditionMessage(cnd), " ", eng$no_fallback, call. = FALSE)
       }
     )
   } else {
-    eng$extract(x, include_indirect = include_indirect)
+    extract()
   }
 
   # A user-supplied dialect is recorded in the metadata as given; the

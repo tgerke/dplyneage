@@ -35,7 +35,10 @@ def _normalize_schema(schema):
             if isinstance(cols, str):
                 cols = [cols]
             coldict = {str(col): "unknown" for col in cols}
-        parts = str(table).split(".")
+        # A file-path table ("/data/orders.csv") is one identifier: its
+        # dots are not db.table qualification
+        name = str(table)
+        parts = [name] if "/" in name or "\\" in name else name.split(".")
         depths.add(len(parts))
         entries.append((parts, coldict))
     if len(depths) > 1:
