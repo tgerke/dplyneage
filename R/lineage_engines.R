@@ -59,7 +59,8 @@ stop_plain_data_frame <- function() {
     "copy_to(dbplyr::memdb(), df, name = \"df\") make the same ",
     "pipeline also collectable. If this frame started as a duckplyr ",
     "pipeline, a verb fell back to eager dplyr and the lazy tree is ",
-    "gone. See vignette(\"getting-started\").",
+    "gone; Sys.setenv(DUCKPLYR_FALLBACK_INFO = TRUE) shows which step. ",
+    "See vignette(\"getting-started\").",
     call. = FALSE
   )
 }

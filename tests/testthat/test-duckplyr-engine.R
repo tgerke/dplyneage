@@ -383,6 +383,47 @@ test_that("engine choices route and refuse correctly", {
   )
 })
 
+test_that("renames applied to the frame's names map onto the relation", {
+  skip_if_no_duckplyr_engine()
+
+  # rename_with() sets names on the ALTREP frame; the relation still
+  # projects the old ones, and the star SQL binds through rel_names()
+  suffixed <- points_ddt() |>
+    dplyr::rename_with(~ paste0(.x, "_r")) |>
+    extract_lineage()
+  expect_edges(suffixed, c("df.x -> x_r", "df.g -> g_r"))
+  expect_identical(node_columns(suffixed, "output"), c("g_r", "x_r"))
+
+  # An explicit projection underneath; the computed column keeps its
+  # kind through the rename
+  upper <- points_ddt() |>
+    dplyr::mutate(z = x + 1) |>
+    dplyr::rename_with(toupper, c(x, z)) |>
+    extract_lineage()
+  expect_edges(upper, c("df.x -> X", "df.g -> g", "df.x -> Z"))
+  z_edge <- Filter(
+    function(e) identical(e$targetHandle, "Z"),
+    upper$edges
+  )[[1]]
+  expect_identical(z_edge$data$transformation, "transformation")
+
+  direct <- points_ddt()
+  names(direct)[1] <- "ID"
+  expect_edges(extract_lineage(direct), c("df.x -> ID", "df.g -> g"))
+})
+
+test_that("untranslatable functions explain the eager fallback", {
+  skip_if_no_duckplyr_engine()
+
+  # case_when() has no duckdb translation: duckplyr keeps the class but
+  # the relation behind the frame is gone
+  fallen <- points_ddt() |>
+    dplyr::mutate(k = dplyr::case_when(x > 1 ~ "hi", TRUE ~ "lo"))
+  expect_s3_class(fallen, "duckplyr_df")
+  expect_error(extract_lineage(fallen), "fell back to eager dplyr")
+  expect_error(extract_lineage(fallen), "DUCKPLYR_FALLBACK_INFO")
+})
+
 test_that("fallen-back pipelines get the data frame error with context", {
   skip_if_no_duckplyr_engine()
 

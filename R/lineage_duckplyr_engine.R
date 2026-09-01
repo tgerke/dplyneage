@@ -54,7 +54,7 @@ duckdb_rel_api <- function() {
     return(NULL)
   }
   ns <- asNamespace("duckdb")
-  needed <- c("rel_from_altrep_df", "rapi_rel_to_sql")
+  needed <- c("rel_from_altrep_df", "rapi_rel_to_sql", "rel_names")
   if (!all(vapply(needed, exists, logical(1), envir = ns, inherits = FALSE))) {
     return(NULL)
   }
@@ -64,7 +64,25 @@ duckdb_rel_api <- function() {
   }
   list(
     rel_from_altrep_df = from_df,
-    rel_to_sql = get("rapi_rel_to_sql", envir = ns)
+    rel_to_sql = get("rapi_rel_to_sql", envir = ns),
+    rel_names = get("rel_names", envir = ns)
+  )
+}
+
+#' The error for a duckplyr frame whose lazy tree is gone
+#'
+#' Shares its key phrase with stop_plain_data_frame(): grouped verbs come
+#' back as plain tibbles, most other untranslatable verbs keep the class
+#' but lose the relation, and both mean duckplyr ran the step eagerly.
+#' @noRd
+stop_duckplyr_fallback <- function(what) {
+  stop(
+    what, ". duckplyr fell back to eager dplyr for a verb or function it ",
+    "cannot translate, so no lazy query tree is left to analyze. Run the ",
+    "pipeline with Sys.setenv(DUCKPLYR_FALLBACK_INFO = TRUE) to see which ",
+    "step fell back, then rewrite it or extract lineage from the step ",
+    "before it.",
+    call. = FALSE
   )
 }
 
@@ -95,13 +113,19 @@ extract_lineage_from_duckplyr <- function(x, include_indirect = FALSE,
   }
   rel <- api$rel_from_altrep_df(x, strict = FALSE, allow_materialized = TRUE)
   if (is.null(rel)) {
-    stop(
-      "The duckdb relation behind this duckplyr frame is no longer ",
-      "available, so there is no query tree to analyze. Re-create the ",
-      "frame with duckplyr verbs that stay lazy and extract lineage ",
-      "before anything rebuilds it.",
-      call. = FALSE
+    stop_duckplyr_fallback(
+      "The duckdb relation behind this duckplyr frame is no longer available"
     )
+  }
+  # names<- (rename_with(), names(x)[i] <-) runs eagerly on the ALTREP
+  # frame and leaves the relation's own names behind, so the rendered SQL
+  # carries the old ones; they are mapped back by position at the end
+  rel_names <- api$rel_names(rel)
+  if (length(rel_names) != length(names(x))) {
+    stop_duckplyr_fallback(paste0(
+      "The duckdb relation behind this duckplyr frame has ",
+      length(rel_names), " columns but the frame has ", length(names(x))
+    ))
   }
 
   rw <- rewrite_duckplyr_sql(api$rel_to_sql(rel))
@@ -117,11 +141,11 @@ extract_lineage_from_duckplyr <- function(x, include_indirect = FALSE,
   )
   # A star that reaches a nameless in-memory scan cannot expand without
   # a schema and yields zero columns (filter/arrange/limit-only, semi/
-  # anti joins, set ops of raw frames). Those pipelines keep the frame's
-  # own columns, so retry once with names(x) for every scan.
+  # anti joins, set ops of raw frames). Those pipelines keep the
+  # relation's own columns, so retry once with them for every scan.
   if (length(result$columns) == 0 && length(rw$scans) > 0) {
     synthesized <- stats::setNames(
-      rep(list(names(x)), length(rw$scans)),
+      rep(list(rel_names), length(rw$scans)),
       rw$scans
     )
     result <- m$extract_lineage(
@@ -135,6 +159,9 @@ extract_lineage_from_duckplyr <- function(x, include_indirect = FALSE,
     warning(w, call. = FALSE)
   }
   result <- restore_table_case(result, rw$files)
+  result$columns <- rename_duckplyr_outputs(
+    result$columns, rel_names, names(x)
+  )
 
   out <- list(
     tables = result$tables,
@@ -154,6 +181,33 @@ extract_lineage_from_duckplyr <- function(x, include_indirect = FALSE,
     )
   }
   out
+}
+
+#' Rename output columns from the relation's names to the frame's
+#'
+#' Positional, not by name: sqlglot normalizes unquoted identifier case,
+#' so the analyzed result need not spell `rel_names` exactly.
+#' @noRd
+rename_duckplyr_outputs <- function(columns, rel_names, out_names) {
+  if (identical(rel_names, out_names) || length(columns) == 0) {
+    return(columns)
+  }
+  got <- vapply(columns, function(col) col$output_name, character(1))
+  if (
+    length(got) != length(out_names) ||
+      !identical(tolower(got), tolower(rel_names))
+  ) {
+    warning(
+      "Could not map this frame's renamed columns onto the analyzed SQL; ",
+      "output columns keep the relation's names.",
+      call. = FALSE
+    )
+    return(columns)
+  }
+  for (i in seq_along(columns)) {
+    columns[[i]]$output_name <- out_names[[i]]
+  }
+  columns
 }
 
 #' A word not already used in the SQL text and not already taken
