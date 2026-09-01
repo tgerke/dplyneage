@@ -102,10 +102,11 @@ zoom and pan, and hover columns to highlight their connections; when a
 column’s type or label was captured, the hover also shows a small card
 with both. Click a column and the diagram isolates its trace cone
 (everything upstream and downstream of that column) until you click
-again or press Escape. Computed columns carry their defining expression
-as an edge label (`avg_order` here, which traces through the two
-aggregates it divides back to `orders.amount` and `orders.order_id`),
-and aggregation edges animate.
+again or press Escape. A computed column carries its defining expression
+as a label beside the row it feeds (`avg_order` here, which traces
+through the two aggregates it divides back to `orders.amount` and
+`orders.order_id`), and aggregation edges animate. Long expressions are
+trimmed; hover an edge for the full text.
 [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
 also takes `theme = "dark"` (or `"auto"`), `minimap = TRUE` for an
 overview map, and a PNG download button lives in the zoom controls.
@@ -434,7 +435,7 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/7 vertices, named, from 3027d2b:
+#> + 2/7 vertices, named, from 858a739:
 #> [1] output.total_spent orders.amount
 ```
 
