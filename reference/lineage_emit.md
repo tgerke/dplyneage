@@ -3,8 +3,8 @@
 Builds the same events as
 [`lineage_openlineage()`](https://tgerke.github.io/dplyneage/reference/lineage_openlineage.md)
 and POSTs each one to an OpenLineage endpoint, so dplyneage-extracted
-lineage lands in a running catalog — Marquez, DataHub, or anything else
-that speaks the protocol — next to lineage from dbt, Airflow, or Spark.
+lineage lands in a running catalog (Marquez, DataHub, or anything else
+that speaks the protocol) next to lineage from dbt, Airflow, or Spark.
 One request per event, JSON body, matching how the reference OpenLineage
 clients transport events.
 
@@ -85,14 +85,14 @@ lineage_emit(
 - output_name:
 
   Name recorded for the output dataset in place of the synthetic
-  `"output"` node id of a single-query extraction — use it when the
+  `"output"` node id of a single-query extraction; use it when the
   query's result lands in a known table. Errors on multi-model lineage,
   whose models already carry their real names.
 
 - nominal_time:
 
-  One or two ISO-8601 timestamps — the scheduled `nominalStartTime` and
-  optionally `nominalEndTime` — emitted as the `nominalTime` run facet.
+  One or two ISO-8601 timestamps (the scheduled `nominalStartTime` and
+  optionally `nominalEndTime`) emitted as the `nominalTime` run facet.
   `NULL` (the default) omits the facet.
 
 - parent:
@@ -130,7 +130,7 @@ and the static `events = "job"` / `events = "dataset"` kinds alike.
 
 ## Errors
 
-A failed request — connection refused, or an HTTP error status — stops
+A failed request (connection refused, or an HTTP error status) stops
 with a condition of class `dplyneage_emit_failure` carrying `event` (the
 failing index), `status` (the HTTP status, `NA` when the request never
 got a response), and `results` (the rows for events already sent).

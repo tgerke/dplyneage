@@ -31,13 +31,13 @@ extract_lineage(
   [`dbplyr::sql_render()`](https://dbplyr.tidyverse.org/reference/sql_build.html));
   when one is handled by the sqlglot engine instead, its database
   connection is used to harvest table schemas automatically. Plain data
-  frames are not accepted — dplyr executes each verb on them
-  immediately, leaving no query tree to read. Wrap the frame first:
+  frames are not accepted: dplyr executes each verb on them immediately,
+  leaving no query tree to read. Wrap the frame first:
   `dbplyr::tbl_lazy(df, name = "df")` builds a lazy table with no
   database at all, which is enough for lineage;
   [`dbplyr::memdb_frame()`](https://dbplyr.tidyverse.org/reference/memdb.html)
-  (or `copy_to(dbplyr::memdb(), df, name = "df")`) additionally makes
-  the pipeline collectable. See
+  (or `copy_to(dbplyr::memdb(), df, name = "df")`) also makes the
+  pipeline collectable. See
   [`vignette("getting-started")`](https://tgerke.github.io/dplyneage/articles/getting-started.md).
 
 - dialect:
@@ -55,9 +55,9 @@ extract_lineage(
   unqualified columns to the right table and to expand `SELECT *`: a
   named list mapping table names to character vectors of column names,
   e.g. `list(orders = c("order_id", "amount"))`. Only relevant for SQL
-  strings — the R engine reads exact provenance from the lazy query
-  tree, and a lazy table that falls back to sqlglot harvests its schema
-  from the database connection automatically.
+  strings: the R engine reads exact provenance from the lazy query tree,
+  and a lazy table that falls back to sqlglot harvests its schema from
+  the database connection automatically.
 
 - labels:
 
@@ -111,7 +111,7 @@ and dialect (one entry, keyed by the output table, for a single query).
 ## Details
 
 Two engines are available. dbplyr lazy tables are analyzed by a pure-R
-fast path that walks the pipeline's lazy query tree directly — no Python
+fast path that walks the pipeline's lazy query tree directly, no Python
 required. SQL strings are analyzed by
 [sqlglot](https://github.com/tobymao/sqlglot)'s lineage engine via
 reticulate (a Suggests dependency: install reticulate to enable this
@@ -125,11 +125,11 @@ Both engines trace select-list lineage by default: columns used only in
 conditions, or
 [`arrange()`](https://dplyr.tidyverse.org/reference/arrange.html) do not
 create lineage edges. A window function's partition and ordering columns
-do — they sit inside the expression's `OVER` clause, so
+do: they sit inside the expression's `OVER` clause, so
 [`row_number()`](https://dplyr.tidyverse.org/reference/row_number.html)
 under `group_by(g)` and `window_order(d)` draws direct edges from both
 `g` and `d`. Set `include_indirect = TRUE` to add the rest as dashed
-edges — a column that only filters the result still breaks the pipeline
+edges: a column that only filters the result still breaks the pipeline
 if it is dropped, so impact analysis usually wants them. Indirect edges
 connect each filter/join/group/sort column (window `ORDER BY` columns
 included) to every output column, since these conditions shape the whole
@@ -139,7 +139,7 @@ result, and are classified by how the column is used (`"filter"`,
 A named list stitches a multi-model pipeline into one graph. Each
 element (lazy table or SQL string) is analyzed on its own, and any
 source table whose name matches another element's name connects to that
-model's node — so a bronze/silver/gold flow where each layer is
+model's node, so a bronze/silver/gold flow where each layer is
 materialized under its model's name renders as a single multi-hop DAG,
 with intermediate models drawn as orange transform nodes and terminal
 models as green targets.
@@ -188,7 +188,7 @@ library(dplyr)
 
 con <- DBI::dbConnect(duckdb::duckdb())
 #> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/Rtmp4o1uNl/duckdb
+#> ℹ /tmp/RtmpBOHepe/duckdb
 #> This is removed when the R session ends.
 #> • Extensions are re-downloaded each session.
 #> • Secrets are lost.

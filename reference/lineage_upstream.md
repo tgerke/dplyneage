@@ -2,8 +2,8 @@
 
 `lineage_upstream()` lists every column that feeds into `column`,
 following edges transitively; `lineage_downstream()` lists every column
-`column` feeds into. This is the core impact-analysis question — "what
-breaks if this column changes?" — answered directly on the lineage
+`column` feeds into. This is the core impact-analysis question ("what
+breaks if this column changes?") answered directly on the lineage
 object, without exporting to a graph tool. Passing a table name instead
 of a column traces from every column of that table at once.
 

@@ -1,7 +1,7 @@
 # Export lineage as OpenLineage events
 
 Serializes a lineage object to [OpenLineage](https://openlineage.io/)
-JSON — the interchange format that data catalogs and lineage backends
+JSON, the interchange format that data catalogs and lineage backends
 (Marquez, DataHub, OpenMetadata, ...) ingest. The default is one
 `RunEvent` with a `ColumnLineage` facet on each output dataset; POST it
 to an OpenLineage endpoint (see
@@ -88,14 +88,14 @@ lineage_openlineage(
 - output_name:
 
   Name recorded for the output dataset in place of the synthetic
-  `"output"` node id of a single-query extraction — use it when the
+  `"output"` node id of a single-query extraction; use it when the
   query's result lands in a known table. Errors on multi-model lineage,
   whose models already carry their real names.
 
 - nominal_time:
 
-  One or two ISO-8601 timestamps — the scheduled `nominalStartTime` and
-  optionally `nominalEndTime` — emitted as the `nominalTime` run facet.
+  One or two ISO-8601 timestamps (the scheduled `nominalStartTime` and
+  optionally `nominalEndTime`) emitted as the `nominalTime` run facet.
   `NULL` (the default) omits the facet.
 
 - parent:
@@ -114,17 +114,17 @@ line (see the Static lineage events section for when each applies).
 
 dplyneage extracts lineage from code without running it, which is the
 case OpenLineage defines run-less events for. `events = "job"` emits one
-`JobEvent` per model — its job named after the model, its inputs the
+`JobEvent` per model: its job named after the model, its inputs the
 datasets the model reads (upstream models included), its output carrying
-the `columnLineage` facet — and `events = "dataset"` emits one
-`DatasetEvent` per dataset, sources included, as a static schema
-registration. Both carry no `run`, so no run has to be fabricated for
-design-time lineage. Kinds combine: `events = c("job", "dataset")` emits
-both sets in one document.
+the `columnLineage` facet. `events = "dataset"` emits one `DatasetEvent`
+per dataset, sources included, as a static schema registration. Both
+carry no `run`, so no run has to be fabricated for design-time lineage.
+Kinds combine: `events = c("job", "dataset")` emits both sets in one
+document.
 
 When the selection yields a single event and `pretty = TRUE`, the result
-is one indented JSON document. Anything else — several events, or
-`pretty = FALSE` — is NDJSON, one compact event per line, the format
+is one indented JSON document. Anything else (several events, or
+`pretty = FALSE`) is NDJSON, one compact event per line, the format
 OpenLineage's `FileTransport` writes and replay tooling reads: a
 committed events file can later be replayed into any backend.
 
@@ -145,11 +145,11 @@ OpenLineage groups datasets by namespace, and catalogs join events to
 known datasets through it, so the spec expects scheme URIs derived from
 the data store (`postgres://host:port`, `mysql://host:port`).
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
-captures that URI from the table's live connection — `duckdb:<path>` and
+captures that URI from the table's live connection: `duckdb:<path>` and
 `sqlite:<path>` for file-backed databases (bare `duckdb`/`sqlite` in
 memory, since the spec names no convention for either), the spec's
-host:port form for server databases — and each dataset in the event uses
-the namespace captured for its model. A URI-shaped namespace is also
+host:port form for server databases. Each dataset in the event uses the
+namespace captured for its model. A URI-shaped namespace is also
 recorded in the dataset's `dataSource` facet. Where nothing was captured
 (local frames via
 [`dbplyr::tbl_lazy()`](https://dbplyr.tidyverse.org/reference/tbl_lazy.html),
@@ -163,9 +163,9 @@ explicit `namespace` overrides all of this, for datasets and job alike.
 Beyond `schema`, `dataSource`, and `columnLineage` on datasets, the
 event carries job facets: `jobType` (`BATCH`/`DPLYNEAGE`/`QUERY`) and,
 for single-model lineage, `sql` with the analyzed query and its dialect.
-Schema facet fields include a `type` when column types were captured —
-from a live connection's tables, or a `schema` argument with named
-entries like `list(orders = list(amount = "DOUBLE"))` — and a
+Schema facet fields include a `type` when column types were captured
+(from a live connection's tables, or a `schema` argument with named
+entries like `list(orders = list(amount = "DOUBLE"))`), and a
 `description` when column labels were: from `label` attributes on a
 local frame (the haven/labelled convention), database column comments,
 or

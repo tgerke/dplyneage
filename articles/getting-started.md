@@ -8,8 +8,8 @@ and render the answer as an interactive diagram with
 [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md).
 
 This vignette starts with the smallest possible example and works up to
-the cases where lineage gets genuinely hard: joins with ambiguous
-columns, CTEs, and columns computed from several sources at once.
+the cases where lineage gets hard: joins with ambiguous columns, CTEs,
+and columns computed from several sources at once.
 
 ## Installation
 
@@ -20,7 +20,7 @@ pak::pak("tgerke/dplyneage")
 
 dplyr/dbplyr pipelines are analyzed entirely in R, so for those there is
 nothing else to install. Raw SQL strings are analyzed by sqlglot,
-dplyneage’s one Python dependency — install the reticulate package to
+dplyneage’s one Python dependency: install the reticulate package to
 enable that engine, and sqlglot itself is provisioned automatically the
 first time it’s needed. See
 [`vignette("python-integration")`](https://tgerke.github.io/dplyneage/articles/python-integration.md)
@@ -28,7 +28,7 @@ if you manage your own Python environment.
 
 ## Your first lineage diagram
 
-Let’s create a small in-memory DuckDB database to work with:
+First, create a small in-memory DuckDB database to work with:
 
 ``` r
 
@@ -54,7 +54,7 @@ copy_to(con, customers, "customers", overwrite = TRUE)
 copy_to(con, orders, "orders", overwrite = TRUE)
 ```
 
-The simplest lineage there is — two columns selected from one table:
+The simplest lineage there is: two columns selected from one table.
 
 ``` r
 
@@ -67,7 +67,7 @@ tbl(con, "customers") |>
 Each output column connects back to the source column it came from. Try
 dragging the tables around, zooming with the mouse wheel, and hovering a
 column to highlight its connections. Clicking a column isolates its
-trace cone — everything upstream and downstream of it — and Escape (or a
+trace cone, everything upstream and downstream of it, and Escape (or a
 background click) releases it. The legend in the corner names the
 colors;
 [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
@@ -89,7 +89,7 @@ tbl(con, "customers") |>
   lineage_flow(height = "400px")
 ```
 
-Notice that `total_spent` traces back to `orders.amount` — not to
+Notice that `total_spent` traces back to `orders.amount`, not to
 `customers`, even though `amount` appears unqualified in the generated
 SQL. When you pass a dbplyr table, dplyneage doesn’t parse SQL at all:
 it walks the pipeline’s own query tree, which records exactly which
@@ -100,8 +100,7 @@ If a pipeline embeds raw SQL with
 query tree can’t see inside that string, so
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
 hands the whole query to sqlglot instead (with a message). You can also
-force a specific engine with `engine = "r"` or `engine = "sqlglot"` —
-see
+force a specific engine with `engine = "r"` or `engine = "sqlglot"`; see
 [`?extract_lineage`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md).
 
 ## Where lineage gets hard
@@ -114,7 +113,7 @@ to keep the examples compact.
 
 ### Tracing through CTEs
 
-Columns are traced *through* intermediate CTEs back to the base tables —
+Columns are traced *through* intermediate CTEs back to the base tables.
 `recent` is transparent, and `amount` correctly attributes to `orders`:
 
 ``` r
@@ -153,7 +152,7 @@ column to every branch.
 ### Expanding `SELECT *`
 
 With a schema available, `SELECT *` expands to real columns. dbplyr
-input never needs a schema — the pipeline itself knows its columns — but
+input never needs a schema (the pipeline itself knows its columns), but
 for raw SQL, pass one yourself:
 
 ``` r
@@ -169,7 +168,7 @@ extract_lineage(
 
 As the examples above show,
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
-accepts a SQL string directly — useful for auditing queries you didn’t
+accepts a SQL string directly, useful for auditing queries you didn’t
 write in R. Two things to know:
 
 - **Qualified columns** (`o.amount`) always resolve correctly, schema or
@@ -204,7 +203,7 @@ extract_lineage(query, dialect = "snowflake")
 ## Local data frames
 
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
-reads lineage from a *lazy* query — the tree dbplyr builds up before
+reads lineage from a *lazy* query, the tree dbplyr builds up before
 anything touches the database. A pipeline on a plain tibble has no such
 tree: dplyr executes each verb immediately, so by the time you could ask
 about lineage, only the result is left.
@@ -239,7 +238,7 @@ builds the data in in-memory SQLite (install the RSQLite package once),
 and `copy_to(dbplyr::memdb(), df, name = "df")` does the same copy for a
 frame you already have. Lineage depends only on the pipeline’s
 structure, never on the data, so for large frames copying a slice is
-enough — `copy_to(dbplyr::memdb(), head(df), name = "df")` yields the
+enough: `copy_to(dbplyr::memdb(), head(df), name = "df")` yields the
 same diagram as copying every row.
 
 The duckdb connection from earlier in this vignette works just as well
@@ -254,8 +253,8 @@ data often has them already: haven and labelled store a `label`
 attribute on every column imported from SAS, SPSS, or Stata, and
 database tables keep the same idea as column comments.
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
-collects both — `label` attributes from local frames, comments from a
-live duckdb or postgres connection — and a `labels` argument covers
+collects both (`label` attributes from local frames, comments from a
+live duckdb or postgres connection), and a `labels` argument covers
 everything else, winning over the automatic sources:
 
 ``` r
@@ -290,13 +289,13 @@ doc$nodes[[2]]$labels # output: total hand-labelled, customer_id propagated
 
 That receipt shows the whole pattern. `customer_id` passes through the
 [`group_by()`](https://dplyr.tidyverse.org/reference/group_by.html)
-unchanged, so its label travels to the output node on its own — labels
+unchanged, so its label travels to the output node on its own: labels
 (and types, when captured) propagate along identity edges, the way dbt
 Catalog carries descriptions through passthrough columns. `total` is a
 computed column no propagation can describe, so it gets a `labels` entry
 keyed by `"output"`, the synthetic name of a single query’s result; in a
 multi-model pipeline, the model’s name plays that role. Had two sources
-fed one column conflicting labels, it would have stayed bare — missing
+fed one column conflicting labels, it would have stayed bare: missing
 beats wrong.
 
 In the diagram, those labels become hover cards. Try it on this
@@ -310,7 +309,7 @@ lineage_flow(lineage, height = "300px")
 
 [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
 records the same labels as per-node `labels` and `types` maps, and each
-OpenLineage schema-facet field gains a `description` — the [OpenLineage
+OpenLineage schema-facet field gains a `description`; the [OpenLineage
 article](https://tgerke.github.io/dplyneage/articles/openlineage.html)
 shows the rendered event.
 
@@ -345,8 +344,8 @@ edges <- list(
 lineage_flow(nodes, edges, height = "300px")
 ```
 
-Nodes come in three types — `"source"` (blue), `"transform"` (orange),
-and `"target"` (green) — and edges accept a `label` (e.g. `"SUM()"`) and
+Nodes come in three types: `"source"` (blue), `"transform"` (orange),
+and `"target"` (green). Edges accept a `label` (e.g. `"SUM()"`) and
 `animated = TRUE` for emphasis.
 [`lineage_example()`](https://tgerke.github.io/dplyneage/reference/lineage_example.md)
 renders a complete hand-built diagram you can use as a template.
@@ -364,7 +363,7 @@ shape (see
 for the full schema). Because the output is deterministic, you can
 commit it alongside your pipeline code and let CI diff it: if a refactor
 silently changes where a column comes from, the diff shows it before it
-ships — the [lineage checks in
+ships; the [lineage checks in
 CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html) article
 turns that into a one-call gate with
 [`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md).
@@ -446,8 +445,8 @@ lineage_json(lineage)
 writes GraphML, the XML format that graph tools speak: igraph, Gephi,
 and yEd all open it directly. Every column becomes its own node, which
 is what makes real graph queries possible. The classic one is impact
-analysis — “if `orders.amount` changes, which outputs are affected?” —
-or its reverse, tracing an output back to every source column that feeds
+analysis (“if `orders.amount` changes, which outputs are affected?”) or
+its reverse, tracing an output back to every source column that feeds
 it:
 
 ``` r
@@ -459,12 +458,12 @@ g <- igraph::read_graph(path, format = "graphml")
 
 # Everything upstream of total_spent
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from a2cb0bd:
+#> + 2/6 vertices, named, from d30a8eb:
 #> [1] output.total_spent orders.amount
 
 # Everything downstream of orders.amount
 igraph::subcomponent(g, "orders.amount", mode = "out")
-#> + 2/6 vertices, named, from a2cb0bd:
+#> + 2/6 vertices, named, from d30a8eb:
 #> [1] orders.amount      output.total_spent
 ```
 
@@ -475,9 +474,8 @@ You don’t need a graph library for the everyday questions, though.
 [`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
 and
 [`lineage_downstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
-answer them straight from the lineage object — pass `"orders.amount"`
-for one column, or `"orders"` to trace every column of a table at once —
-and
+answer them straight from the lineage object (pass `"orders.amount"` for
+one column, or `"orders"` to trace every column of a table at once), and
 [`lineage_unused()`](https://tgerke.github.io/dplyneage/reference/lineage_unused.md)
 lists the columns with no path to any target, which is how dead weight
 in a multi-model pipeline shows up.

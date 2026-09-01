@@ -3,7 +3,7 @@
 This guide explains how to build the React Flow JavaScript bundle that
 powers the visualization component of dplyneage.
 
-**Note for Users**: The bundle should be pre-built when you install the
+**Note for users**: The bundle should be pre-built when you install the
 package. You typically only need to build it if:
 
 - You’re developing the package
@@ -16,7 +16,7 @@ package. You typically only need to build it if:
     [nodejs.org](https://nodejs.org/)
 2.  **npm** (comes with Node.js)
 
-## Build Steps
+## Build steps
 
 ### Option 1: Using R (from a source checkout)
 
@@ -49,7 +49,7 @@ npm install
 npm run build
 ```
 
-## What Gets Built
+## What gets built
 
 The build process creates:
 
@@ -75,7 +75,7 @@ than failing to render. `srcjs/package-lock.json` is committed so a
 rebuild from a fresh clone resolves the same dependency versions that
 produced the committed bundle.
 
-## Development Mode
+## Development mode
 
 For active development with auto-rebuild:
 
@@ -86,7 +86,7 @@ npm run dev
 
 This will watch for changes and rebuild automatically.
 
-## Testing After Build
+## Testing after build
 
 ``` r
 
@@ -111,7 +111,7 @@ lineage_flow(
 If the bundle loads successfully, you’ll see an interactive React Flow
 diagram with draggable nodes, pan/zoom controls, and a grid background.
 
-If the bundle doesn’t load, it will fallback to the SVG visualization.
+If the bundle doesn’t load, it will fall back to the SVG visualization.
 
 ## Troubleshooting
 
@@ -126,9 +126,9 @@ exists.
   `cd srcjs && rm -rf node_modules && npm install && npm run build`
 
 **Widget shows SVG instead of React Flow**: Check browser console for
-errors. The widget will fallback to SVG if React Flow fails to load.
+errors. The widget will fall back to SVG if React Flow fails to load.
 
-## Development Workflow
+## Development workflow
 
 If you’re modifying the React Flow bundle:
 
@@ -140,7 +140,7 @@ If you’re modifying the React Flow bundle:
 The webpack configuration in `srcjs/webpack.config.js` handles bundling
 all dependencies into a single minified file.
 
-## Bundle Contents
+## Bundle contents
 
 The bundle is created using webpack and includes:
 

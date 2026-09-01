@@ -71,8 +71,8 @@
 (or pass raw SQL) into <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code>, and render the
 answer as an interactive diagram with <code><a href="../reference/lineage_flow.html">lineage_flow()</a></code>.</p>
 <p>This vignette starts with the smallest possible example and works up
-to the cases where lineage gets genuinely hard: joins with ambiguous
-columns, CTEs, and columns computed from several sources at once.</p>
+to the cases where lineage gets hard: joins with ambiguous columns,
+CTEs, and columns computed from several sources at once.</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
@@ -80,7 +80,7 @@ columns, CTEs, and columns computed from several sources at once.</p>
 <code class="sourceCode R"><span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"tgerke/dplyneage"</span><span class="op">)</span></span></code></pre></div>
 <p>dplyr/dbplyr pipelines are analyzed entirely in R, so for those there
 is nothing else to install. Raw SQL strings are analyzed by sqlglot,
-dplyneage’s one Python dependency — install the reticulate package to
+dplyneage’s one Python dependency: install the reticulate package to
 enable that engine, and sqlglot itself is provisioned automatically the
 first time it’s needed. See <code><a href="../articles/python-integration.html">vignette("python-integration")</a></code>
 if you manage your own Python environment.</p>
@@ -88,7 +88,7 @@ if you manage your own Python environment.</p>
 <div class="section level2">
 <h2 id="your-first-lineage-diagram">Your first lineage diagram<a class="anchor" aria-label="anchor" href="#your-first-lineage-diagram"></a>
 </h2>
-<p>Let’s create a small in-memory DuckDB database to work with:</p>
+<p>First, create a small in-memory DuckDB database to work with:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tgerke.github.io/dplyneage/">dplyneage</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://dplyr.tidyverse.org" class="external-link">dplyr</a></span><span class="op">)</span></span>
@@ -110,8 +110,8 @@ if you manage your own Python environment.</p>
 <span></span>
 <span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/copy_to.html" class="external-link">copy_to</a></span><span class="op">(</span><span class="va">con</span>, <span class="va">customers</span>, <span class="st">"customers"</span>, overwrite <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/copy_to.html" class="external-link">copy_to</a></span><span class="op">(</span><span class="va">con</span>, <span class="va">orders</span>, <span class="st">"orders"</span>, overwrite <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
-<p>The simplest lineage there is — two columns selected from one
-table:</p>
+<p>The simplest lineage there is: two columns selected from one
+table.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"customers"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">id</span>, <span class="va">name</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -121,7 +121,7 @@ table:</p>
 <script type="application/json" data-for="htmlwidget-ac96cb3ee4656e2e9ec3">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"id","transformation":"identity"}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"name","transformation":"identity"}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}</script><p>Each output column connects back to the source column it came from.
 Try dragging the tables around, zooming with the mouse wheel, and
 hovering a column to highlight its connections. Clicking a column
-isolates its trace cone — everything upstream and downstream of it — and
+isolates its trace cone, everything upstream and downstream of it, and
 Escape (or a background click) releases it. The legend in the corner
 names the colors; <code><a href="../reference/lineage_flow.html">lineage_flow()</a></code> also offers
 <code>theme = "dark"</code>, a <code>minimap</code>, and a PNG download
@@ -141,7 +141,7 @@ followed by an aggregation:</p>
 <span>  <span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"400px"</span><span class="op">)</span></span></code></pre></div>
 <div id="htmlwidget-e5c8c404fe174e4c81bd" style="width:100%;height:400px;" class="lineage_flow html-widget"></div>
 <script type="application/json" data-for="htmlwidget-e5c8c404fe174e4c81bd">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"orders","type":"tableNode","data":{"label":"orders","columns":"amount","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":170},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["id","name","total_spent"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":52},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_output.id","source":"customers","target":"output","sourceHandle":"id","targetHandle":"id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"id","transformation":"identity"}},{"id":"e_customers.name_to_output.name","source":"customers","target":"output","sourceHandle":"name","targetHandle":"name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"name","transformation":"identity"}},{"id":"e_orders.amount_to_output.total_spent","source":"orders","target":"output","sourceHandle":"amount","targetHandle":"total_spent","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"sum(amount, na.rm = TRUE)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"sum(amount, na.rm = TRUE)","transformation":"aggregation"}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}</script><p>Notice that <code>total_spent</code> traces back to
-<code>orders.amount</code> — not to <code>customers</code>, even though
+<code>orders.amount</code>, not to <code>customers</code>, even though
 <code>amount</code> appears unqualified in the generated SQL. When you
 pass a dbplyr table, dplyneage doesn’t parse SQL at all: it walks the
 pipeline’s own query tree, which records exactly which table each column
@@ -150,7 +150,7 @@ came from, so attribution is always right.</p>
 query tree can’t see inside that string, so
 <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> hands the whole query to sqlglot instead
 (with a message). You can also force a specific engine with
-<code>engine = "r"</code> or <code>engine = "sqlglot"</code> — see
+<code>engine = "r"</code> or <code>engine = "sqlglot"</code>; see
 <code><a href="../reference/extract_lineage.html">?extract_lineage</a></code>.</p>
 </div>
 <div class="section level2">
@@ -165,8 +165,8 @@ to keep the examples compact.</p>
 <h3 id="tracing-through-ctes">Tracing through CTEs<a class="anchor" aria-label="anchor" href="#tracing-through-ctes"></a>
 </h3>
 <p>Columns are traced <em>through</em> intermediate CTEs back to the
-base tables — <code>recent</code> is transparent, and
-<code>amount</code> correctly attributes to <code>orders</code>:</p>
+base tables. <code>recent</code> is transparent, and <code>amount</code>
+correctly attributes to <code>orders</code>:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="st">"</span></span>
 <span><span class="st">  WITH recent AS (</span></span>
@@ -201,8 +201,8 @@ and a <code><a href="https://dplyr.tidyverse.org/reference/setops.html" class="e
 <h3 id="expanding-select">Expanding <code>SELECT *</code><a class="anchor" aria-label="anchor" href="#expanding-select"></a>
 </h3>
 <p>With a schema available, <code>SELECT *</code> expands to real
-columns. dbplyr input never needs a schema — the pipeline itself knows
-its columns — but for raw SQL, pass one yourself:</p>
+columns. dbplyr input never needs a schema (the pipeline itself knows
+its columns), but for raw SQL, pass one yourself:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span></span>
 <span>  <span class="st">"SELECT * FROM customers"</span>,</span>
@@ -217,7 +217,7 @@ its columns — but for raw SQL, pass one yourself:</p>
 <h2 id="raw-sql-and-schemas">Raw SQL and schemas<a class="anchor" aria-label="anchor" href="#raw-sql-and-schemas"></a>
 </h2>
 <p>As the examples above show, <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> accepts a
-SQL string directly — useful for auditing queries you didn’t write in R.
+SQL string directly, useful for auditing queries you didn’t write in R.
 Two things to know:</p>
 <ul>
 <li>
@@ -251,8 +251,8 @@ produces a warning rather than a silently empty diagram.</p>
 <h2 id="local-data-frames">Local data frames<a class="anchor" aria-label="anchor" href="#local-data-frames"></a>
 </h2>
 <p><code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> reads lineage from a <em>lazy</em>
-query — the tree dbplyr builds up before anything touches the database.
-A pipeline on a plain tibble has no such tree: dplyr executes each verb
+query, the tree dbplyr builds up before anything touches the database. A
+pipeline on a plain tibble has no such tree: dplyr executes each verb
 immediately, so by the time you could ask about lineage, only the result
 is left.</p>
 <p>The lightest fix is <code><a href="https://dbplyr.tidyverse.org/reference/tbl_lazy.html" class="external-link">dbplyr::tbl_lazy()</a></code>, which wraps the
@@ -280,7 +280,7 @@ in-memory SQLite (install the RSQLite package once), and
 <code>copy_to(dbplyr::memdb(), df, name = "df")</code> does the same
 copy for a frame you already have. Lineage depends only on the
 pipeline’s structure, never on the data, so for large frames copying a
-slice is enough —
+slice is enough:
 <code>copy_to(dbplyr::memdb(), head(df), name = "df")</code> yields the
 same diagram as copying every row.</p>
 <p>The duckdb connection from earlier in this vignette works just as
@@ -294,9 +294,9 @@ the fastest route when no connection exists and none is needed.</p>
 data often has them already: haven and labelled store a
 <code>label</code> attribute on every column imported from SAS, SPSS, or
 Stata, and database tables keep the same idea as column comments.
-<code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> collects both — <code>label</code>
+<code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> collects both (<code>label</code>
 attributes from local frames, comments from a live duckdb or postgres
-connection — and a <code>labels</code> argument covers everything else,
+connection), and a <code>labels</code> argument covers everything else,
 winning over the automatic sources:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sales_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
@@ -327,13 +327,13 @@ winning over the automatic sources:</p>
 <span><span class="co">#&gt; [1] "Customer surrogate key"</span></span></code></pre></div>
 <p>That receipt shows the whole pattern. <code>customer_id</code> passes
 through the <code><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by()</a></code> unchanged, so its label travels to
-the output node on its own — labels (and types, when captured) propagate
+the output node on its own: labels (and types, when captured) propagate
 along identity edges, the way dbt Catalog carries descriptions through
 passthrough columns. <code>total</code> is a computed column no
 propagation can describe, so it gets a <code>labels</code> entry keyed
 by <code>"output"</code>, the synthetic name of a single query’s result;
 in a multi-model pipeline, the model’s name plays that role. Had two
-sources fed one column conflicting labels, it would have stayed bare —
+sources fed one column conflicting labels, it would have stayed bare:
 missing beats wrong.</p>
 <p>In the diagram, those labels become hover cards. Try it on this
 rendering: <code>customer_id</code> shows its label on both nodes, and
@@ -343,7 +343,7 @@ rendering: <code>customer_id</code> shows its label on both nodes, and
 <div id="htmlwidget-5b1b2f4ad92281566982" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
 <script type="application/json" data-for="htmlwidget-5b1b2f4ad92281566982">{"x":{"nodes":[{"id":"sales","type":"tableNode","data":{"label":"sales","columns":["customer_id","amount"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"},"columnLabels":{"customer_id":"Customer surrogate key","amount":"Order amount in USD"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["customer_id","total"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"},"columnLabels":{"total":"Total spent per customer","customer_id":"Customer surrogate key"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_sales.customer_id_to_output.customer_id","source":"sales","target":"output","sourceHandle":"customer_id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"customer_id","transformation":"identity"}},{"id":"e_sales.amount_to_output.total","source":"sales","target":"output","sourceHandle":"amount","targetHandle":"total","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"sum(amount, na.rm = TRUE)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"sum(amount, na.rm = TRUE)","transformation":"aggregation"}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}</script><p><code><a href="../reference/lineage_json.html">lineage_json()</a></code> records the same labels as per-node
 <code>labels</code> and <code>types</code> maps, and each OpenLineage
-schema-facet field gains a <code>description</code> — the <a href="https://tgerke.github.io/dplyneage/articles/openlineage.html">OpenLineage
+schema-facet field gains a <code>description</code>; the <a href="https://tgerke.github.io/dplyneage/articles/openlineage.html">OpenLineage
 article</a> shows the rendered event.</p>
 </div>
 <div class="section level2">
@@ -375,9 +375,9 @@ build the diagram yourself:</p>
 <span></span>
 <span><span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span><span class="va">nodes</span>, <span class="va">edges</span>, height <span class="op">=</span> <span class="st">"300px"</span><span class="op">)</span></span></code></pre></div>
 <div id="htmlwidget-25c3e940e6859592f801" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
-<script type="application/json" data-for="htmlwidget-25c3e940e6859592f801">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name","email"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"customer_summary","type":"tableNode","data":{"label":"customer_summary","columns":["customer_id","full_name","contact"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":500,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_customer_summary.customer_id","source":"customers","target":"customer_summary","sourceHandle":"id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.name_to_customer_summary.full_name","source":"customers","target":"customer_summary","sourceHandle":"name","targetHandle":"full_name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.email_to_customer_summary.contact","source":"customers","target":"customer_summary","sourceHandle":"email","targetHandle":"contact","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}</script><p>Nodes come in three types — <code>"source"</code> (blue),
-<code>"transform"</code> (orange), and <code>"target"</code> (green) —
-and edges accept a <code>label</code> (e.g. <code>"SUM()"</code>) and
+<script type="application/json" data-for="htmlwidget-25c3e940e6859592f801">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name","email"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"customer_summary","type":"tableNode","data":{"label":"customer_summary","columns":["customer_id","full_name","contact"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":500,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_customer_summary.customer_id","source":"customers","target":"customer_summary","sourceHandle":"id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.name_to_customer_summary.full_name","source":"customers","target":"customer_summary","sourceHandle":"name","targetHandle":"full_name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.email_to_customer_summary.contact","source":"customers","target":"customer_summary","sourceHandle":"email","targetHandle":"contact","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}</script><p>Nodes come in three types: <code>"source"</code> (blue),
+<code>"transform"</code> (orange), and <code>"target"</code> (green).
+Edges accept a <code>label</code> (e.g. <code>"SUM()"</code>) and
 <code>animated = TRUE</code> for emphasis.
 <code><a href="../reference/lineage_example.html">lineage_example()</a></code> renders a complete hand-built diagram you
 can use as a template.</p>
@@ -393,7 +393,7 @@ to a small, stable JSON document, stamped with a
 <code><a href="../reference/lineage_json.html">?lineage_json</a></code> for the full schema). Because the output is
 deterministic, you can commit it alongside your pipeline code and let CI
 diff it: if a refactor silently changes where a column comes from, the
-diff shows it before it ships — the <a href="https://tgerke.github.io/dplyneage/articles/lineage-ci.html">lineage
+diff shows it before it ships; the <a href="https://tgerke.github.io/dplyneage/articles/lineage-ci.html">lineage
 checks in CI</a> article turns that into a one-call gate with
 <code><a href="../reference/lineage_check.html">lineage_check()</a></code>. It is also the natural handoff format for
 data catalogs or anything scriptable with jq.</p>
@@ -468,9 +468,9 @@ data catalogs or anything scriptable with jq.</p>
 <p><code><a href="../reference/lineage_graphml.html">lineage_graphml()</a></code> writes GraphML, the XML format that
 graph tools speak: igraph, Gephi, and yEd all open it directly. Every
 column becomes its own node, which is what makes real graph queries
-possible. The classic one is impact analysis — “if
-<code>orders.amount</code> changes, which outputs are affected?” — or
-its reverse, tracing an output back to every source column that feeds
+possible. The classic one is impact analysis (“if
+<code>orders.amount</code> changes, which outputs are affected?”) or its
+reverse, tracing an output back to every source column that feeds
 it:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".graphml"</span><span class="op">)</span></span>
@@ -480,20 +480,20 @@ it:</p>
 <span></span>
 <span><span class="co"># Everything upstream of total_spent</span></span>
 <span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"output.total_spent"</span>, mode <span class="op">=</span> <span class="st">"in"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; + 2/6 vertices, named, from a2cb0bd:</span></span>
+<span><span class="co">#&gt; + 2/6 vertices, named, from d30a8eb:</span></span>
 <span><span class="co">#&gt; [1] output.total_spent orders.amount</span></span>
 <span></span>
 <span><span class="co"># Everything downstream of orders.amount</span></span>
 <span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"orders.amount"</span>, mode <span class="op">=</span> <span class="st">"out"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; + 2/6 vertices, named, from a2cb0bd:</span></span>
+<span><span class="co">#&gt; + 2/6 vertices, named, from d30a8eb:</span></span>
 <span><span class="co">#&gt; [1] orders.amount      output.total_spent</span></span></code></pre></div>
 <p>Both functions return the serialized string when called without
 <code>path</code>, so they compose in pipes and tests.</p>
 <p>You don’t need a graph library for the everyday questions, though.
 <code><a href="../reference/lineage_upstream.html">lineage_upstream()</a></code> and <code><a href="../reference/lineage_upstream.html">lineage_downstream()</a></code>
-answer them straight from the lineage object — pass
+answer them straight from the lineage object (pass
 <code>"orders.amount"</code> for one column, or <code>"orders"</code> to
-trace every column of a table at once — and
+trace every column of a table at once), and
 <code><a href="../reference/lineage_unused.html">lineage_unused()</a></code> lists the columns with no path to any
 target, which is how dead weight in a multi-model pipeline shows up.</p>
 </div>

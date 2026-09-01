@@ -8,8 +8,8 @@ the `transformation` column classifies each edge (`"identity"` for plain
 column passthrough, `"aggregation"`, or `"transformation"`) and
 `expression` records the output column's defining expression; both are
 `NA` for hand-built edges. With `include_indirect = TRUE`, indirect
-edges are classified by how the source column is used — `"filter"`,
-`"join"`, `"group_by"`, or `"sort"` — with `NA` for `expression`. A
+edges are classified by how the source column is used (`"filter"`,
+`"join"`, `"group_by"`, or `"sort"`), with `NA` for `expression`. A
 column used in several of those ways keeps one edge classified by the
 first kind; the full set is in the
 [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)

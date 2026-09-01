@@ -6,8 +6,8 @@ classifies each edge (&quot;identity&quot; for plain column passthrough,
 &quot;aggregation&quot;, or &quot;transformation&quot;) and expression records the
 output column's defining expression; both are NA for hand-built
 edges. With include_indirect = TRUE, indirect edges are classified by
-how the source column is used — &quot;filter&quot;, &quot;join&quot;, &quot;group_by&quot;, or
-&quot;sort&quot; — with NA for expression. A column used in several of
+how the source column is used (&quot;filter&quot;, &quot;join&quot;, &quot;group_by&quot;, or
+&quot;sort&quot;), with NA for expression. A column used in several of
 those ways keeps one edge classified by the first kind; the full set
 is in the lineage_json() artifact and the OpenLineage export."><meta property="og:description" content="Flattens a lineage object's column-level edges into one row per edge,
 for filtering, joining, and summarising with ordinary data frame tools.
@@ -16,8 +16,8 @@ classifies each edge (&quot;identity&quot; for plain column passthrough,
 &quot;aggregation&quot;, or &quot;transformation&quot;) and expression records the
 output column's defining expression; both are NA for hand-built
 edges. With include_indirect = TRUE, indirect edges are classified by
-how the source column is used — &quot;filter&quot;, &quot;join&quot;, &quot;group_by&quot;, or
-&quot;sort&quot; — with NA for expression. A column used in several of
+how the source column is used (&quot;filter&quot;, &quot;join&quot;, &quot;group_by&quot;, or
+&quot;sort&quot;), with NA for expression. A column used in several of
 those ways keeps one edge classified by the first kind; the full set
 is in the lineage_json() artifact and the OpenLineage export."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -67,8 +67,8 @@ classifies each edge (<code>"identity"</code> for plain column passthrough,
 <code>"aggregation"</code>, or <code>"transformation"</code>) and <code>expression</code> records the
 output column's defining expression; both are <code>NA</code> for hand-built
 edges. With <code>include_indirect = TRUE</code>, indirect edges are classified by
-how the source column is used — <code>"filter"</code>, <code>"join"</code>, <code>"group_by"</code>, or
-<code>"sort"</code> — with <code>NA</code> for <code>expression</code>. A column used in several of
+how the source column is used (<code>"filter"</code>, <code>"join"</code>, <code>"group_by"</code>, or
+<code>"sort"</code>), with <code>NA</code> for <code>expression</code>. A column used in several of
 those ways keeps one edge classified by the first kind; the full set
 is in the <code><a href="lineage_json.html">lineage_json()</a></code> artifact and the OpenLineage export.</p>
     </div>

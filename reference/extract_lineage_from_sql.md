@@ -1,4 +1,4 @@
-# Extract Lineage from SQL using sqlglot
+# Extract lineage from SQL using sqlglot
 
 Internal function that calls the bundled Python module (built on
 sqlglot.lineage) to parse SQL and trace each output column to its source

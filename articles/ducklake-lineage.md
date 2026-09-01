@@ -10,7 +10,7 @@ The two compose without any glue code.
 [`get_ducklake_table()`](https://tgerke.github.io/ducklake-r/reference/get_ducklake_table.html)
 returns an ordinary dbplyr lazy table, and that is exactly what
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
-accepts — so any query you can write against a lake, you can also
+accepts, so any query you can write against a lake, you can also
 diagram.
 
 ## Setting up a small lake
@@ -67,8 +67,8 @@ with_transaction(
 
 ## Lineage for a lake pipeline
 
-Here is a typical analysis query — join orders to customers, aggregate
-by region — piped straight into lineage extraction:
+Here is a typical analysis query (join orders to customers, aggregate by
+region) piped straight into lineage extraction:
 
 ``` r
 
@@ -80,15 +80,15 @@ get_ducklake_table("orders") |>
   lineage_flow(height = "400px")
 ```
 
-Two things worth noticing:
+Two things to notice:
 
-- **Lake tables appear as blue source nodes under their plain names**
-  (`orders`, `customers`) — the same names you passed to
+- Lake tables appear as blue source nodes under their plain names
+  (`orders`, `customers`), the same names you passed to
   [`create_table()`](https://tgerke.github.io/ducklake-r/reference/create_table.html),
   with no catalog prefix cluttering the diagram.
-- **No Python was involved.** Because ducklake queries are dbplyr
-  pipelines under the hood, dplyneage’s pure-R engine reads column
-  provenance directly from the query tree. `total_sales` attributes to
+- No Python was involved. Because ducklake queries are dbplyr pipelines
+  under the hood, dplyneage’s pure-R engine reads column provenance
+  directly from the query tree. `total_sales` attributes to
   `orders.amount` and `region` to `customers.region`, exactly, with
   nothing to install beyond the two packages.
 
@@ -150,7 +150,7 @@ lineage_flow(lake_lineage, height = "450px")
 ```
 
 Now `orders` and `customers` (blue) feed `region_sales` (orange), which
-feeds `top_regions` (green) — the whole lake, bronze to gold, with every
+feeds `top_regions` (green): the whole lake, bronze to gold, with every
 column edge preserved. Aggregation edges carry their defining expression
 as a label, so `total_sales` reads as `sum(amount, na.rm = TRUE)` right
 on the diagram.
@@ -165,8 +165,8 @@ lineage_upstream(lake_lineage, "top_regions.total_sales")
 #> [1] "orders.amount"            "region_sales.total_sales"
 ```
 
-So a rename of `orders.amount` touches every layer of this lake — worth
-knowing before you commit it.
+So a rename of `orders.amount` touches every layer of this lake. Better
+to know that before you commit it.
 
 ## Time travel and lineage
 
@@ -189,19 +189,19 @@ get_ducklake_table_version("orders", first_version) |>
 One implementation detail surfaces here.
 [`get_ducklake_table_version()`](https://tgerke.github.io/ducklake-r/reference/get_ducklake_table_version.html)
 builds its query from raw SQL (`AT (VERSION => ...)` under the hood),
-which the pure-R engine can’t see inside — so
+which the pure-R engine can’t see inside, so
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
 falls back to the sqlglot engine, with a message. sqlglot parses
 DuckDB’s time-travel syntax and traces the columns identically; the only
 practical difference is that this path uses dplyneage’s Python
-dependency (provisioned automatically — see
+dependency (provisioned automatically; see
 [`vignette("python-integration")`](https://tgerke.github.io/dplyneage/articles/python-integration.md)).
 
 The diagram is the same at every version, and that’s the point:
 snapshots change what the data *was*, not where the columns *come from*.
 If a refactor ever does change provenance,
 [`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md)
-can fail the pull request that introduced it — the [lineage checks in
+can fail the pull request that introduced it; the [lineage checks in
 CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html) article
 has a copy-paste GitHub Actions job.
 

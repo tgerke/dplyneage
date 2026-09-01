@@ -88,7 +88,7 @@ document. The fixture here is a small duckdb warehouse with an
 <span></span>
 <span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbConnect.html" class="external-link">dbConnect</a></span><span class="op">(</span><span class="fu">duckdb</span><span class="fu">::</span><span class="fu"><a href="https://r.duckdb.org/reference/duckdb.html" class="external-link">duckdb</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; duckdb keeps downloaded extensions and secrets in a temporary directory:</span></span>
-<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> /tmp/RtmpLqsgIN/duckdb</span></span>
+<span><span class="co">#&gt; <span style="color: #0000BB;">ℹ</span> /tmp/Rtmph7FJ7b/duckdb</span></span>
 <span><span class="co">#&gt; This is removed when the R session ends.</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Extensions are re-downloaded each session.</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Secrets are lost.</span></span>
@@ -260,7 +260,7 @@ and postgres; one small metadata query per base table), or a
 <code>labels</code> argument like
 <code>labels = list(orders = c(amount = "Order amount in USD"))</code>,
 which wins over both. The comments on this article’s fixture are why the
-event above carries a <code>description</code> on each input field — and
+event above carries a <code>description</code> on each input field, and
 on the output’s <code>customer_id</code>: types and descriptions
 propagate along identity edges, so a passthrough column arrives
 documented while the aggregated <code>total</code> stays bare. Whatever

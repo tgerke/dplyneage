@@ -11,8 +11,8 @@ tiered issues on GitHub.
   [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
   reads `label` attributes from local frames (the haven/labelled
   convention), reads column comments from a live duckdb or postgres
-  connection on any engine, and takes a `labels` argument —
-  `list(orders = c(amount = "Order amount in USD"))` — that wins over
+  connection on any engine, and takes a `labels` argument
+  (`list(orders = c(amount = "Order amount in USD"))`) that wins over
   both. Labels and column types then propagate along identity edges, the
   way dbt Catalog carries descriptions through passthrough columns: a
   renamed or selected-through column reports its source’s metadata,
@@ -45,7 +45,7 @@ tiered issues on GitHub.
 
 - Clicking a column in a
   [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
-  diagram now isolates its trace cone — the interaction dbt Catalog and
+  diagram now isolates its trace cone, the interaction dbt Catalog and
   SQLMesh converge on: the column’s transitive upstream and downstream
   subgraph keeps its full styling while every other table, column, and
   edge dims. Clicking the column again, clicking the background, or
@@ -58,7 +58,7 @@ tiered issues on GitHub.
   pressing Backspace with a node selected no longer deletes it from the
   diagram (a lineage diagram states provenance, so viewers must not be
   able to edit it, matching the earlier `nodesConnectable` fix), and
-  re-rendering the widget — as Shiny does — now unmounts the previous
+  re-rendering the widget, as Shiny does, now unmounts the previous
   React tree instead of leaking it.
 
 - [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
@@ -72,8 +72,8 @@ tiered issues on GitHub.
   which also makes the 0.2.1 resize behavior work in hosts that resize
   elements without a window resize event.
 
-- The static SVG fallback — drawn when the bundled React Flow assets
-  cannot load — is now a real lineage diagram: table boxes with their
+- The static SVG fallback (drawn when the bundled React Flow assets
+  cannot load) is now a real lineage diagram: table boxes with their
   headers, colors, and column rows; edges anchored to the columns they
   connect, dashed when indirect, with arrowheads matching each edge’s
   color; and a drawing sized to the graph’s bounds instead of a fixed
@@ -84,7 +84,7 @@ tiered issues on GitHub.
   [`lineage_downstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
   accept a table name as well as a `"table.column"` string, tracing from
   every column of the table at once (the table’s own columns are not
-  part of the answer). Matching stays exact — names are never split on
+  part of the answer). Matching stays exact: names are never split on
   dots, and a string that is both a column key and a schema-qualified
   table id resolves as the column key it already was. New
   [`lineage_unused()`](https://tgerke.github.io/dplyneage/reference/lineage_unused.md)
@@ -115,8 +115,8 @@ tiered issues on GitHub.
 - OpenLineage events now carry the facets catalogs actually read. The
   job gains a `jobType` facet and, for single-model lineage, a `sql`
   facet with the analyzed query and dialect. Schema facet fields include
-  column types when they are known — harvested from the connection on
-  the sqlglot path, or taken from a `schema` argument with named entries
+  column types when they are known: harvested from the connection on the
+  sqlglot path, or taken from a `schema` argument with named entries
   like `list(orders = list(amount = "DOUBLE"))` on any path; the types
   also appear as a `types` map on
   [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
@@ -126,20 +126,20 @@ tiered issues on GitHub.
   (filter/join/group/sort columns) move from each output column’s
   `inputFields` to the `columnLineage` facet’s dataset-level `dataset`
   array, which the spec defines for exactly these whole-dataset
-  dependencies — consumers reading per-column `inputFields` no longer
-  see them fanned out to every column. All `schemaURL`s now use the
-  spec’s `#/$defs/...` fragments.
+  dependencies; consumers reading per-column `inputFields` no longer see
+  them fanned out to every column. All `schemaURL`s now use the spec’s
+  `#/$defs/...` fragments.
   ([\#7](https://github.com/tgerke/dplyneage/issues/7))
 
 - [`lineage_openlineage()`](https://tgerke.github.io/dplyneage/reference/lineage_openlineage.md)
   can emit OpenLineage’s run-less static events, the spec’s design-time
-  path — which is what extracting lineage from code without running it
+  path, which is what extracting lineage from code without running it
   is. `events = "job"` produces one `JobEvent` per model (inputs are the
   datasets the model reads, upstream models included; each carries its
   own `sql` facet), and `events = "dataset"` one `DatasetEvent` per
   dataset; neither fabricates a run. Kinds combine, and anything beyond
   a single pretty document serializes as NDJSON, one compact event per
-  line — the format `FileTransport` writes, so a committed events file
+  line (the format `FileTransport` writes), so a committed events file
   can be replayed into any backend later.
   ([\#8](https://github.com/tgerke/dplyneage/issues/8))
 
@@ -308,10 +308,10 @@ here was packaging rather than behavior.
   a dependency CRAN cannot resolve. The article still builds on the
   pkgdown site, and nothing about ducklake support itself changed.
 
-- Anything that starts Python — the sqlglot examples, the sqlglot tests,
+- Anything that starts Python (the sqlglot examples, the sqlglot tests,
   and the raw-SQL chunks in
-  [`vignette("getting-started")`](https://tgerke.github.io/dplyneage/articles/getting-started.md)
-  — is now skipped when `NOT_CRAN` is unset. reticulate provisions its
+  [`vignette("getting-started")`](https://tgerke.github.io/dplyneage/articles/getting-started.md))
+  is now skipped when `NOT_CRAN` is unset. reticulate provisions its
   environment over the network on first use, and CRAN checks run
   offline.
 
@@ -337,8 +337,8 @@ here was packaging rather than behavior.
   widgets that initialize while their container is hidden (a non-active
   reveal.js slide, a hidden tabset panel) now wait for the container to
   gain nonzero dimensions before mounting React Flow. Mounting against a
-  zero-size container pinned the viewport at minZoom, and no later fit —
-  including the Controls fit button — could recover it, so widgets on
+  zero-size container pinned the viewport at minZoom, and no later fit,
+  including the Controls fit button, could recover it, so widgets on
   non-first Quarto revealjs slides rendered as a dot in the corner. No
   host-page JavaScript is needed anymore to work around this.
 
@@ -352,8 +352,8 @@ here was packaging rather than behavior.
 ## dplyneage 0.2.0
 
 - [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
-  now gives an actionable error when passed a plain data frame, pointing
-  to the
+  now gives a helpful error when passed a plain data frame, pointing to
+  the
   [`dbplyr::memdb_frame()`](https://dbplyr.tidyverse.org/reference/memdb.html)
   / [`copy_to()`](https://dplyr.tidyverse.org/reference/copy_to.html)
   workaround instead of failing later with a misleading message about
@@ -364,7 +364,7 @@ here was packaging rather than behavior.
 - New
   [`lineage_openlineage()`](https://tgerke.github.io/dplyneage/reference/lineage_openlineage.md)
   exports lineage as an OpenLineage `RunEvent` with `ColumnLineage`
-  facets — the interchange format Marquez, DataHub, and OpenMetadata
+  facets, the interchange format Marquez, DataHub, and OpenMetadata
   ingest, so dplyneage-extracted lineage can sit alongside lineage from
   dbt, Airflow, or Spark. Edge classifications map to OpenLineage
   transformation types, including `INDIRECT` subtypes for
@@ -372,7 +372,7 @@ here was packaging rather than behavior.
 
 - New
   [`lineage_mermaid()`](https://tgerke.github.io/dplyneage/reference/lineage_mermaid.md)
-  exports lineage as a Mermaid flowchart — paste it into a
+  exports lineage as a Mermaid flowchart: paste it into a
   ```` ```mermaid ```` fence and it renders natively on GitHub, in
   Quarto, and in most documentation tools, with no htmlwidget involved.
   Tables draw as colored subgraphs, non-identity edges carry their
@@ -393,8 +393,8 @@ here was packaging rather than behavior.
   [`group_by()`](https://dplyr.tidyverse.org/reference/group_by.html),
   and
   [`arrange()`](https://dplyr.tidyverse.org/reference/arrange.html)/`ORDER BY`
-  — which shape the result without appearing in it — draw as dashed
-  edges to each output column, classified by use (`"filter"`, `"join"`,
+  (which shape the result without appearing in it) draw as dashed edges
+  to each output column, classified by use (`"filter"`, `"join"`,
   `"group_by"`, `"sort"`). Impact analysis via
   [`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)/[`lineage_downstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
   then sees them too: dropping a column used only in a
@@ -428,7 +428,7 @@ here was packaging rather than behavior.
   [`lineage_edges()`](https://tgerke.github.io/dplyneage/reference/lineage_edges.md)
   and
   [`lineage_tables()`](https://tgerke.github.io/dplyneage/reference/lineage_tables.md)
-  flatten a lineage object into plain data frames — one classified row
+  flatten a lineage object into plain data frames: one classified row
   per column edge, one row per table.
 
 - Lineage edges are now classified as `identity`, `aggregation`, or
@@ -442,7 +442,7 @@ here was packaging rather than behavior.
 
 - New
   [`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
-  compares two extractions and reports added/removed edges and columns —
+  compares two extractions and reports added/removed edges and columns:
   extract lineage on two branches and fail CI when column provenance
   changed.
 
@@ -513,7 +513,7 @@ here was packaging rather than behavior.
 
 - [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
   now analyzes dbplyr lazy tables with a pure-R engine that walks the
-  pipeline’s lazy query tree — no Python required. Column provenance is
+  pipeline’s lazy query tree, no Python required. Column provenance is
   read directly from the tree, so joins (including suffix conflicts and
   coalesced full-join keys), aggregates, window expressions, and set
   operations resolve exactly.
@@ -565,8 +565,8 @@ First public release.
 - Multiple SQL dialects supported via sqlglot (DuckDB default;
   PostgreSQL, MySQL, Snowflake, BigQuery, and more).
 - Python dependencies are provisioned automatically through
-  [`reticulate::py_require()`](https://rstudio.github.io/reticulate/reference/py_require.html)
-  — no manual setup step. `install_sqlglot()` is deprecated and does
+  [`reticulate::py_require()`](https://rstudio.github.io/reticulate/reference/py_require.html),
+  with no manual setup step. `install_sqlglot()` is deprecated and does
   nothing.
 
 ### Notes

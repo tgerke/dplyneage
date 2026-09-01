@@ -73,7 +73,7 @@ deliberately leaves to its query layer: <em>within a pipeline, where did
 each column come from?</em></p>
 <p>The two compose without any glue code.
 <code><a href="https://tgerke.github.io/ducklake-r/reference/get_ducklake_table.html" class="external-link">get_ducklake_table()</a></code> returns an ordinary dbplyr lazy table,
-and that is exactly what <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> accepts — so any
+and that is exactly what <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> accepts, so any
 query you can write against a lake, you can also diagram.</p>
 <div class="section level2">
 <h2 id="setting-up-a-small-lake">Setting up a small lake<a class="anchor" aria-label="anchor" href="#setting-up-a-small-lake"></a>
@@ -124,8 +124,8 @@ audit trail says why each table exists:</p>
 <div class="section level2">
 <h2 id="lineage-for-a-lake-pipeline">Lineage for a lake pipeline<a class="anchor" aria-label="anchor" href="#lineage-for-a-lake-pipeline"></a>
 </h2>
-<p>Here is a typical analysis query — join orders to customers,
-aggregate by region — piped straight into lineage extraction:</p>
+<p>Here is a typical analysis query (join orders to customers, aggregate
+by region) piped straight into lineage extraction:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://tgerke.github.io/ducklake-r/reference/get_ducklake_table.html" class="external-link">get_ducklake_table</a></span><span class="op">(</span><span class="st">"orders"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="fu"><a href="https://tgerke.github.io/ducklake-r/reference/get_ducklake_table.html" class="external-link">get_ducklake_table</a></span><span class="op">(</span><span class="st">"customers"</span><span class="op">)</span>, by <span class="op">=</span> <span class="st">"customer_id"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -134,17 +134,15 @@ aggregate by region — piped straight into lineage extraction:</p>
 <span>  <span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"400px"</span><span class="op">)</span></span></code></pre></div>
 <div id="htmlwidget-ac96cb3ee4656e2e9ec3" style="width:100%;height:400px;" class="lineage_flow html-widget"></div>
-<script type="application/json" data-for="htmlwidget-ac96cb3ee4656e2e9ec3">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":"region","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"orders","type":"tableNode","data":{"label":"orders","columns":"amount","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":137},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["region","total_sales"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":52},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.region_to_output.region","source":"customers","target":"output","sourceHandle":"region","targetHandle":"region","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"region","transformation":"identity"}},{"id":"e_orders.amount_to_output.total_sales","source":"orders","target":"output","sourceHandle":"amount","targetHandle":"total_sales","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"sum(amount, na.rm = TRUE)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"sum(amount, na.rm = TRUE)","transformation":"aggregation"}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}</script><p>Two things worth noticing:</p>
+<script type="application/json" data-for="htmlwidget-ac96cb3ee4656e2e9ec3">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":"region","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"orders","type":"tableNode","data":{"label":"orders","columns":"amount","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":137},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["region","total_sales"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":52},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.region_to_output.region","source":"customers","target":"output","sourceHandle":"region","targetHandle":"region","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"region","transformation":"identity"}},{"id":"e_orders.amount_to_output.total_sales","source":"orders","target":"output","sourceHandle":"amount","targetHandle":"total_sales","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"sum(amount, na.rm = TRUE)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"sum(amount, na.rm = TRUE)","transformation":"aggregation"}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}</script><p>Two things to notice:</p>
 <ul>
-<li>
-<strong>Lake tables appear as blue source nodes under their plain
-names</strong> (<code>orders</code>, <code>customers</code>) — the same
-names you passed to <code><a href="https://tgerke.github.io/ducklake-r/reference/create_table.html" class="external-link">create_table()</a></code>, with no catalog prefix
-cluttering the diagram.</li>
-<li>
-<strong>No Python was involved.</strong> Because ducklake queries
-are dbplyr pipelines under the hood, dplyneage’s pure-R engine reads
-column provenance directly from the query tree. <code>total_sales</code>
+<li>Lake tables appear as blue source nodes under their plain names
+(<code>orders</code>, <code>customers</code>), the same names you passed
+to <code><a href="https://tgerke.github.io/ducklake-r/reference/create_table.html" class="external-link">create_table()</a></code>, with no catalog prefix cluttering the
+diagram.</li>
+<li>No Python was involved. Because ducklake queries are dbplyr
+pipelines under the hood, dplyneage’s pure-R engine reads column
+provenance directly from the query tree. <code>total_sales</code>
 attributes to <code>orders.amount</code> and <code>region</code> to
 <code>customers.region</code>, exactly, with nothing to install beyond
 the two packages.</li>
@@ -201,7 +199,7 @@ matching a model name becomes an intermediate transform node.</p>
 <div id="htmlwidget-36aa3d2a04d42bbc2145" style="width:100%;height:450px;" class="lineage_flow html-widget"></div>
 <script type="application/json" data-for="htmlwidget-36aa3d2a04d42bbc2145">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":"region","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"orders","type":"tableNode","data":{"label":"orders","columns":"amount","tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":137},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"region_sales","type":"tableNode","data":{"label":"region_sales","columns":["region","total_sales"],"tableType":"transform","colors":{"bg":"#fef3f2","border":"#f59e0b","header":"#d97706"}},"position":{"x":400,"y":52},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"top_regions","type":"tableNode","data":{"label":"top_regions","columns":["region","total_sales"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":800,"y":52},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.region_to_region_sales.region","source":"customers","target":"region_sales","sourceHandle":"region","targetHandle":"region","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"region","transformation":"identity"}},{"id":"e_orders.amount_to_region_sales.total_sales","source":"orders","target":"region_sales","sourceHandle":"amount","targetHandle":"total_sales","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"sum(amount, na.rm = TRUE)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"sum(amount, na.rm = TRUE)","transformation":"aggregation"}},{"id":"e_region_sales.region_to_top_regions.region","source":"region_sales","target":"top_regions","sourceHandle":"region","targetHandle":"region","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"region","transformation":"identity"}},{"id":"e_region_sales.total_sales_to_top_regions.total_sales","source":"region_sales","target":"top_regions","sourceHandle":"total_sales","targetHandle":"total_sales","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"total_sales","transformation":"identity"}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}</script><p>Now <code>orders</code> and <code>customers</code> (blue) feed
 <code>region_sales</code> (orange), which feeds <code>top_regions</code>
-(green) — the whole lake, bronze to gold, with every column edge
+(green): the whole lake, bronze to gold, with every column edge
 preserved. Aggregation edges carry their defining expression as a label,
 so <code>total_sales</code> reads as
 <code>sum(amount, na.rm = TRUE)</code> right on the diagram.</p>
@@ -211,7 +209,7 @@ so <code>total_sales</code> reads as
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/lineage_upstream.html">lineage_upstream</a></span><span class="op">(</span><span class="va">lake_lineage</span>, <span class="st">"top_regions.total_sales"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "orders.amount"            "region_sales.total_sales"</span></span></code></pre></div>
 <p>So a rename of <code>orders.amount</code> touches every layer of this
-lake — worth knowing before you commit it.</p>
+lake. Better to know that before you commit it.</p>
 </div>
 <div class="section level2">
 <h2 id="time-travel-and-lineage">Time travel and lineage<a class="anchor" aria-label="anchor" href="#time-travel-and-lineage"></a>
@@ -232,17 +230,16 @@ lineage from a time-travel query just like any other.</p>
 <script type="application/json" data-for="htmlwidget-febe03efa1a2d8d52a86">{"x":{"nodes":[{"id":"main.orders","type":"tableNode","data":{"label":"main.orders","columns":["customer_id","amount"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"},"columnTypes":{"customer_id":"integer","amount":"numeric"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["customer_id","total"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"},"columnTypes":{"customer_id":"integer"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_main.orders.customer_id_to_output.customer_id","source":"main.orders","target":"output","sourceHandle":"customer_id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"customer_id","transformation":"identity"}},{"id":"e_main.orders.amount_to_output.total","source":"main.orders","target":"output","sourceHandle":"amount","targetHandle":"total","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"SUM(amount)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"SUM(amount)","transformation":"aggregation"}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}</script><p>One implementation detail surfaces here.
 <code><a href="https://tgerke.github.io/ducklake-r/reference/get_ducklake_table_version.html" class="external-link">get_ducklake_table_version()</a></code> builds its query from raw SQL
 (<code>AT (VERSION =&gt; ...)</code> under the hood), which the pure-R
-engine can’t see inside — so <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> falls back
-to the sqlglot engine, with a message. sqlglot parses DuckDB’s
-time-travel syntax and traces the columns identically; the only
-practical difference is that this path uses dplyneage’s Python
-dependency (provisioned automatically — see
-<code><a href="../articles/python-integration.html">vignette("python-integration")</a></code>).</p>
+engine can’t see inside, so <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> falls back to
+the sqlglot engine, with a message. sqlglot parses DuckDB’s time-travel
+syntax and traces the columns identically; the only practical difference
+is that this path uses dplyneage’s Python dependency (provisioned
+automatically; see <code><a href="../articles/python-integration.html">vignette("python-integration")</a></code>).</p>
 <p>The diagram is the same at every version, and that’s the point:
 snapshots change what the data <em>was</em>, not where the columns
 <em>come from</em>. If a refactor ever does change provenance,
 <code><a href="../reference/lineage_check.html">lineage_check()</a></code> can fail the pull request that introduced
-it — the <a href="https://tgerke.github.io/dplyneage/articles/lineage-ci.html">lineage
+it; the <a href="https://tgerke.github.io/dplyneage/articles/lineage-ci.html">lineage
 checks in CI</a> article has a copy-paste GitHub Actions job.</p>
 </div>
 <div class="section level2">

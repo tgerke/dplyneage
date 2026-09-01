@@ -4,8 +4,8 @@ dplyneage draws interactive column-level lineage diagrams for dplyr and
 dbplyr pipelines. Pipe a query into
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
 and it traces every output column back to the source columns it came
-from — through joins, aggregations, CTEs, unions, and computed
-expressions — then renders the result as a draggable, zoomable [React
+from (through joins, aggregations, CTEs, unions, and computed
+expressions), then renders the result as a draggable, zoomable [React
 Flow](https://reactflow.dev/) diagram with
 [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md).
 
@@ -22,8 +22,8 @@ BigQuery, …) work too.
 pak::pak("tgerke/dplyneage")
 ```
 
-dbplyr pipelines need no Python at all — not even reticulate. For raw
-SQL input, install the reticulate package once; the Python dependency
+dbplyr pipelines need no Python at all, not even reticulate. For raw SQL
+input, install the reticulate package once; the Python dependency
 (sqlglot) is then provisioned automatically the first time it’s needed.
 See
 [`vignette("python-integration")`](https://tgerke.github.io/dplyneage/articles/python-integration.md)
@@ -93,10 +93,10 @@ Behind that one pipe,
   unqualified columns attribute correctly)
 
 The resulting diagram is fully interactive: drag tables to rearrange,
-zoom and pan, and hover columns to highlight their connections — when a
+zoom and pan, and hover columns to highlight their connections; when a
 column’s type or label was captured, the hover also shows a small card
-with both. Click a column and the diagram isolates its trace cone —
-everything upstream and downstream of that column — until you click
+with both. Click a column and the diagram isolates its trace cone
+(everything upstream and downstream of that column) until you click
 again or press Escape. Computed columns carry their defining expression
 as an edge label, and aggregation edges animate.
 [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
@@ -106,8 +106,8 @@ overview map, and a PNG download button lives in the zoom controls.
 ## Local data frames
 
 Lineage extraction needs the lazy query tree that dbplyr builds before
-anything executes. A pipeline on a plain tibble has no such tree — dplyr
-runs each verb immediately — so
+anything executes. A pipeline on a plain tibble has no such tree (dplyr
+runs each verb immediately), so
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
 can’t trace it. The fix is one line:
 [`dbplyr::tbl_lazy()`](https://dbplyr.tidyverse.org/reference/tbl_lazy.html)
@@ -144,10 +144,10 @@ builds the data in throwaway in-memory SQLite instead, and
 `copy_to(dbplyr::memdb(), df, name = "df")` does the same for a frame
 you already have. Lineage depends only on the pipeline’s structure,
 never on the data, so copying a slice with `head(df)` yields the same
-diagram as copying every row. Column `label` attributes on the frame —
-the convention haven and labelled use for imported SAS, SPSS, and Stata
-data — ride along too: they show as hover cards in the diagram,
-propagate to downstream columns along identity edges, and become field
+diagram as copying every row. Column `label` attributes on the frame
+(the convention haven and labelled use for imported SAS, SPSS, and Stata
+data) ride along too: they show as hover cards in the diagram, propagate
+to downstream columns along identity edges, and become field
 `description`s in the OpenLineage export. Database column comments
 (duckdb, postgres) and a `labels` argument feed the same machinery. See
 the [Local data
@@ -156,7 +156,7 @@ section of the getting-started vignette for more.
 
 ## Multi-model pipelines
 
-Real pipelines materialize layers — bronze tables feed a silver summary,
+Real pipelines materialize layers: bronze tables feed a silver summary,
 silver feeds gold. Pass
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
 a named list, one element per layer, and it stitches them into a single
@@ -251,7 +251,7 @@ Table types follow the color conventions used by dbt and SQLMesh:
 Because
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
 accepts any dbplyr lazy table, it composes directly with packages that
-produce them — for example
+produce them, for example
 [ducklake](https://github.com/tgerke/ducklake-r) tables:
 
 ``` r
@@ -280,7 +280,7 @@ flattens it to one classified row per column edge, and
 [`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
 /
 [`lineage_downstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
-answer impact questions directly — for one `"table.column"`, or for a
+answer impact questions directly: for one `"table.column"`, or for a
 whole table at once when you pass just its name.
 [`lineage_unused()`](https://tgerke.github.io/dplyneage/reference/lineage_unused.md)
 runs the reverse check, listing every source or intermediate column with
@@ -314,7 +314,7 @@ compares two extractions and classifies every change by blast radius:
 breaking when the change reaches columns that anything downstream
 consumes, non-breaking for pure additions.
 [`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md)
-turns that into a one-call CI gate — it errors on breaking changes and
+turns that into a one-call CI gate: it errors on breaking changes and
 annotates the pull request on GitHub Actions ([worked
 example](https://tgerke.github.io/dplyneage/articles/lineage-ci.html)).
 For interchange,
@@ -387,7 +387,7 @@ lineage_json(lineage)
 #> }
 ```
 
-Written to a file, that document is scriptable from outside R entirely —
+Written to a file, that document is scriptable from outside R entirely;
 here’s jq answering “which source columns feed `total_spent`?”:
 
 ``` r
@@ -403,7 +403,7 @@ jq -r '.edges[] | select(.target_column == "total_spent")
 
 [`lineage_graphml()`](https://tgerke.github.io/dplyneage/reference/lineage_graphml.md)
 writes GraphML, which opens directly in graph tools like Gephi, yEd, and
-igraph. The same question works as a graph query — and scales to
+igraph. The same question works as a graph query, and scales to
 transitive ancestry when pipelines chain:
 
 ``` r
@@ -413,7 +413,7 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from f8a2fa3:
+#> + 2/6 vertices, named, from 0a76554:
 #> [1] output.total_spent orders.amount
 ```
 
@@ -463,7 +463,7 @@ and your warehouse queries alike.
 
 The scope has edges on purpose: orchestration, materialization,
 dashboard-level lineage, and catalog UIs belong to the platforms.
-dplyneage aims to be the extraction and artifact layer — the lineage
+dplyneage aims to be the extraction and artifact layer: the lineage
 itself, as a diagram you can read and a document you can commit, diff,
 and hand to the tools that do the rest. The longer form of this
 comparison, with per-tool notes and the roadmap rationale, is in

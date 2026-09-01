@@ -1,4 +1,4 @@
-# Harvest Table Schemas from a Database Connection
+# Harvest table schemas from a database connection
 
 Lists the columns of each base table referenced by the query so sqlglot
 can resolve unqualified columns and expand `*`, with their database

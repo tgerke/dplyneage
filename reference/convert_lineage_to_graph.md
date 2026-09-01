@@ -1,4 +1,4 @@
-# Convert Lineage Data to Graph Structure
+# Convert lineage data to a graph structure
 
 Converts lineage information to nodes and edges for visualization
 

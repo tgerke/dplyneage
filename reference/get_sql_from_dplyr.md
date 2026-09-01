@@ -1,4 +1,4 @@
-# Get SQL String from dplyr Query
+# Get the SQL string from a dplyr query
 
 Converts a dbplyr lazy table to SQL string using sql_render
 

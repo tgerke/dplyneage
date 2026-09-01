@@ -66,9 +66,9 @@ lineage_flow(
 - theme:
 
   `"light"` (the default), `"dark"`, or `"auto"`, which follows the
-  viewer's `prefers-color-scheme` — the operating-system setting, not
-  the theme of a surrounding Quarto or R Markdown document, so documents
-  rendered dark should pass `theme = "dark"` explicitly.
+  viewer's `prefers-color-scheme`. That is the operating-system setting,
+  not the theme of a surrounding Quarto or R Markdown document, so
+  documents rendered dark should pass `theme = "dark"` explicitly.
 
 - export_button:
 
@@ -82,8 +82,8 @@ documents, and Shiny apps.
 
 ## Details
 
-Clicking a column isolates its trace cone — the transitive upstream and
-downstream subgraph — and dims everything else; clicking it again,
+Clicking a column isolates its trace cone (the transitive upstream and
+downstream subgraph) and dims everything else; clicking it again,
 clicking the background, or pressing Escape releases it. In Shiny, the
 traced column is reported as `input$<outputId>_selected`, a list with
 `table` and `column` entries (`NULL` when nothing is traced).

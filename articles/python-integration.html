@@ -75,8 +75,8 @@ Python:</p>
 that walks the pipeline’s lazy query tree. No Python is initialized, let
 alone required.</li>
 <li>
-<strong>Raw SQL strings</strong> — and the rare pipeline that embeds
-raw SQL via <code><a href="https://dbplyr.tidyverse.org/reference/sql.html" class="external-link">dbplyr::sql()</a></code> — are analyzed by <a href="https://github.com/tobymao/sqlglot" class="external-link">sqlglot</a>’s lineage engine,
+<strong>Raw SQL strings</strong>, and the rare pipeline that embeds
+raw SQL via <code><a href="https://dbplyr.tidyverse.org/reference/sql.html" class="external-link">dbplyr::sql()</a></code>, are analyzed by <a href="https://github.com/tobymao/sqlglot" class="external-link">sqlglot</a>’s lineage engine,
 called through the <code>reticulate</code> package. reticulate is a
 Suggests dependency, so install it once with
 <code>install.packages("reticulate")</code> to enable this engine.</li>
@@ -85,12 +85,12 @@ Suggests dependency, so install it once with
 <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code>, you can stop reading here: Python never
 enters the picture, and neither does reticulate. The rest of this
 vignette covers how the sqlglot dependency is managed when you do
-analyze raw SQL. It follows the current best practice from the <a href="https://rstudio.github.io/reticulate/articles/package.html" class="external-link">reticulate
-package documentation</a>: Python dependencies are declared with
-<code><a href="https://rstudio.github.io/reticulate/reference/py_require.html" class="external-link">reticulate::py_require()</a></code> when the package loads, and
+analyze raw SQL. It follows the setup the <a href="https://rstudio.github.io/reticulate/articles/package.html" class="external-link">reticulate
+package documentation</a> recommends: Python dependencies are declared
+with <code><a href="https://rstudio.github.io/reticulate/reference/py_require.html" class="external-link">reticulate::py_require()</a></code> when the package loads, and
 reticulate provisions them automatically.</p>
 <div class="section level2">
-<h2 id="installation-there-is-no-step-two">Installation: There Is No Step Two<a class="anchor" aria-label="anchor" href="#installation-there-is-no-step-two"></a>
+<h2 id="installation-there-is-no-step-two">Installation: there is no step two<a class="anchor" aria-label="anchor" href="#installation-there-is-no-step-two"></a>
 </h2>
 <p>With reticulate installed, Python setup is automatic. The first time
 lineage extraction needs sqlglot, reticulate will:</p>
@@ -113,7 +113,7 @@ lineage extraction needs sqlglot, reticulate will:</p>
 <span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="using-your-own-python-environment">Using Your Own Python Environment<a class="anchor" aria-label="anchor" href="#using-your-own-python-environment"></a>
+<h2 id="using-your-own-python-environment">Using your own Python environment<a class="anchor" aria-label="anchor" href="#using-your-own-python-environment"></a>
 </h2>
 <p>If you manage your own Python environment (a project virtualenv,
 conda env, or a system Python), reticulate will respect it as usual.
@@ -129,7 +129,7 @@ Just make sure <code>sqlglot</code> is installed there:</p>
 Python version docs</a> for other ways to select an environment.</p>
 </div>
 <div class="section level2">
-<h2 id="how-it-works">How It Works<a class="anchor" aria-label="anchor" href="#how-it-works"></a>
+<h2 id="how-it-works">How it works<a class="anchor" aria-label="anchor" href="#how-it-works"></a>
 </h2>
 <div class="section level3">
 <h3 id="architecture">Architecture<a class="anchor" aria-label="anchor" href="#architecture"></a>
@@ -152,14 +152,14 @@ trace. <code>metadata$engine</code> in the result records which one
 ran.</p>
 </div>
 <div class="section level3">
-<h3 id="key-components">Key Components<a class="anchor" aria-label="anchor" href="#key-components"></a>
+<h3 id="key-components">Key components<a class="anchor" aria-label="anchor" href="#key-components"></a>
 </h3>
 <ol style="list-style-type: decimal">
 <li>
 <strong>R/lineage_r_engine.R</strong>: The pure-R engine
 <ul>
 <li>Walks dbplyr’s lazy query tree, reading exact column provenance
-through selects, mutates, window functions, joins, and set operations —
+through selects, mutates, window functions, joins, and set operations:
 no SQL parsing, no Python</li>
 </ul>
 </li>
@@ -208,7 +208,7 @@ and edges</li>
 </div>
 </div>
 <div class="section level2">
-<h2 id="schemas-and-attribution-accuracy">Schemas and Attribution Accuracy<a class="anchor" aria-label="anchor" href="#schemas-and-attribution-accuracy"></a>
+<h2 id="schemas-and-attribution-accuracy">Schemas and attribution accuracy<a class="anchor" aria-label="anchor" href="#schemas-and-attribution-accuracy"></a>
 </h2>
 <p>SQL alone does not always say which table an unqualified column
 belongs to. dbplyr lazy tables sidestep the problem entirely: the R
@@ -230,7 +230,7 @@ unqualified ones may not be traceable, and <code>SELECT *</code> cannot
 be expanded (you’ll get a warning).</p>
 </div>
 <div class="section level2">
-<h2 id="sql-dialects">SQL Dialects<a class="anchor" aria-label="anchor" href="#sql-dialects"></a>
+<h2 id="sql-dialects">SQL dialects<a class="anchor" aria-label="anchor" href="#sql-dialects"></a>
 </h2>
 <p>sqlglot supports many SQL dialects. A dbplyr pipeline that reaches
 the sqlglot engine infers its dialect from the database connection; for
@@ -250,7 +250,7 @@ documentation</a> for the full list of dialects.</p>
 </h2>
 <ul>
 <li>
-<strong>dbplyr pipelines</strong>: no Python startup cost at all —
+<strong>dbplyr pipelines</strong>: no Python startup cost at all;
 the R engine runs immediately</li>
 <li>
 <strong>First raw-SQL call</strong>: may take a moment while the
@@ -283,7 +283,7 @@ etc.)</li>
 </h3>
 <p>If <code><a href="../reference/has_sqlglot.html">has_sqlglot()</a></code> returns <code>FALSE</code> and you have
 set <code>RETICULATE_PYTHON</code> (or activated an environment),
-sqlglot is missing from that environment — install it there with
+sqlglot is missing from that environment; install it there with
 <code>pip install sqlglot</code>. If you have no custom configuration,
 reticulate should provision automatically; see
 <code><a href="https://rstudio.github.io/reticulate/reference/py_require.html" class="external-link">?reticulate::py_require</a></code> for details.</p>

@@ -1,4 +1,4 @@
-# Build React Flow Bundle
+# Build the React Flow bundle
 
 Developer tool that rebuilds the React Flow JavaScript bundle from the
 `srcjs/` sources. The bundle ships pre-built with the package, so end

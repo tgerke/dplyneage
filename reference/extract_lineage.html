@@ -79,11 +79,11 @@ Details). Lazy tables are analyzed directly from their lazy query
 tree (the SQL recorded in <code>metadata</code> still comes from
 <code><a href="https://dbplyr.tidyverse.org/reference/sql_build.html" class="external-link">dbplyr::sql_render()</a></code>); when one is handled by the sqlglot engine
 instead, its database connection is used to harvest table schemas
-automatically. Plain data frames are not accepted — dplyr executes
+automatically. Plain data frames are not accepted: dplyr executes
 each verb on them immediately, leaving no query tree to read. Wrap
 the frame first: <code>dbplyr::tbl_lazy(df, name = "df")</code> builds a lazy
 table with no database at all, which is enough for lineage;
-<code><a href="https://dbplyr.tidyverse.org/reference/memdb.html" class="external-link">dbplyr::memdb_frame()</a></code> (or <code>copy_to(dbplyr::memdb(), df, name = "df")</code>) additionally makes the pipeline collectable. See
+<code><a href="https://dbplyr.tidyverse.org/reference/memdb.html" class="external-link">dbplyr::memdb_frame()</a></code> (or <code>copy_to(dbplyr::memdb(), df, name = "df")</code>) also makes the pipeline collectable. See
 <code><a href="../articles/getting-started.html">vignette("getting-started")</a></code>.</p></dd>
 
 
@@ -101,7 +101,7 @@ parsed as <code>"duckdb"</code> unless a dialect is given.</p></dd>
 attribute unqualified columns to the right table and to expand
 <code>SELECT *</code>: a named list mapping table names to character vectors of
 column names, e.g. <code>list(orders = c("order_id", "amount"))</code>. Only
-relevant for SQL strings — the R engine reads exact provenance from
+relevant for SQL strings: the R engine reads exact provenance from
 the lazy query tree, and a lazy table that falls back to sqlglot
 harvests its schema from the database connection automatically.</p></dd>
 
@@ -151,7 +151,7 @@ table, for a single query).</p>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>Two engines are available. dbplyr lazy tables are analyzed by a pure-R
-fast path that walks the pipeline's lazy query tree directly — no Python
+fast path that walks the pipeline's lazy query tree directly, no Python
 required. SQL strings are analyzed by
 <a href="https://github.com/tobymao/sqlglot" class="external-link">sqlglot</a>'s lineage engine via
 reticulate (a Suggests dependency: install reticulate to enable this
@@ -160,11 +160,11 @@ a construct the R engine cannot trace (e.g. raw SQL injected with
 <code><a href="https://dbplyr.tidyverse.org/reference/sql.html" class="external-link">dbplyr::sql()</a></code>), it falls back to sqlglot automatically.</p>
 <p>Both engines trace select-list lineage by default: columns used only in
 <code><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter()</a></code>, join conditions, or <code><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange()</a></code> do not create lineage
-edges. A window function's partition and ordering columns do — they sit
+edges. A window function's partition and ordering columns do: they sit
 inside the expression's <code>OVER</code> clause, so <code><a href="https://dplyr.tidyverse.org/reference/row_number.html" class="external-link">row_number()</a></code> under
 <code>group_by(g)</code> and <code>window_order(d)</code> draws direct edges from both <code>g</code>
 and <code>d</code>. Set <code>include_indirect = TRUE</code> to add the rest as dashed
-edges — a column that only filters the result still breaks the
+edges: a column that only filters the result still breaks the
 pipeline if it is dropped, so impact analysis usually wants them.
 Indirect edges connect each filter/join/group/sort column (window
 <code>ORDER BY</code> columns included) to every output column, since these
@@ -173,7 +173,7 @@ column is used (<code>"filter"</code>, <code>"join"</code>, <code>"group_by"</co
 <p>A named list stitches a multi-model pipeline into one graph. Each
 element (lazy table or SQL string) is analyzed on its own, and any
 source table whose name matches another element's name connects to that
-model's node — so a bronze/silver/gold flow where each layer is
+model's node, so a bronze/silver/gold flow where each layer is
 materialized under its model's name renders as a single multi-hop DAG,
 with intermediate models drawn as orange transform nodes and terminal
 models as green targets.</p>
@@ -221,7 +221,7 @@ CTEs and multi-source columns.</p></div>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbConnect.html" class="external-link">dbConnect</a></span><span class="op">(</span><span class="fu">duckdb</span><span class="fu">::</span><span class="fu"><a href="https://r.duckdb.org/reference/duckdb.html" class="external-link">duckdb</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> duckdb keeps downloaded extensions and secrets in a temporary directory:</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB;">ℹ</span> /tmp/Rtmp4o1uNl/duckdb</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB;">ℹ</span> /tmp/RtmpBOHepe/duckdb</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> This is removed when the R session ends.</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">•</span> Extensions are re-downloaded each session.</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">•</span> Secrets are lost.</span>

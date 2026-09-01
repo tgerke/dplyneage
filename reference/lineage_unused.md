@@ -3,7 +3,7 @@
 The dead-column report: every column on a source or transform table from
 which no chain of edges reaches a target table. In a multi-model lineage
 that surfaces base-table columns nothing reads and intermediate-model
-outputs no downstream model consumes — both safe to drop as far as the
+outputs no downstream model consumes, both safe to drop as far as the
 graph can see.
 
 ## Usage
@@ -36,8 +36,8 @@ nodes only carry columns the query referenced. Tables whose type is
 unknown (hand-built nodes without a `table_type`) count as targets, on
 the same reasoning as
 [`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
-severity: the graph cannot see who consumes them, so their columns — and
-columns feeding them — are not called unused.
+severity: the graph cannot see who consumes them, so their columns, and
+columns feeding them, are not called unused.
 
 ## See also
 

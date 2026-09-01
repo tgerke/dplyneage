@@ -69,7 +69,7 @@
     
 <p>This guide explains how to build the React Flow JavaScript bundle
 that powers the visualization component of dplyneage.</p>
-<p><strong>Note for Users</strong>: The bundle should be pre-built when
+<p><strong>Note for users</strong>: The bundle should be pre-built when
 you install the package. You typically only need to build it if:</p>
 <ul>
 <li>You’re developing the package</li>
@@ -88,7 +88,7 @@ you install the package. You typically only need to build it if:</p>
 </ol>
 </div>
 <div class="section level2">
-<h2 id="build-steps">Build Steps<a class="anchor" aria-label="anchor" href="#build-steps"></a>
+<h2 id="build-steps">Build steps<a class="anchor" aria-label="anchor" href="#build-steps"></a>
 </h2>
 <div class="section level3">
 <h3 id="option-1-using-r-from-a-source-checkout">Option 1: Using R (from a source checkout)<a class="anchor" aria-label="anchor" href="#option-1-using-r-from-a-source-checkout"></a>
@@ -119,7 +119,7 @@ repository:</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="what-gets-built">What Gets Built<a class="anchor" aria-label="anchor" href="#what-gets-built"></a>
+<h2 id="what-gets-built">What gets built<a class="anchor" aria-label="anchor" href="#what-gets-built"></a>
 </h2>
 <p>The build process creates:</p>
 <ul>
@@ -152,7 +152,7 @@ fresh clone resolves the same dependency versions that produced the
 committed bundle.</p>
 </div>
 <div class="section level2">
-<h2 id="development-mode">Development Mode<a class="anchor" aria-label="anchor" href="#development-mode"></a>
+<h2 id="development-mode">Development mode<a class="anchor" aria-label="anchor" href="#development-mode"></a>
 </h2>
 <p>For active development with auto-rebuild:</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="bu">cd</span> srcjs</span>
@@ -160,7 +160,7 @@ committed bundle.</p>
 <p>This will watch for changes and rebuild automatically.</p>
 </div>
 <div class="section level2">
-<h2 id="testing-after-build">Testing After Build<a class="anchor" aria-label="anchor" href="#testing-after-build"></a>
+<h2 id="testing-after-build">Testing after build<a class="anchor" aria-label="anchor" href="#testing-after-build"></a>
 </h2>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">load_all</span><span class="op">(</span><span class="op">)</span></span>
@@ -182,7 +182,7 @@ committed bundle.</p>
 <p>If the bundle loads successfully, you’ll see an interactive React
 Flow diagram with draggable nodes, pan/zoom controls, and a grid
 background.</p>
-<p>If the bundle doesn’t load, it will fallback to the SVG
+<p>If the bundle doesn’t load, it will fall back to the SVG
 visualization.</p>
 </div>
 <div class="section level2">
@@ -201,11 +201,11 @@ v18+)</li>
 </li>
 </ul>
 <p><strong>Widget shows SVG instead of React Flow</strong>: Check
-browser console for errors. The widget will fallback to SVG if React
+browser console for errors. The widget will fall back to SVG if React
 Flow fails to load.</p>
 </div>
 <div class="section level2">
-<h2 id="development-workflow">Development Workflow<a class="anchor" aria-label="anchor" href="#development-workflow"></a>
+<h2 id="development-workflow">Development workflow<a class="anchor" aria-label="anchor" href="#development-workflow"></a>
 </h2>
 <p>If you’re modifying the React Flow bundle:</p>
 <ol style="list-style-type: decimal">
@@ -221,7 +221,7 @@ directory</li>
 handles bundling all dependencies into a single minified file.</p>
 </div>
 <div class="section level2">
-<h2 id="bundle-contents">Bundle Contents<a class="anchor" aria-label="anchor" href="#bundle-contents"></a>
+<h2 id="bundle-contents">Bundle contents<a class="anchor" aria-label="anchor" href="#bundle-contents"></a>
 </h2>
 <p>The bundle is created using webpack and includes:</p>
 <ul>

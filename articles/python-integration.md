@@ -5,8 +5,8 @@ dplyneage has two lineage engines, and only one of them involves Python:
 - **dbplyr pipelines** are analyzed by a pure-R engine that walks the
   pipeline’s lazy query tree. No Python is initialized, let alone
   required.
-- **Raw SQL strings** — and the rare pipeline that embeds raw SQL via
-  [`dbplyr::sql()`](https://dbplyr.tidyverse.org/reference/sql.html) —
+- **Raw SQL strings**, and the rare pipeline that embeds raw SQL via
+  [`dbplyr::sql()`](https://dbplyr.tidyverse.org/reference/sql.html),
   are analyzed by [sqlglot](https://github.com/tobymao/sqlglot)’s
   lineage engine, called through the `reticulate` package. reticulate is
   a Suggests dependency, so install it once with
@@ -16,14 +16,14 @@ So if you only ever pipe dplyr/dbplyr queries into
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md),
 you can stop reading here: Python never enters the picture, and neither
 does reticulate. The rest of this vignette covers how the sqlglot
-dependency is managed when you do analyze raw SQL. It follows the
-current best practice from the [reticulate package
-documentation](https://rstudio.github.io/reticulate/articles/package.html):
-Python dependencies are declared with
+dependency is managed when you do analyze raw SQL. It follows the setup
+the [reticulate package
+documentation](https://rstudio.github.io/reticulate/articles/package.html)
+recommends: Python dependencies are declared with
 [`reticulate::py_require()`](https://rstudio.github.io/reticulate/reference/py_require.html)
 when the package loads, and reticulate provisions them automatically.
 
-## Installation: There Is No Step Two
+## Installation: there is no step two
 
 With reticulate installed, Python setup is automatic. The first time
 lineage extraction needs sqlglot, reticulate will:
@@ -50,7 +50,7 @@ has_sqlglot()
 #> [1] TRUE
 ```
 
-## Using Your Own Python Environment
+## Using your own Python environment
 
 If you manage your own Python environment (a project virtualenv, conda
 env, or a system Python), reticulate will respect it as usual. Just make
@@ -75,7 +75,7 @@ and the [reticulate Python version
 docs](https://rstudio.github.io/reticulate/articles/versions.html) for
 other ways to select an environment.
 
-## How It Works
+## How it works
 
 ### Architecture
 
@@ -97,12 +97,12 @@ for SQL strings, falling back to sqlglot if a pipeline uses something
 the R engine cannot trace. `metadata$engine` in the result records which
 one ran.
 
-### Key Components
+### Key components
 
 1.  **R/lineage_r_engine.R**: The pure-R engine
     - Walks dbplyr’s lazy query tree, reading exact column provenance
       through selects, mutates, window functions, joins, and set
-      operations — no SQL parsing, no Python
+      operations: no SQL parsing, no Python
 2.  **R/zzz.R**: Package initialization
     - `.onLoad()`: declares the sqlglot requirement via `py_require()`
       and imports the bundled Python module with `delay_load` (Python
@@ -126,7 +126,7 @@ one ran.
     - [`convert_lineage_to_graph()`](https://tgerke.github.io/dplyneage/reference/convert_lineage_to_graph.md):
       creates visualization nodes and edges
 
-## Schemas and Attribution Accuracy
+## Schemas and attribution accuracy
 
 SQL alone does not always say which table an unqualified column belongs
 to. dbplyr lazy tables sidestep the problem entirely: the R engine reads
@@ -152,7 +152,7 @@ Without a schema, fully qualified columns still resolve correctly;
 unqualified ones may not be traceable, and `SELECT *` cannot be expanded
 (you’ll get a warning).
 
-## SQL Dialects
+## SQL dialects
 
 sqlglot supports many SQL dialects. A dbplyr pipeline that reaches the
 sqlglot engine infers its dialect from the database connection; for SQL
@@ -173,8 +173,8 @@ full list of dialects.
 
 ## Performance
 
-- **dbplyr pipelines**: no Python startup cost at all — the R engine
-  runs immediately
+- **dbplyr pipelines**: no Python startup cost at all; the R engine runs
+  immediately
 - **First raw-SQL call**: may take a moment while the Python environment
   initializes (and, on the very first run, provisions)
 - **Subsequent calls**: fast (\<100ms for typical queries)
@@ -199,8 +199,8 @@ reticulate::py_list_packages()
 If
 [`has_sqlglot()`](https://tgerke.github.io/dplyneage/reference/has_sqlglot.md)
 returns `FALSE` and you have set `RETICULATE_PYTHON` (or activated an
-environment), sqlglot is missing from that environment — install it
-there with `pip install sqlglot`. If you have no custom configuration,
+environment), sqlglot is missing from that environment; install it there
+with `pip install sqlglot`. If you have no custom configuration,
 reticulate should provision automatically; see
 [`?reticulate::py_require`](https://rstudio.github.io/reticulate/reference/py_require.html)
 for details.

@@ -22,7 +22,7 @@ lineage_check(
 
   Lineage objects from
   [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
-  (or lists with `nodes` and `edges`), in before/after order — typically
+  (or lists with `nodes` and `edges`), in before/after order: typically
   main's extraction and the branch's.
 
 - fail_on:

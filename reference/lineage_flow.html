@@ -107,10 +107,10 @@ the node colors and edge styles present in the graph.</p></dd>
 
 <dt id="arg-theme">theme<a class="anchor" aria-label="anchor" href="#arg-theme"></a></dt>
 <dd><p><code>"light"</code> (the default), <code>"dark"</code>, or <code>"auto"</code>, which
-follows the viewer's <code>prefers-color-scheme</code> — the operating-system
-setting, not the theme of a surrounding Quarto or R Markdown
-document, so documents rendered dark should pass <code>theme = "dark"</code>
-explicitly.</p></dd>
+follows the viewer's <code>prefers-color-scheme</code>. That is the
+operating-system setting, not the theme of a surrounding Quarto or
+R Markdown document, so documents rendered dark should pass
+<code>theme = "dark"</code> explicitly.</p></dd>
 
 
 <dt id="arg-export-button">export_button<a class="anchor" aria-label="anchor" href="#arg-export-button"></a></dt>
@@ -125,8 +125,8 @@ Quarto documents, and Shiny apps.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>Clicking a column isolates its trace cone — the transitive upstream and
-downstream subgraph — and dims everything else; clicking it again,
+    <p>Clicking a column isolates its trace cone (the transitive upstream and
+downstream subgraph) and dims everything else; clicking it again,
 clicking the background, or pressing Escape releases it. In Shiny, the
 traced column is reported as <code>input$&lt;outputId&gt;_selected</code>, a list with
 <code>table</code> and <code>column</code> entries (<code>NULL</code> when nothing is traced).</p>

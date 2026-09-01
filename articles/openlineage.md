@@ -24,7 +24,7 @@ library(dplyr, warn.conflicts = FALSE)
 
 con <- DBI::dbConnect(duckdb::duckdb())
 #> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/RtmpLqsgIN/duckdb
+#> ℹ /tmp/Rtmph7FJ7b/duckdb
 #> This is removed when the R session ends.
 #> • Extensions are re-downloaded each session.
 #> • Secrets are lost.
@@ -198,7 +198,7 @@ connection’s catalog (duckdb and postgres; one small metadata query per
 base table), or a `labels` argument like
 `labels = list(orders = c(amount = "Order amount in USD"))`, which wins
 over both. The comments on this article’s fixture are why the event
-above carries a `description` on each input field — and on the output’s
+above carries a `description` on each input field, and on the output’s
 `customer_id`: types and descriptions propagate along identity edges, so
 a passthrough column arrives documented while the aggregated `total`
 stays bare. Whatever is captured also lands in
