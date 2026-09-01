@@ -126,6 +126,26 @@ lineage_native_engines <- function() {
         "frames have no further fallback."
       ),
       extract = extract_lineage_from_duckplyr
+    ),
+    arrow = list(
+      available = arrow_engine_available,
+      requirement = "arrow (>= 17.0.0)",
+      what = "arrow (Acero) pipelines",
+      code_label = "an Acero query plan",
+      supports = "r",
+      engine_errors = list(
+        sqlglot = paste0(
+          "The sqlglot engine analyzes SQL, but arrow pipelines compile ",
+          "to Acero query plans, not SQL. Use engine = \"auto\" or ",
+          "\"r\" to walk the query directly."
+        )
+      ),
+      no_fallback = paste0(
+        "arrow pipelines compile to Acero query plans, not SQL, so the ",
+        "sqlglot engine cannot take over; rewrite the unsupported verb ",
+        "or extract lineage from an upstream step."
+      ),
+      extract = extract_lineage_from_arrow
     )
   )
 }
