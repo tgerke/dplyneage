@@ -4,7 +4,7 @@
 
 test_that("extract_lineage rejects non-SQL input", {
   skip_if_no_sqlglot()
-  expect_error(extract_lineage(42), "character string, a dbplyr lazy table")
+  expect_error(extract_lineage(42), "character string, a lazy table")
   expect_error(extract_lineage(list()), "named list")
 })
 

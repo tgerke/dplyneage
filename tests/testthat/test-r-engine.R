@@ -478,7 +478,7 @@ test_that("raw SQL expressions raise a classed error under engine = 'r'", {
 test_that("engine = 'r' rejects SQL strings", {
   expect_error(
     extract_lineage("SELECT 1", engine = "r"),
-    "only works with dbplyr lazy tables"
+    "walks a lazy query tree"
   )
 })
 

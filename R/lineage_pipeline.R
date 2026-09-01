@@ -188,12 +188,14 @@ convert_pipeline_to_graph <- function(model_data) {
         dialect = if (length(unique(dialects)) == 1) unique(dialects) else "mixed",
         engine = if (length(unique(engines)) == 1) unique(engines) else "mixed",
         models = lapply(model_data, function(d) {
-          m <- list(
-            sql = d$sql,
-            engine = d$engine %||% "sqlglot",
-            dialect = d$dialect %||% "duckdb"
-          )
-          # Only when captured: a NULL entry would serialize to JSON as {}
+          # Only when captured: a NULL entry would serialize to JSON as
+          # {}. sql can be NULL for engines with no query text (arrow)
+          m <- list()
+          if (!is.null(d$sql)) {
+            m$sql <- d$sql
+          }
+          m$engine <- d$engine %||% "sqlglot"
+          m$dialect <- d$dialect %||% "duckdb"
           if (!is.null(d$namespace)) {
             m$namespace <- d$namespace
           }

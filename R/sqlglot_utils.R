@@ -155,21 +155,6 @@ extract_lineage <- function(sql, dialect = NULL, schema = NULL, labels = NULL,
                             include_indirect = FALSE) {
   engine <- match.arg(engine)
 
-  # Catch plain data frames up front: they'd otherwise fall through to the
-  # sqlglot branch and fail with errors about Python or SQL strings that
-  # never mention the actual fix
-  if (is.data.frame(sql)) {
-    stop(
-      "extract_lineage() reads lineage from a lazy query tree, which a ",
-      "plain data frame doesn't have. Wrap it first: ",
-      "dbplyr::tbl_lazy(df, name = \"df\") needs no database and is ",
-      "enough for lineage; dbplyr::memdb_frame() or ",
-      "copy_to(dbplyr::memdb(), df, name = \"df\") make the same ",
-      "pipeline also collectable. See vignette(\"getting-started\").",
-      call. = FALSE
-    )
-  }
-
   # A bare named list is a multi-model pipeline: each element is analyzed
   # on its own, then stitched into one graph by matching source tables to
   # model names
@@ -194,8 +179,14 @@ extract_lineage <- function(sql, dialect = NULL, schema = NULL, labels = NULL,
 #' @noRd
 extract_lineage_data <- function(sql, dialect, schema, labels, show_sql, engine,
                                  include_indirect = FALSE) {
+  kind <- lineage_input_kind(sql)
+  if (!kind %in% c("dbplyr", "sql")) {
+    return(extract_lineage_data_native(
+      kind, sql, dialect, schema, labels, show_sql, engine, include_indirect
+    ))
+  }
   labels <- normalize_labels(labels)
-  is_lazy <- inherits(sql, "tbl_lazy")
+  is_lazy <- kind == "dbplyr"
 
   # Resolve dialect = NULL here rather than in extract_lineage() so each
   # model of a multi-model pipeline infers from its own connection
@@ -207,33 +198,15 @@ extract_lineage_data <- function(sql, dialect, schema, labels, show_sql, engine,
   # and column comments come from it, and nothing else about it survives
   # extraction. Column types ride along from whatever schema is in scope
   # when a branch returns — the user's, or the harvested one on the
-  # sqlglot path (`schema` is read at call time, after any harvest).
+  # sqlglot path (`schema` is passed at call time, after any harvest).
   con <- if (is_lazy) dbplyr::remote_con(sql) else NULL
   namespace <- if (is_lazy) infer_namespace(con) else NULL
-  finalize_lineage_data <- function(lineage_data) {
-    if (!is.null(namespace)) {
-      lineage_data$namespace <- namespace
-    }
-    types <- schema_types(schema)
-    if (length(types) > 0) {
-      lineage_data$column_types <- types
-    }
-    merged <- merge_label_maps(
-      labels,
-      harvest_all_column_labels(con, lineage_data$tables, dialect),
-      lineage_data$column_labels %||% list()
-    )
-    if (length(merged) > 0) {
-      lineage_data$column_labels <- merged
-    }
-    lineage_data
-  }
 
   if (engine == "r") {
     if (!is_lazy) {
       stop(
-        "engine = \"r\" only works with dbplyr lazy tables; ",
-        "SQL strings need the sqlglot engine.",
+        "engine = \"r\" walks a lazy query tree (dbplyr, dtplyr, or ",
+        "arrow); SQL strings need the sqlglot engine.",
         call. = FALSE
       )
     }
@@ -247,7 +220,11 @@ extract_lineage_data <- function(sql, dialect, schema, labels, show_sql, engine,
     if (show_sql) {
       show_analyzed_sql(lineage_data$sql)
     }
-    return(finalize_lineage_data(lineage_data))
+    return(finalize_lineage_data(
+      lineage_data,
+      labels = labels, schema = schema, con = con,
+      dialect = dialect, namespace = namespace
+    ))
   }
 
   # Fast path: walk the lazy query tree in R, no Python needed. Falls
@@ -272,7 +249,11 @@ extract_lineage_data <- function(sql, dialect, schema, labels, show_sql, engine,
       if (show_sql) {
         show_analyzed_sql(lineage_data$sql)
       }
-      return(finalize_lineage_data(lineage_data))
+      return(finalize_lineage_data(
+        lineage_data,
+        labels = labels, schema = schema, con = con,
+        dialect = dialect, namespace = namespace
+      ))
     }
   }
 
@@ -321,14 +302,49 @@ extract_lineage_data <- function(sql, dialect, schema, labels, show_sql, engine,
 
   # Extract lineage using sqlglot
   finalize_lineage_data(
-    extract_lineage_from_sql(sql, dialect, schema, include_indirect)
+    extract_lineage_from_sql(sql, dialect, schema, include_indirect),
+    labels = labels, schema = schema, con = con,
+    dialect = dialect, namespace = namespace
   )
 }
 
-#' Print the SQL being analyzed (the `show_sql = TRUE` output)
+#' Attach namespace, schema types, and merged labels to engine output
+#'
+#' The shared tail of every engine branch. `schema` is whatever is in
+#' scope at the call site — the user's, or the harvested one on the
+#' sqlglot path — and its types overwrite any the engine recorded.
+#' Label precedence: the user's `labels =` beats database comments beats
+#' engine-harvested attributes. `con` may be NULL (native engines have no
+#' connection); comment harvesting no-ops then.
 #' @noRd
-show_analyzed_sql <- function(sql) {
-  cat("Analyzing SQL:\n")
+finalize_lineage_data <- function(lineage_data, labels, schema, con,
+                                  dialect, namespace) {
+  if (!is.null(namespace)) {
+    lineage_data$namespace <- namespace
+  }
+  types <- schema_types(schema)
+  if (length(types) > 0) {
+    lineage_data$column_types <- types
+  }
+  merged <- merge_label_maps(
+    labels,
+    harvest_all_column_labels(con, lineage_data$tables, dialect),
+    lineage_data$column_labels %||% list()
+  )
+  if (length(merged) > 0) {
+    lineage_data$column_labels <- merged
+  }
+  lineage_data
+}
+
+#' Print the query text being analyzed (the `show_sql = TRUE` output)
+#' @noRd
+show_analyzed_sql <- function(sql, what = "SQL") {
+  if (is.null(sql)) {
+    cat("No query text is recorded for this engine.\n\n")
+    return(invisible(NULL))
+  }
+  cat("Analyzing ", what, ":\n", sep = "")
   cat(sql, "\n\n")
 }
 
@@ -860,12 +876,16 @@ convert_lineage_to_graph <- function(lineage_data) {
   # models map keyed by the output table, so consumers of the committed
   # JSON artifact read per-model SQL one way for both
   engine <- if (is.null(lineage_data$engine)) "sqlglot" else lineage_data$engine
-  model <- list(
-    sql = lineage_data$sql,
-    engine = engine,
-    dialect = lineage_data$dialect
-  )
-  # Only when captured: a NULL entry would serialize to JSON as {}
+  # Only when captured: a NULL entry would serialize to JSON as {}. sql
+  # can be NULL for engines whose pipelines have no query text (arrow)
+  model <- list()
+  if (!is.null(lineage_data$sql)) {
+    model$sql <- lineage_data$sql
+  }
+  model$engine <- engine
+  if (!is.null(lineage_data$dialect)) {
+    model$dialect <- lineage_data$dialect
+  }
   if (!is.null(lineage_data$namespace)) {
     model$namespace <- lineage_data$namespace
   }
