@@ -386,20 +386,6 @@ test_that("the dbplyr and arrow walkers agree on shared pipelines", {
     order_id = 1L, customer_id = 1L, amount = 1, order_date = 1L
   )
 
-  typed_edge_set <- function(lineage) {
-    sort(vapply(
-      lineage$edges,
-      function(e) {
-        paste0(
-          e$source, ".", e$sourceHandle, " -> ", e$targetHandle,
-          " [", e$data$transformation %||% "", "|",
-          paste(sort(e$data$transformations %||% character()), collapse = ","),
-          "]"
-        )
-      },
-      character(1)
-    ))
-  }
   # arrow Tables are nameless: nodes come out arrow_table/arrow_table_2
   # in walk order, mapped here onto the dbplyr fixtures' names
   renamed <- function(strings, map) {
@@ -490,4 +476,17 @@ test_that("the dbplyr and arrow walkers agree on shared pipelines", {
       )
     }
   }
+})
+
+# --- mutate family ----------------------------------------------------
+
+test_that("mutate-family shapes match the shared expectations", {
+  skip_if_no_arrow_engine()
+
+  run_mutate_shapes(
+    engine = "arrow",
+    input = function(df) arrow::arrow_table(df),
+    extract = function(x, ii) extract_lineage(x, include_indirect = ii),
+    source = "arrow_table"
+  )
 })

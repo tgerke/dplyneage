@@ -1,11 +1,6 @@
 # Pure-R lineage engine: every lazy_query node class the walker handles,
 # exercised on lazy_frame() fixtures — no database or Python required.
 
-skip_if_no_r_engine <- function() {
-  testthat::skip_if_not_installed("dplyr")
-  testthat::skip_if_not_installed("dbplyr", "2.5.0")
-}
-
 customers_lf <- function() {
   dbplyr::lazy_frame(
     customer_id = 1L, first_name = "a", email = "a@x.com",
@@ -861,4 +856,18 @@ test_that("conflicting identity sources propagate nothing", {
   # while the label both branches agree on flows through
   expect_null(output$data$columnTypes)
   expect_identical(output$data$columnLabels, list(a = "Same label"))
+})
+
+# --- mutate family ----------------------------------------------------
+
+test_that("mutate-family shapes match the shared expectations", {
+  skip_if_no_r_engine()
+
+  run_mutate_shapes(
+    engine = "dbplyr",
+    input = function(df) dbplyr::tbl_lazy(df, name = "df"),
+    extract = function(x, ii) {
+      extract_lineage(x, engine = "r", include_indirect = ii)
+    }
+  )
 })

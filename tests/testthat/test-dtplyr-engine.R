@@ -640,23 +640,6 @@ test_that("the dbplyr and dtplyr walkers agree on shared pipelines", {
     order_id = 1L, customer_id = 1L, amount = 1, order_date = 1L
   )
 
-  # edge_set() plus each edge's direct type and indirect kind set, so
-  # parity covers classification, not just topology
-  typed_edge_set <- function(lineage) {
-    sort(vapply(
-      lineage$edges,
-      function(e) {
-        paste0(
-          e$source, ".", e$sourceHandle, " -> ", e$targetHandle,
-          " [", e$data$transformation %||% "", "|",
-          paste(sort(e$data$transformations %||% character()), collapse = ","),
-          "]"
-        )
-      },
-      character(1)
-    ))
-  }
-
   # Windowed pipelines are excluded: data.table has no OVER clause, so
   # grouped window columns diverge by design (keys indirect, not direct)
   shapes <- list(
@@ -758,4 +741,16 @@ test_that("the dbplyr and dtplyr walkers agree on shared pipelines", {
       )
     }
   }
+})
+
+# --- mutate family ----------------------------------------------------
+
+test_that("mutate-family shapes match the shared expectations", {
+  skip_if_no_dtplyr_engine()
+
+  run_mutate_shapes(
+    engine = "dtplyr",
+    input = function(df) dtplyr::lazy_dt(df, name = "df"),
+    extract = function(x, ii) extract_lineage(x, include_indirect = ii)
+  )
 })

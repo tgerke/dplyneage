@@ -433,3 +433,21 @@ test_that("schema-qualified tables harvest their own comments", {
   stg <- Filter(function(n) n$id == "stg.orders", lineage$nodes)[[1]]
   expect_identical(stg$data$columnLabels, list(amount = "Staging comment"))
 })
+
+# --- mutate family ----------------------------------------------------
+
+test_that("the sqlglot engine matches the mutate-family expectations", {
+  skip_if_no_db_stack()
+
+  con <- DBI::dbConnect(duckdb::duckdb())
+  withr::defer(DBI::dbDisconnect(con, shutdown = TRUE))
+  DBI::dbWriteTable(con, "df", mutate_df())
+
+  run_mutate_shapes(
+    engine = "sqlglot",
+    input = function(df) dplyr::tbl(con, "df"),
+    extract = function(x, ii) {
+      extract_lineage(x, engine = "sqlglot", include_indirect = ii)
+    }
+  )
+})

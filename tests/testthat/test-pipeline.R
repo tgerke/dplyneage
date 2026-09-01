@@ -2,11 +2,6 @@
 # lazy_frame() fixtures cover the stitching logic engine-free; one duckdb
 # test exercises the realistic materialized-layer flow.
 
-skip_if_no_r_engine <- function() {
-  testthat::skip_if_not_installed("dplyr")
-  testthat::skip_if_not_installed("dbplyr", "2.5.0")
-}
-
 # silver aggregates orders; gold reads the materialized silver table
 pipeline_fixture <- function() {
   silver <- dbplyr::lazy_frame(

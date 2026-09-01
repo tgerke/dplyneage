@@ -489,3 +489,15 @@ test_that("fallen-back pipelines get the data frame error with context", {
   expect_s3_class(fallen, "grouped_df")
   expect_error(extract_lineage(fallen), "fell back to eager dplyr")
 })
+
+# --- mutate family ----------------------------------------------------
+
+test_that("mutate-family shapes match the shared expectations", {
+  skip_if_no_duckplyr_engine()
+
+  run_mutate_shapes(
+    engine = "duckplyr",
+    input = function(df) duckplyr::as_duckdb_tibble(df),
+    extract = function(x, ii) extract_lineage(x, include_indirect = ii)
+  )
+})
