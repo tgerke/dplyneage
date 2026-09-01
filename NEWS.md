@@ -308,6 +308,19 @@ filed as tiered issues on GitHub.
   collectable. The data-frame error message, README, and
   getting-started vignette now describe both.
 
+* Edge labels no longer collide in `lineage_flow()`. A computed column
+  fed by several source columns repeated its defining expression on
+  every incoming edge, and each label sat at its edge's midpoint, so
+  unrelated labels printed on top of each other. The expression now
+  appears once per output column, beside the row it feeds. A label
+  crossing another edge knocks out the line behind it rather than
+  covering its own edge with an opaque box.
+
+* Hovering an edge shows its full expression and transformation type,
+  so the diagram can trim long labels without losing them. Indirect
+  edges carry no expression and show only their type: filter, join,
+  group by, or sort.
+
 * Removed the pre-rewrite demo scripts in `inst/examples/`, which
   still called the deleted `install_sqlglot()` and described a
   heuristic attribution design the engines replaced.

@@ -13,6 +13,7 @@ import {
   applyEdgeChanges,
   addEdge,
   BaseEdge,
+  EdgeLabelRenderer,
   getSmoothStepPath,
   getNodesBounds,
   getViewportForBounds
@@ -156,16 +157,27 @@ const TableNode = ({ data, isConnectable, id }) => {
   );
 };
 
+// Right-aligned to the target handle, and lifted clear of the horizontal
+// run-in so the edge reads as the label's underline rather than being
+// erased by a background box.
+const LABEL_GAP = 14;
+const LABEL_RISE = 10;
+
 // Smoothstep edge with a per-edge vertical "lane": data.laneFraction (0-1,
 // default 0.5) sets where between source and target the vertical segment
 // sits, so parallel edges don't draw on top of each other. The fraction is
 // relative to the live handle positions, so lanes survive node dragging.
+//
+// The label is anchored to the target row rather than to the path midpoint
+// getSmoothStepPath() returns. R leaves one label per target column, rows
+// are 33px apart and nodes are stacked with a 60px gap, so anchoring this
+// way makes label collisions impossible instead of merely unlikely.
 const LineageEdge = (props) => {
   const laneFraction =
     props.data && typeof props.data.laneFraction === 'number'
       ? props.data.laneFraction
       : 0.5;
-  const [path, labelX, labelY] = getSmoothStepPath({
+  const [path] = getSmoothStepPath({
     sourceX: props.sourceX,
     sourceY: props.sourceY,
     sourcePosition: props.sourcePosition,
@@ -176,19 +188,49 @@ const LineageEdge = (props) => {
     stepPosition: laneFraction
   });
 
+  const labelStyle = props.labelStyle || {};
+  // Canvas color, supplied per theme by the widget binding: labels knock
+  // out the lines they cross instead of disappearing under them
+  const halo = (props.data && props.data.labelHalo) || '#ffffff';
+  const shadow = [1, 1, 2, 2, 3]
+    .map((r) => `0 0 ${r}px ${halo}`)
+    .join(', ');
+
   return (
-    <BaseEdge
-      id={props.id}
-      path={path}
-      style={props.style}
-      markerEnd={props.markerEnd}
-      label={props.label}
-      labelX={labelX}
-      labelY={labelY}
-      labelStyle={props.labelStyle}
-      labelShowBg={true}
-      labelBgStyle={props.labelBgStyle}
-    />
+    <>
+      <BaseEdge
+        id={props.id}
+        path={path}
+        style={props.style}
+        markerEnd={props.markerEnd}
+      />
+      {props.label ? (
+        // Portaled into React Flow's label layer, which paints above every
+        // edge, so a label is never drawn under a neighbouring line
+        <EdgeLabelRenderer>
+          <div
+            className="nodrag nopan"
+            style={{
+              position: 'absolute',
+              transform:
+                `translate(-100%, -50%) translate(` +
+                `${props.targetX - LABEL_GAP}px, ` +
+                `${props.targetY - LABEL_RISE}px)`,
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap',
+              fontFamily:
+                '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              fontSize: labelStyle.fontSize || 11,
+              fontWeight: labelStyle.fontWeight || 500,
+              color: labelStyle.fill || '#64748b',
+              textShadow: shadow
+            }}
+          >
+            {props.label}
+          </div>
+        </EdgeLabelRenderer>
+      ) : null}
+    </>
   );
 };
 

@@ -179,6 +179,7 @@ convert_pipeline_to_graph <- function(model_data) {
   )
 
   nodes <- propagate_column_metadata(nodes, edges)
+  edges <- dedupe_edge_labels(edges)
 
   structure(
     list(
@@ -400,10 +401,61 @@ propagate_column_metadata <- function(nodes, edges) {
   nodes
 }
 
+#' Keep one expression label per output column
+#'
+#' A computed column with several sources emits one edge per source, each
+#' carrying the same defining expression, so the diagram drew the label
+#' once per edge. The expression describes the output column, not the
+#' individual edge, so it belongs on the group once. The renderer anchors
+#' labels to the target row, meaning every edge in a group would draw in
+#' the same spot; the first labeled edge keeps it for determinism.
+#'
+#' Sibling edges that somehow carry different expressions join with " | "
+#' rather than losing one. `data$expression` stays on every edge, so the
+#' hover card, `lineage_edges()`, and the exports are untouched.
+#' @noRd
+dedupe_edge_labels <- function(edges) {
+  if (length(edges) == 0) {
+    return(edges)
+  }
+  keys <- vapply(
+    edges,
+    function(e) paste0(e$target, "\r", e$targetHandle),
+    character(1)
+  )
+  labeled <- vapply(edges, function(e) !is.null(e$label), logical(1))
+
+  for (key in unique(keys[labeled])) {
+    idx <- which(keys == key & labeled)
+    # Hand-built edges can carry a label with no expression behind it
+    exprs <- unique(unlist(lapply(
+      edges[idx],
+      function(e) e$data$expression %||% e$label
+    )))
+    # Narrower than truncate_label()'s default: these render right-aligned
+    # into the corridor between nodes, and lineage_mermaid() keeps 40
+    edges[[idx[[1]]]]$label <- truncate_label(
+      paste(exprs, collapse = " | "),
+      max = 34
+    )
+    for (i in idx[-1]) {
+      edges[[i]]$label <- NULL
+      edges[[i]]$labelStyle <- NULL
+      edges[[i]]$labelBgStyle <- NULL
+    }
+  }
+  edges
+}
+
 #' @noRd
 layout_positions <- function(layers, n_columns, x_spacing = 400, y_gap = 60) {
   # Approximate rendered node height: header plus one row per column
   heights <- 44 + 33 * n_columns
+  # Widening x_spacing to give right-aligned edge labels more corridor
+  # backfires: fitView scales the graph to its frame, so a wider layout
+  # renders every node smaller. A bigger screenshot doesn't recover it
+  # either, since the graph's own width sets the scale. Labels are
+  # capped instead, in dedupe_edge_labels().
   x <- (layers - min(layers)) * x_spacing
   y <- numeric(length(layers))
 

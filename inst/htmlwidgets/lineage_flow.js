@@ -262,6 +262,36 @@ function themeEdge(edge, theme) {
   return out;
 }
 
+// Floating card shared by the column and edge hovers. Positioned in
+// container pixels; `flip` swaps it to the left of its anchor.
+function hoverCard(React, themeColors, pos, children) {
+  return React.createElement(
+    'div',
+    {
+      style: {
+        position: 'absolute',
+        left: pos.left + 'px',
+        top: pos.top + 'px',
+        transform: pos.flip
+          ? 'translate(-100%, -50%)'
+          : 'translateY(-50%)',
+        zIndex: 1100,
+        pointerEvents: 'none',
+        maxWidth: '260px',
+        background: themeColors.legendBg,
+        border: '1px solid ' + themeColors.legendBorder,
+        color: themeColors.legendText,
+        borderRadius: '6px',
+        padding: '8px 10px',
+        fontSize: '11px',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.15)'
+      }
+    },
+    children
+  );
+}
+
 // Small overlay naming the node colors and edge styles in play
 function legendPanel(React, Panel, theme, presentTypes, hasIndirect) {
   var t = THEME_COLORS[theme];
@@ -576,6 +606,34 @@ function renderReactFlow(el, x, width, height, state) {
         });
       }, [hoveredHandle, moveVersion]);
 
+      // Hovered edge, anchored at the pointer. Edge labels are truncated,
+      // so this card is where the full expression lives; indirect edges
+      // carry no expression and name their kind instead.
+      var edgeTipState = useState(null);
+      var edgeTip = edgeTipState[0];
+      var setEdgeTip = edgeTipState[1];
+      var onEdgeEnter = useCallback(function(event, edge) {
+        var data = edge.data || {};
+        if (!data.expression && !data.transformation) {
+          return;
+        }
+        var wrapRect = container.getBoundingClientRect();
+        var x = event.clientX - wrapRect.left;
+        var left = x + 14;
+        // Flip to the pointer's left when the card would leave the pane
+        var flip = left + 280 > wrapRect.width;
+        setEdgeTip({
+          expression: data.expression,
+          kind: data.transformation,
+          left: flip ? x - 14 : left,
+          top: event.clientY - wrapRect.top,
+          flip: flip
+        });
+      }, []);
+      var onEdgeLeave = useCallback(function() {
+        setEdgeTip(null);
+      }, []);
+
       // Escape releases the traced cone from anywhere on the page
       useEffect(function() {
         function onKeyDown(event) {
@@ -673,13 +731,20 @@ function renderReactFlow(el, x, width, height, state) {
         });
       }, [nodes, onColumnHover, onColumnClick, coneInfo, selectedColumn, theme]);
 
-      // Edge base styles re-grounded for the resolved theme
+      // Edge base styles re-grounded for the resolved theme. Labels carry
+      // the canvas color as a halo so they knock out the lines they cross
+      // instead of punching a hole through their own edge.
       var themedEdges = useMemo(function() {
-        if (theme !== 'dark') {
-          return edges;
-        }
         return edges.map(function(edge) {
-          return themeEdge(edge, theme);
+          var out = theme === 'dark' ? themeEdge(edge, theme) : edge;
+          if (!out.label) {
+            return out;
+          }
+          return Object.assign({}, out, {
+            data: Object.assign({}, out.data, {
+              labelHalo: themeColors.exportBg
+            })
+          });
         });
       }, [edges, theme]);
 
@@ -767,6 +832,8 @@ function renderReactFlow(el, x, width, height, state) {
               setMoveVersion(function(v) { return v + 1; });
             }
           },
+          onEdgeMouseEnter: onEdgeEnter,
+          onEdgeMouseLeave: onEdgeLeave,
           fitView: true,
           fitViewOptions: FIT_VIEW_OPTIONS,
           colorMode: theme,
@@ -828,47 +895,49 @@ function renderReactFlow(el, x, width, height, state) {
           ? legendPanel(React, Panel, theme, presentTypes, hasIndirect)
           : null,
         // Rendered outside .react-flow__viewport, so it neither scales
-        // with zoom nor lands in PNG exports
+        // with zoom nor lands in PNG exports. A hovered column wins over a
+        // hovered edge, since the pointer is then over the node.
         tooltip
-          ? React.createElement('div', {
-              style: {
-                position: 'absolute',
-                left: tooltip.left + 'px',
-                top: tooltip.top + 'px',
-                transform: tooltip.flip
-                  ? 'translate(-100%, -50%)'
-                  : 'translateY(-50%)',
-                zIndex: 1100,
-                pointerEvents: 'none',
-                maxWidth: '260px',
-                background: themeColors.legendBg,
-                border: '1px solid ' + themeColors.legendBorder,
-                color: themeColors.legendText,
-                borderRadius: '6px',
-                padding: '8px 10px',
-                fontSize: '11px',
-                fontFamily: 'system-ui, -apple-system, sans-serif',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.15)'
-              }
-            },
-            React.createElement('div', {
-              style: { fontWeight: 600 }
-            }, tooltip.column),
-            tooltip.type
-              ? React.createElement('div', {
-                  style: {
-                    opacity: 0.75,
-                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace'
-                  }
-                }, tooltip.type)
-              : null,
-            tooltip.label
-              ? React.createElement('div', {
-                  style: { marginTop: '3px', lineHeight: '1.35' }
-                }, tooltip.label)
-              : null
-          )
-          : null
+          ? hoverCard(React, themeColors, tooltip, [
+              React.createElement('div', {
+                key: 'name',
+                style: { fontWeight: 600 }
+              }, tooltip.column),
+              tooltip.type
+                ? React.createElement('div', {
+                    key: 'type',
+                    style: {
+                      opacity: 0.75,
+                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace'
+                    }
+                  }, tooltip.type)
+                : null,
+              tooltip.label
+                ? React.createElement('div', {
+                    key: 'label',
+                    style: { marginTop: '3px', lineHeight: '1.35' }
+                  }, tooltip.label)
+                : null
+            ])
+          : edgeTip
+            ? hoverCard(React, themeColors, edgeTip, [
+                React.createElement('div', {
+                  key: 'kind',
+                  style: { fontWeight: 600, textTransform: 'capitalize' }
+                }, (edgeTip.kind || 'lineage').replace(/_/g, ' ')),
+                edgeTip.expression
+                  ? React.createElement('div', {
+                      key: 'expr',
+                      style: {
+                        marginTop: '3px',
+                        lineHeight: '1.35',
+                        wordBreak: 'break-word',
+                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace'
+                      }
+                    }, edgeTip.expression)
+                  : null
+              ])
+            : null
       );
     };
     
