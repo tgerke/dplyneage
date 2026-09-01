@@ -78,11 +78,12 @@ tbl(con, "customers") |>
     total_spent = sum(amount, na.rm = TRUE),
     .groups = "drop"
   ) |>
+  mutate(avg_order = total_spent / total_orders) |>
   extract_lineage() |>
   lineage_flow(height = "600px")
 ```
 
-<img src="man/figures/README-unnamed-chunk-3-1.png" alt="Column-level lineage diagram with the customers and orders tables on the left and the summarised output table on the right, with edges tracing each output column back to its source columns"  />
+<img src="man/figures/README-unnamed-chunk-3-1.png" alt="Column-level lineage diagram with the customers and orders tables on the left and the summarised output table on the right, with edges tracing each output column, including the derived avg_order column, back to its source columns"  />
 
 Behind that one pipe, `extract_lineage()`:
 
@@ -100,9 +101,11 @@ column’s type or label was captured, the hover also shows a small card
 with both. Click a column and the diagram isolates its trace cone
 (everything upstream and downstream of that column) until you click
 again or press Escape. Computed columns carry their defining expression
-as an edge label, and aggregation edges animate. `lineage_flow()` also
-takes `theme = "dark"` (or `"auto"`), `minimap = TRUE` for an overview
-map, and a PNG download button lives in the zoom controls.
+as an edge label (`avg_order` here, which traces through the two
+aggregates it divides back to `orders.amount` and `orders.order_id`),
+and aggregation edges animate. `lineage_flow()` also takes
+`theme = "dark"` (or `"auto"`), `minimap = TRUE` for an overview map,
+and a PNG download button lives in the zoom controls.
 
 ## Local data frames
 
@@ -266,6 +269,7 @@ lineage <- tbl(con, "orders") |>
   left_join(tbl(con, "customers"), by = "customer_id") |>
   group_by(customer_id, first_name) |>
   summarise(total_spent = sum(amount, na.rm = TRUE), .groups = "drop") |>
+  mutate(big_spender = total_spent > 400) |>
   extract_lineage()
 
 lineage_edges(lineage)
@@ -273,10 +277,12 @@ lineage_edges(lineage)
 #> 1       orders   customer_id       output   customer_id       identity
 #> 2    customers    first_name       output    first_name       identity
 #> 3       orders        amount       output   total_spent    aggregation
+#> 4       orders        amount       output   big_spender transformation
 #>                  expression
 #> 1               customer_id
 #> 2                first_name
 #> 3 sum(amount, na.rm = TRUE)
+#> 4         total_spent > 400
 
 lineage_upstream(lineage, "output.total_spent")
 #> [1] "orders.amount"
@@ -301,14 +307,14 @@ lineage_json(lineage)
 #>     "engine": "r",
 #>     "models": {
 #>       "output": {
-#>         "sql": "SELECT customer_id, first_name, SUM(amount) AS total_spent\nFROM (\n  SELECT orders.*, first_name, last_name, email\n  FROM orders\n  LEFT JOIN customers\n    ON (orders.customer_id = customers.customer_id)\n) AS q01\nGROUP BY customer_id, first_name",
+#>         "sql": "SELECT *, total_spent > 400.0 AS big_spender\nFROM (\n  SELECT customer_id, first_name, SUM(amount) AS total_spent\n  FROM (\n    SELECT orders.*, first_name, last_name, email\n    FROM orders\n    LEFT JOIN customers\n      ON (orders.customer_id = customers.customer_id)\n  ) AS q01\n  GROUP BY customer_id, first_name\n) AS q01",
 #>         "engine": "r",
 #>         "dialect": "duckdb",
 #>         "namespace": "duckdb"
 #>       }
 #>     },
 #>     "node_count": 3,
-#>     "edge_count": 3
+#>     "edge_count": 4
 #>   },
 #>   "nodes": [
 #>     {
@@ -324,7 +330,7 @@ lineage_json(lineage)
 #>     {
 #>       "id": "output",
 #>       "type": "target",
-#>       "columns": ["customer_id", "first_name", "total_spent"]
+#>       "columns": ["customer_id", "first_name", "total_spent", "big_spender"]
 #>     }
 #>   ],
 #>   "edges": [
@@ -351,6 +357,14 @@ lineage_json(lineage)
 #>       "target_column": "total_spent",
 #>       "transformation": "aggregation",
 #>       "expression": "sum(amount, na.rm = TRUE)"
+#>     },
+#>     {
+#>       "source": "orders",
+#>       "source_column": "amount",
+#>       "target": "output",
+#>       "target_column": "big_spender",
+#>       "transformation": "transformation",
+#>       "expression": "total_spent > 400"
 #>     }
 #>   ]
 #> }
@@ -379,7 +393,7 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from 304be66:
+#> + 2/7 vertices, named, from 3027d2b:
 #> [1] output.total_spent orders.amount
 ```
 

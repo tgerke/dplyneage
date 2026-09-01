@@ -92,6 +92,40 @@ Notice that `total_spent` traces back to `orders.amount`, not to `customers`, ev
 
 If a pipeline embeds raw SQL with `dbplyr::sql()`, the query tree can't see inside that string, so `extract_lineage()` hands the whole query to sqlglot instead (with a message). You can also force a specific engine with `engine = "r"` or `engine = "sqlglot"`; see `?extract_lineage`.
 
+## Computed columns
+
+Most columns in a pipeline are computed rather than selected, and `mutate()` is where that happens. Lineage treats a computed column like any other: its edges start at every column the expression reads. This pipeline builds a few of them the usual ways: a plain expression, a `case_when()` written against a column defined two lines earlier, an `across()` that names its outputs, and a per-customer share computed with `.by`.
+
+```{r}
+computed <- tbl(con, "orders") |>
+  mutate(
+    amount_eur = amount * 0.92,
+    tier = case_when(
+      amount_eur >= 180 ~ "large",
+      amount_eur >= 90 ~ "medium",
+      TRUE ~ "small"
+    ),
+    across(c(amount, amount_eur), round, .names = "{.col}_rounded")
+  ) |>
+  mutate(
+    customer_share = amount / sum(amount, na.rm = TRUE),
+    .by = customer_id
+  ) |>
+  extract_lineage()
+
+lineage_flow(computed, height = "400px")
+```
+
+Every new column traces to `orders.amount`, including `tier`, which was written against `amount_eur` rather than `amount`: a reference to a column defined earlier in the same `mutate()` resolves through it to the source. The two `across()` outputs each trace to their own input. `customer_share` also draws an edge from `customer_id`, because on a SQL backend the `.by` column becomes the `PARTITION BY` of a window function and so sits inside the expression that computes the share; the `sum()` in that expression makes the edge an aggregation, which the diagram animates.
+
+`lineage_edges()` gives the same lineage as a table, one row per edge, with each computed column's classification and defining expression:
+
+```{r}
+lineage_edges(computed)
+```
+
+The rest of the family follows the same rule. Overwriting a column (`mutate(amount = amount * 0.92)`) keeps an edge from the source column, now classified as a transformation instead of an identity. `transmute()` and `mutate(.keep = "none")` drop the passthrough columns and their identity edges with them, and `mutate(x = NULL)` drops one. `rename()` and `relocate()` change nothing about provenance, so their columns keep identity edges to the original names. All of this holds on `tbl_lazy()` frames, dtplyr, and arrow as well as on a database, with one backend difference: data.table and Acero have no window clause, so on dtplyr and arrow a `.by` column stays an indirect source (see [Other lazy backends](#other-lazy-backends)).
+
 ## Where lineage gets hard
 
 These are the cases that break naive lineage tools. dplyneage handles them because both engines resolve the full query structure rather than pattern-matching column names: dbplyr pipelines through their query tree, raw SQL through sqlglot's lineage engine. We'll use raw SQL here to keep the examples compact.
@@ -214,7 +248,7 @@ Three backend habits affect the diagram you get:
 
 - Name your frames where the backend lets you. `lazy_dt(df, name = "sales")` puts `sales` on the source node; without it dtplyr auto-names frames `_DT1`, `_DT2`, and so on. In-memory duckplyr frames and arrow tables have no name slot at all, so their nodes come out as `df`/`df_1` and `arrow_table`/`arrow_table_2`. File-backed sources (`duckplyr::read_csv_duckdb()`, `arrow::open_dataset()`) use the file path, which reads much better.
 - data.table and Acero have no `OVER` clause, so a windowed column's grouping keys stay indirect on dtplyr and arrow (dashed `group_by` edges under `include_indirect = TRUE`) instead of becoming direct sources the way rendered SQL makes them.
-- duckplyr silently hands unsupported verbs (grouped `mutate()`, `rowwise()`) back to eager dplyr, and the result is a plain tibble with no tree left to read. Prefer `summarise(.by = )` forms, and extract lineage before anything materializes.
+- duckplyr hands anything it cannot translate back to eager dplyr without a message: `group_by()` followed by `mutate()`, `rowwise()`, and functions with no duckdb translation (`case_when()`, `paste0()`, `between()`, and `rename_with()` are common ones). The result comes back as an ordinary tibble, or as a duckplyr frame with no relation left behind it, and `extract_lineage()` says so either way. `Sys.setenv(DUCKPLYR_FALLBACK_INFO = TRUE)` makes duckplyr name the step that fell back; extract lineage from the step before it, or rewrite it (a `.by` mutate whose aggregates pass `na.rm = TRUE` stays lazy, for instance).
 
 Column labels travel on every backend: `label` attributes survive `lazy_dt()` and `arrow_table()`, and arrow schemas contribute column types to the hover cards for free.
 

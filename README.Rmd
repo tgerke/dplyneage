@@ -41,7 +41,7 @@ dbplyr, dtplyr, and arrow pipelines need no Python at all, not even reticulate. 
 
 Build a dplyr pipeline against a database as usual, then pipe it into `extract_lineage()` and `lineage_flow()`:
 
-```{r message=FALSE, fig.alt="Column-level lineage diagram with the customers and orders tables on the left and the summarised output table on the right, with edges tracing each output column back to its source columns"}
+```{r message=FALSE, fig.alt="Column-level lineage diagram with the customers and orders tables on the left and the summarised output table on the right, with edges tracing each output column, including the derived avg_order column, back to its source columns"}
 library(dplyneage)
 library(dplyr)
 library(dbplyr)
@@ -74,6 +74,7 @@ tbl(con, "customers") |>
     total_spent = sum(amount, na.rm = TRUE),
     .groups = "drop"
   ) |>
+  mutate(avg_order = total_spent / total_orders) |>
   extract_lineage() |>
   lineage_flow(height = "600px")
 ```
@@ -83,7 +84,7 @@ Behind that one pipe, `extract_lineage()`:
 - walks the pipeline's lazy query tree in pure R, tracing every output column to its source columns (joins, aggregations, unions, and multi-source computed columns all resolve exactly)
 - falls back to sqlglot's lineage engine when the pipeline injects raw SQL with `dbplyr::sql()`, or when you pass a SQL string directly (that path handles aliases, CTEs, and subqueries, and reads table schemas from your connection so unqualified columns attribute correctly)
 
-The resulting diagram is fully interactive: drag tables to rearrange, zoom and pan, and hover columns to highlight their connections; when a column's type or label was captured, the hover also shows a small card with both. Click a column and the diagram isolates its trace cone (everything upstream and downstream of that column) until you click again or press Escape. Computed columns carry their defining expression as an edge label, and aggregation edges animate. `lineage_flow()` also takes `theme = "dark"` (or `"auto"`), `minimap = TRUE` for an overview map, and a PNG download button lives in the zoom controls.
+The resulting diagram is fully interactive: drag tables to rearrange, zoom and pan, and hover columns to highlight their connections; when a column's type or label was captured, the hover also shows a small card with both. Click a column and the diagram isolates its trace cone (everything upstream and downstream of that column) until you click again or press Escape. Computed columns carry their defining expression as an edge label (`avg_order` here, which traces through the two aggregates it divides back to `orders.amount` and `orders.order_id`), and aggregation edges animate. `lineage_flow()` also takes `theme = "dark"` (or `"auto"`), `minimap = TRUE` for an overview map, and a PNG download button lives in the zoom controls.
 
 ## Local data frames
 
@@ -201,6 +202,7 @@ lineage <- tbl(con, "orders") |>
   left_join(tbl(con, "customers"), by = "customer_id") |>
   group_by(customer_id, first_name) |>
   summarise(total_spent = sum(amount, na.rm = TRUE), .groups = "drop") |>
+  mutate(big_spender = total_spent > 400) |>
   extract_lineage()
 
 lineage_edges(lineage)

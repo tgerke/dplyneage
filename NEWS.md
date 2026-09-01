@@ -5,6 +5,47 @@ the package against current column-level lineage tooling (SQLMesh,
 dbt, sqlglot, OpenLineage). The remaining roadmap from the audit is
 filed as tiered issues on GitHub.
 
+* The sqlglot engine (raw SQL, the dbplyr fallback, and every duckplyr
+  frame) classifies a column by the outermost hop that computes it,
+  with identity hops transparent, the rule the R walkers already
+  applied. A computed column read back through a wrapper (dbplyr's
+  nested selects for chained `mutate()` calls, the `SELECT *` duckplyr
+  adds after every later verb, a CTE selected by name) used to come out
+  `identity` with the bare column as its expression, which also let
+  labels and types propagate across it as if it were a passthrough.
+  Set-operation branches take the strongest kind.
+
+* Indirect columns resolve through derived tables and CTEs on the
+  sqlglot engine. A `filter()`, `group_by()`, or `arrange()` on a
+  column a `mutate()` computed was either skipped (the dbplyr fallback)
+  or, on duckplyr, attributed to a phantom column of the base table; it
+  now lands on the columns the computed one was built from. On duckplyr,
+  the `___row_number` ordering helper no longer leaks as a sort source,
+  bare window spellings (`mean(x) OVER`, `count_star() OVER`) classify
+  as aggregations, and a `filter()` before a `mutate()` on an in-memory
+  frame no longer traces every column to `*`.
+
+* duckplyr lineage reports the frame's column names after
+  `rename_with()` or `names<-`, which set names on the frame while the
+  duckdb relation kept projecting the old ones. When duckplyr has run a
+  verb eagerly because it cannot translate it, the error now says so
+  and points at `DUCKPLYR_FALLBACK_INFO` to find the step, instead of
+  suggesting the frame be re-created.
+
+* dtplyr records grouping keys as indirect sources of a `transmute()`
+  only when its expressions depend on the grouping, as the mutate step
+  already did and as the other engines do.
+
+* The mutate family is pinned by one shared table of shapes run on all
+  five paths: `mutate()` in its argument forms, `transmute()`,
+  `across()` with formulas, `.names`, function lists, and tidyselect
+  helpers, references within one call, overwrites, conditionals,
+  renames and relocates, chains through `select()`, `summarise()`, and
+  `filter()`, and the windowed shapes. A shape a backend cannot run
+  asserts that backend's error rather than skipping. `?extract_lineage`
+  now lists what every engine traces, and the getting-started vignette
+  gains a section on computed columns.
+
 * `extract_lineage()` reads three more lazy backends. dtplyr
   `lazy_dt()` pipelines and arrow queries are walked natively in R,
   covering the translated expression forms each backend produces

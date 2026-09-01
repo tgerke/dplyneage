@@ -117,6 +117,21 @@ falls back to sqlglot automatically; dtplyr and arrow pipelines
 compile to data.table code and Acero plans rather than SQL, so an
 untraceable construct there is an error instead.
 
+Every engine traces the same verbs. \code{select()}, \code{rename()}, and
+\code{relocate()} draw identity edges to the new name and position.
+\code{mutate()} and \code{transmute()} draw an edge from every column an
+expression reads, whether the expression arrives through \code{across()},
+refers to a column defined earlier in the same call, overwrites its
+own input, or runs per group with \code{.by}; \code{summarise()}, joins, set
+operations, \code{distinct()}, and window functions resolve the same way,
+since each walker reads the compiled form its backend produced rather
+than the verbs. What a backend refuses fails before lineage runs:
+\code{rowwise()} has no lazy method anywhere, dbplyr and dtplyr reject
+\code{across(where(...))}, arrow rejects anonymous functions inside
+\code{across()}, and duckplyr falls back to eager dplyr for grouped
+\code{mutate()} and for functions it cannot translate (see
+\code{vignette("getting-started")}).
+
 Source nodes take their names from the backend: table paths for
 dbplyr, the \code{name} given to \code{\link[dtplyr:lazy_dt]{dtplyr::lazy_dt()}} (auto-named \verb{_DT1},
 \verb{_DT2}, ... otherwise, so passing \code{name} is worthwhile), and file

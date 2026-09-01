@@ -22,6 +22,21 @@
 #' compile to data.table code and Acero plans rather than SQL, so an
 #' untraceable construct there is an error instead.
 #'
+#' Every engine traces the same verbs. `select()`, `rename()`, and
+#' `relocate()` draw identity edges to the new name and position.
+#' `mutate()` and `transmute()` draw an edge from every column an
+#' expression reads, whether the expression arrives through `across()`,
+#' refers to a column defined earlier in the same call, overwrites its
+#' own input, or runs per group with `.by`; `summarise()`, joins, set
+#' operations, `distinct()`, and window functions resolve the same way,
+#' since each walker reads the compiled form its backend produced rather
+#' than the verbs. What a backend refuses fails before lineage runs:
+#' `rowwise()` has no lazy method anywhere, dbplyr and dtplyr reject
+#' `across(where(...))`, arrow rejects anonymous functions inside
+#' `across()`, and duckplyr falls back to eager dplyr for grouped
+#' `mutate()` and for functions it cannot translate (see
+#' `vignette("getting-started")`).
+#'
 #' Source nodes take their names from the backend: table paths for
 #' dbplyr, the `name` given to [dtplyr::lazy_dt()] (auto-named `_DT1`,
 #' `_DT2`, ... otherwise, so passing `name` is worthwhile), and file
