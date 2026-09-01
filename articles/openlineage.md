@@ -24,7 +24,7 @@ library(dplyr, warn.conflicts = FALSE)
 
 con <- DBI::dbConnect(duckdb::duckdb())
 #> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/Rtmph7FJ7b/duckdb
+#> ℹ /tmp/RtmpJxIT0m/duckdb
 #> This is removed when the R session ends.
 #> • Extensions are re-downloaded each session.
 #> • Secrets are lost.

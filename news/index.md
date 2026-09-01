@@ -7,6 +7,37 @@ package against current column-level lineage tooling (SQLMesh, dbt,
 sqlglot, OpenLineage). The remaining roadmap from the audit is filed as
 tiered issues on GitHub.
 
+- [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
+  reads three more lazy backends. dtplyr `lazy_dt()` pipelines and arrow
+  queries are walked natively in R, covering the translated expression
+  forms each backend produces
+  ([`n()`](https://dplyr.tidyverse.org/reference/context.html) arriving
+  as `.N`,
+  [`case_when()`](https://dplyr.tidyverse.org/reference/case-and-replace-when.html)
+  as `fcase()`, arrow’s window workaround compiling to an aggregation
+  self-join) and every join style’s orientation. duckplyr frames take a
+  different route because their lazy tree is an opaque duckdb relation:
+  the engine renders the relation to duckdb SQL, rewrites it into a
+  bindable form, and hands it to the sqlglot engine, so duckplyr lineage
+  needs reticulate where dtplyr and arrow need nothing. Metadata records
+  the engine that ran and a matching dialect label (`"data.table"`,
+  `"arrow"`, `"duckdb"`); arrow models carry no query text, dtplyr
+  models record the generated data.table call, and duckplyr models
+  record deterministic SQL that diffs cleanly in CI. Nameless in-memory
+  sources get placeholders (`df`, `arrow_table`, …), so
+  `lazy_dt(df, name = )` is worth passing; file-backed duckplyr readers
+  and arrow datasets use their file paths, with schema-derived column
+  types on the nodes. dtplyr and arrow pipelines cannot fall back to
+  sqlglot (they compile to data.table code and Acero plans, not SQL), so
+  untraceable constructs error with an explanation instead; duckplyr
+  pipelines that duckplyr itself ran eagerly (grouped
+  [`mutate()`](https://dplyr.tidyverse.org/reference/mutate.html),
+  [`rowwise()`](https://dplyr.tidyverse.org/reference/rowwise.html))
+  come back as plain tibbles with no tree left, and the plain-data-frame
+  error now says so. Parity suites pin each walker’s edge sets and
+  classifications against the dbplyr engine on shared pipelines.
+  ([\#14](https://github.com/tgerke/dplyneage/issues/14))
+
 - Column labels now travel through lineage.
   [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
   reads `label` attributes from local frames (the haven/labelled

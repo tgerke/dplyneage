@@ -288,6 +288,62 @@ well (<code>copy_to(con, df)</code>); <code><a href="https://dbplyr.tidyverse.or
 the fastest route when no connection exists and none is needed.</p>
 </div>
 <div class="section level2">
+<h2 id="other-lazy-backends">Other lazy backends<a class="anchor" aria-label="anchor" href="#other-lazy-backends"></a>
+</h2>
+<p>dbplyr is not the only backend that builds a query tree before
+executing. <a href="https://dtplyr.tidyverse.org/" class="external-link">dtplyr</a> records
+steps toward data.table code, <a href="https://duckplyr.tidyverse.org/" class="external-link">duckplyr</a> holds a duckdb
+relation behind an ordinary-looking tibble, and <a href="https://arrow.apache.org/docs/r/" class="external-link">arrow</a> queries compile to
+Acero plans. <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code> reads all of them, and the
+pipe looks the same:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">dtplyr</span><span class="fu">::</span><span class="fu"><a href="https://dtplyr.tidyverse.org/reference/lazy_dt.html" class="external-link">lazy_dt</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>    customer_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span>,</span>
+<span>    amount <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">100</span>, <span class="fl">250</span>, <span class="fl">40</span><span class="op">)</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  name <span class="op">=</span> <span class="st">"sales"</span></span>
+<span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">customer_id</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/summarise.html" class="external-link">summarise</a></span><span class="op">(</span>total <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">amount</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"300px"</span><span class="op">)</span></span></code></pre></div>
+<div id="htmlwidget-5b1b2f4ad92281566982" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
+<script type="application/json" data-for="htmlwidget-5b1b2f4ad92281566982">{"x":{"nodes":[{"id":"sales","type":"tableNode","data":{"label":"sales","columns":["customer_id","amount"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["customer_id","total"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_sales.customer_id_to_output.customer_id","source":"sales","target":"output","sourceHandle":"customer_id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"customer_id","transformation":"identity"}},{"id":"e_sales.amount_to_output.total","source":"sales","target":"output","sourceHandle":"amount","targetHandle":"total","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"sum(amount, na.rm = TRUE)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"sum(amount, na.rm = TRUE)","transformation":"aggregation"}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}</script><p>dtplyr and arrow pipelines are walked natively in R, like dbplyr’s.
+duckplyr is the exception: its relation is a duckdb object with no
+R-readable structure, so the engine renders it to duckdb SQL and
+analyzes that with sqlglot, which means duckplyr lineage needs
+reticulate where the others need nothing. The metadata records which
+engine ran and a matching dialect label (<code>"data.table"</code> for
+dtplyr, <code>"arrow"</code> for arrow, <code>"duckdb"</code> for
+duckplyr).</p>
+<p>Three backend habits affect the diagram you get:</p>
+<ul>
+<li>Name your frames where the backend lets you.
+<code>lazy_dt(df, name = "sales")</code> puts <code>sales</code> on the
+source node; without it dtplyr auto-names frames <code>_DT1</code>,
+<code>_DT2</code>, and so on. In-memory duckplyr frames and arrow tables
+have no name slot at all, so their nodes come out as
+<code>df</code>/<code>df_1</code> and
+<code>arrow_table</code>/<code>arrow_table_2</code>. File-backed sources
+(<code><a href="https://duckplyr.tidyverse.org/reference/read_csv_duckdb.html" class="external-link">duckplyr::read_csv_duckdb()</a></code>,
+<code><a href="https://arrow.apache.org/docs/r/reference/open_dataset.html" class="external-link">arrow::open_dataset()</a></code>) use the file path, which reads much
+better.</li>
+<li>data.table and Acero have no <code>OVER</code> clause, so a windowed
+column’s grouping keys stay indirect on dtplyr and arrow (dashed
+<code>group_by</code> edges under <code>include_indirect = TRUE</code>)
+instead of becoming direct sources the way rendered SQL makes them.</li>
+<li>duckplyr silently hands unsupported verbs (grouped
+<code><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate()</a></code>, <code><a href="https://dplyr.tidyverse.org/reference/rowwise.html" class="external-link">rowwise()</a></code>) back to eager dplyr, and
+the result is a plain tibble with no tree left to read. Prefer
+<code>summarise(.by = )</code> forms, and extract lineage before
+anything materializes.</li>
+</ul>
+<p>Column labels travel on every backend: <code>label</code> attributes
+survive <code>lazy_dt()</code> and <code>arrow_table()</code>, and arrow
+schemas contribute column types to the hover cards for free.</p>
+</div>
+<div class="section level2">
 <h2 id="column-labels">Column labels<a class="anchor" aria-label="anchor" href="#column-labels"></a>
 </h2>
 <p>Column names say what a thing is called; labels say what it means. R
@@ -298,7 +354,7 @@ Stata, and database tables keep the same idea as column comments.
 attributes from local frames, comments from a live duckdb or postgres
 connection), and a <code>labels</code> argument covers everything else,
 winning over the automatic sources:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sales_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  customer_id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span>,</span>
 <span>  amount <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">100</span>, <span class="fl">250</span>, <span class="fl">40</span><span class="op">)</span></span>
@@ -338,10 +394,10 @@ missing beats wrong.</p>
 <p>In the diagram, those labels become hover cards. Try it on this
 rendering: <code>customer_id</code> shows its label on both nodes, and
 <code>total</code> shows the hand-supplied one.</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span><span class="va">lineage</span>, height <span class="op">=</span> <span class="st">"300px"</span><span class="op">)</span></span></code></pre></div>
-<div id="htmlwidget-5b1b2f4ad92281566982" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
-<script type="application/json" data-for="htmlwidget-5b1b2f4ad92281566982">{"x":{"nodes":[{"id":"sales","type":"tableNode","data":{"label":"sales","columns":["customer_id","amount"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"},"columnLabels":{"customer_id":"Customer surrogate key","amount":"Order amount in USD"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["customer_id","total"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"},"columnLabels":{"total":"Total spent per customer","customer_id":"Customer surrogate key"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_sales.customer_id_to_output.customer_id","source":"sales","target":"output","sourceHandle":"customer_id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"customer_id","transformation":"identity"}},{"id":"e_sales.amount_to_output.total","source":"sales","target":"output","sourceHandle":"amount","targetHandle":"total","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"sum(amount, na.rm = TRUE)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"sum(amount, na.rm = TRUE)","transformation":"aggregation"}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}</script><p><code><a href="../reference/lineage_json.html">lineage_json()</a></code> records the same labels as per-node
+<div id="htmlwidget-25c3e940e6859592f801" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
+<script type="application/json" data-for="htmlwidget-25c3e940e6859592f801">{"x":{"nodes":[{"id":"sales","type":"tableNode","data":{"label":"sales","columns":["customer_id","amount"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"},"columnLabels":{"customer_id":"Customer surrogate key","amount":"Order amount in USD"}},"position":{"x":0,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"output","type":"tableNode","data":{"label":"output","columns":["customer_id","total"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"},"columnLabels":{"total":"Total spent per customer","customer_id":"Customer surrogate key"}},"position":{"x":400,"y":0},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_sales.customer_id_to_output.customer_id","source":"sales","target":"output","sourceHandle":"customer_id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2},"data":{"expression":"customer_id","transformation":"identity"}},{"id":"e_sales.amount_to_output.total","source":"sales","target":"output","sourceHandle":"amount","targetHandle":"total","animated":true,"style":{"stroke":"#64748b","strokeWidth":2},"label":"sum(amount, na.rm = TRUE)","labelStyle":{"fill":"#64748b","fontWeight":500,"fontSize":11},"labelBgStyle":{"fill":"#ffffff","fillOpacity":0.9},"data":{"expression":"sum(amount, na.rm = TRUE)","transformation":"aggregation"}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}</script><p><code><a href="../reference/lineage_json.html">lineage_json()</a></code> records the same labels as per-node
 <code>labels</code> and <code>types</code> maps, and each OpenLineage
 schema-facet field gains a <code>description</code>; the <a href="https://tgerke.github.io/dplyneage/articles/openlineage.html">OpenLineage
 article</a> shows the rendered event.</p>
@@ -351,7 +407,7 @@ article</a> shows the rendered event.</p>
 </h2>
 <p>For documentation or design sketches, skip extraction entirely and
 build the diagram yourself:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">nodes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="../reference/create_table_node.html">create_table_node</a></span><span class="op">(</span></span>
 <span>    table_name <span class="op">=</span> <span class="st">"customers"</span>,</span>
@@ -374,8 +430,8 @@ build the diagram yourself:</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span><span class="va">nodes</span>, <span class="va">edges</span>, height <span class="op">=</span> <span class="st">"300px"</span><span class="op">)</span></span></code></pre></div>
-<div id="htmlwidget-25c3e940e6859592f801" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
-<script type="application/json" data-for="htmlwidget-25c3e940e6859592f801">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name","email"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"customer_summary","type":"tableNode","data":{"label":"customer_summary","columns":["customer_id","full_name","contact"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":500,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_customer_summary.customer_id","source":"customers","target":"customer_summary","sourceHandle":"id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.name_to_customer_summary.full_name","source":"customers","target":"customer_summary","sourceHandle":"name","targetHandle":"full_name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.email_to_customer_summary.contact","source":"customers","target":"customer_summary","sourceHandle":"email","targetHandle":"contact","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}</script><p>Nodes come in three types: <code>"source"</code> (blue),
+<div id="htmlwidget-3f27c09be0c60bb52829" style="width:100%;height:300px;" class="lineage_flow html-widget"></div>
+<script type="application/json" data-for="htmlwidget-3f27c09be0c60bb52829">{"x":{"nodes":[{"id":"customers","type":"tableNode","data":{"label":"customers","columns":["id","name","email"],"tableType":"source","colors":{"bg":"#f0f7ff","border":"#3b82f6","header":"#1d4ed8"}},"position":{"x":0,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"},{"id":"customer_summary","type":"tableNode","data":{"label":"customer_summary","columns":["customer_id","full_name","contact"],"tableType":"target","colors":{"bg":"#f0fdf4","border":"#10b981","header":"#059669"}},"position":{"x":500,"y":100},"draggable":true,"sourcePosition":"right","targetPosition":"left"}],"edges":[{"id":"e_customers.id_to_customer_summary.customer_id","source":"customers","target":"customer_summary","sourceHandle":"id","targetHandle":"customer_id","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.name_to_customer_summary.full_name","source":"customers","target":"customer_summary","sourceHandle":"name","targetHandle":"full_name","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}},{"id":"e_customers.email_to_customer_summary.contact","source":"customers","target":"customer_summary","sourceHandle":"email","targetHandle":"contact","animated":false,"style":{"stroke":"#64748b","strokeWidth":2}}],"options":{"minimap":false,"legend":true,"theme":"light","exportButton":true}},"evals":[],"jsHooks":[]}</script><p>Nodes come in three types: <code>"source"</code> (blue),
 <code>"transform"</code> (orange), and <code>"target"</code> (green).
 Edges accept a <code>label</code> (e.g. <code>"SUM()"</code>) and
 <code>animated = TRUE</code> for emphasis.
@@ -397,7 +453,7 @@ diff shows it before it ships; the <a href="https://tgerke.github.io/dplyneage/a
 checks in CI</a> article turns that into a one-call gate with
 <code><a href="../reference/lineage_check.html">lineage_check()</a></code>. It is also the natural handoff format for
 data catalogs or anything scriptable with jq.</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">lineage</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"customers"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"orders"</span><span class="op">)</span>, by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"id"</span> <span class="op">=</span> <span class="st">"customer_id"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">id</span>, <span class="va">name</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -472,7 +528,7 @@ possible. The classic one is impact analysis (“if
 <code>orders.amount</code> changes, which outputs are affected?”) or its
 reverse, tracing an output back to every source column that feeds
 it:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".graphml"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/lineage_graphml.html">lineage_graphml</a></span><span class="op">(</span><span class="va">lineage</span>, <span class="va">path</span><span class="op">)</span></span>
 <span></span>
@@ -480,12 +536,12 @@ it:</p>
 <span></span>
 <span><span class="co"># Everything upstream of total_spent</span></span>
 <span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"output.total_spent"</span>, mode <span class="op">=</span> <span class="st">"in"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; + 2/6 vertices, named, from d30a8eb:</span></span>
+<span><span class="co">#&gt; + 2/6 vertices, named, from 5d101c1:</span></span>
 <span><span class="co">#&gt; [1] output.total_spent orders.amount</span></span>
 <span></span>
 <span><span class="co"># Everything downstream of orders.amount</span></span>
 <span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"orders.amount"</span>, mode <span class="op">=</span> <span class="st">"out"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; + 2/6 vertices, named, from d30a8eb:</span></span>
+<span><span class="co">#&gt; + 2/6 vertices, named, from 5d101c1:</span></span>
 <span><span class="co">#&gt; [1] orders.amount      output.total_spent</span></span></code></pre></div>
 <p>Both functions return the serialized string when called without
 <code>path</code>, so they compose in pipes and tests.</p>

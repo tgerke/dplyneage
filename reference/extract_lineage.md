@@ -1,10 +1,11 @@
 # Extract column lineage from a dplyr pipeline or SQL query
 
 `extract_lineage()` traces every output column of a query back to the
-source table columns it was computed from. Pipe a dbplyr lazy table
-straight into it, or pass a SQL string. Aliases, CTEs, subqueries, set
-operations like `UNION`, and multi-source expressions such as
-`COALESCE(a.x, b.x)` all resolve to their true source columns.
+source table columns it was computed from. Pipe a lazy table straight
+into it (dbplyr, dtplyr, duckplyr, or arrow), or pass a SQL string.
+Aliases, CTEs, subqueries, set operations like `UNION`, and multi-source
+expressions such as `COALESCE(a.x, b.x)` all resolve to their true
+source columns.
 
 ## Usage
 
@@ -24,17 +25,23 @@ extract_lineage(
 
 - sql:
 
-  A dbplyr lazy table (`tbl_lazy`), a single SQL query string, or a
-  named list of these (one element per pipeline model; see Details).
-  Lazy tables are analyzed directly from their lazy query tree (the SQL
-  recorded in `metadata` still comes from
-  [`dbplyr::sql_render()`](https://dbplyr.tidyverse.org/reference/sql_build.html));
-  when one is handled by the sqlglot engine instead, its database
-  connection is used to harvest table schemas automatically. Plain data
-  frames are not accepted: dplyr executes each verb on them immediately,
-  leaving no query tree to read. Wrap the frame first:
-  `dbplyr::tbl_lazy(df, name = "df")` builds a lazy table with no
-  database at all, which is enough for lineage;
+  A lazy table (a dbplyr `tbl_lazy`, a
+  [`dtplyr::lazy_dt()`](https://dtplyr.tidyverse.org/reference/lazy_dt.html)
+  pipeline, a duckplyr frame, or an arrow query, Table, or Dataset), a
+  single SQL query string, or a named list of these (one element per
+  pipeline model; see Details). Lazy inputs are analyzed directly from
+  their query tree; the query text recorded in `metadata` comes from the
+  backend
+  ([`dbplyr::sql_render()`](https://dbplyr.tidyverse.org/reference/sql_build.html),
+  dtplyr's generated data.table call, or the rewritten duckdb SQL for
+  duckplyr; arrow plans have none). When a dbplyr table is handled by
+  the sqlglot engine instead, its database connection is used to harvest
+  table schemas automatically. Plain data frames are not accepted: dplyr
+  executes each verb on them immediately, leaving no query tree to read.
+  Wrap the frame first: `dbplyr::tbl_lazy(df, name = "df")` builds a
+  lazy table with no database at all, which is enough for lineage;
+  `dtplyr::lazy_dt(df, name = "df")` and
+  `duckplyr::as_duckdb_tibble(df)` do the same on those backends;
   [`dbplyr::memdb_frame()`](https://dbplyr.tidyverse.org/reference/memdb.html)
   (or `copy_to(dbplyr::memdb(), df, name = "df")`) also makes the
   pipeline collectable. See
@@ -47,17 +54,25 @@ extract_lineage(
   understands works here. The default `NULL` infers the dialect from a
   lazy table's database connection (falling back to `"duckdb"` for
   connections it does not recognize); SQL strings are parsed as
-  `"duckdb"` unless a dialect is given.
+  `"duckdb"` unless a dialect is given. dtplyr and arrow pipelines have
+  no SQL dialect and record the labels `"data.table"` and `"arrow"`; a
+  value given here replaces that label in the metadata but changes
+  nothing about the analysis.
 
 - schema:
 
   Optional table schema used by the sqlglot engine to attribute
   unqualified columns to the right table and to expand `SELECT *`: a
   named list mapping table names to character vectors of column names,
-  e.g. `list(orders = c("order_id", "amount"))`. Only relevant for SQL
-  strings: the R engine reads exact provenance from the lazy query tree,
-  and a lazy table that falls back to sqlglot harvests its schema from
-  the database connection automatically.
+  e.g. `list(orders = c("order_id", "amount"))`. A typed form also
+  works, mapping column names to type strings
+  (`list(orders = c(order_id = "INTEGER", amount = "DOUBLE"))`); the
+  types then show as column tooltips, the same way a harvested database
+  schema's do. Mainly relevant for SQL strings: the R walkers read exact
+  provenance from the query tree, a dbplyr table that falls back to
+  sqlglot harvests its schema from the database connection
+  automatically, and duckplyr frames harvest file-reader schemas
+  themselves (entries given here win).
 
 - labels:
 
@@ -78,16 +93,20 @@ extract_lineage(
 
 - show_sql:
 
-  If `TRUE`, print the SQL being analyzed. Useful for seeing what dbplyr
-  generated from your pipeline. Default: `FALSE`.
+  If `TRUE`, print the query text being analyzed: the SQL a dbplyr
+  pipeline generated, or dtplyr's data.table call. arrow pipelines have
+  no query text to show. Default: `FALSE`.
 
 - engine:
 
-  Which lineage engine to use. `"auto"` (the default) uses the pure-R
-  engine for lazy tables when dbplyr (\>= 2.5.0) is installed, falling
-  back to sqlglot for SQL strings or unsupported constructs. `"r"`
-  forces the pure-R engine and errors on anything it cannot trace.
-  `"sqlglot"` always renders to SQL and analyzes with sqlglot.
+  Which lineage engine to use. `"auto"` (the default) picks by input:
+  the native R walker for dbplyr (falling back to sqlglot for
+  unsupported constructs), dtplyr, and arrow input, and sqlglot for SQL
+  strings and duckplyr frames. `"r"` forces the native walker and errors
+  on anything it cannot trace; duckplyr frames always refuse it, since
+  their relation is only readable through SQL. `"sqlglot"` needs SQL, so
+  it accepts SQL strings, dbplyr lazy tables (rendered first), and
+  duckplyr frames.
 
 - include_indirect:
 
@@ -110,17 +129,32 @@ and dialect (one entry, keyed by the output table, for a single query).
 
 ## Details
 
-Two engines are available. dbplyr lazy tables are analyzed by a pure-R
-fast path that walks the pipeline's lazy query tree directly, no Python
-required. SQL strings are analyzed by
-[sqlglot](https://github.com/tobymao/sqlglot)'s lineage engine via
-reticulate (a Suggests dependency: install reticulate to enable this
-engine; sqlglot itself is provisioned automatically). If a pipeline uses
-a construct the R engine cannot trace (e.g. raw SQL injected with
+Which engine runs depends on the input. dbplyr lazy tables, dtplyr
+`lazy_dt()` steps, and arrow queries are walked directly in R, no Python
+required; each records a matching `dialect` in the metadata (the
+connection's dialect, `"data.table"`, or `"arrow"`). SQL strings are
+analyzed by [sqlglot](https://github.com/tobymao/sqlglot)'s lineage
+engine via reticulate (a Suggests dependency: install reticulate to
+enable it; sqlglot itself is provisioned automatically). duckplyr frames
+also need sqlglot: their lazy tree lives inside duckdb as an opaque
+relation, so it is rendered to duckdb SQL and parsed. If a dbplyr
+pipeline uses a construct the R walker cannot trace (e.g. raw SQL
+injected with
 [`dbplyr::sql()`](https://dbplyr.tidyverse.org/reference/sql.html)), it
-falls back to sqlglot automatically.
+falls back to sqlglot automatically; dtplyr and arrow pipelines compile
+to data.table code and Acero plans rather than SQL, so an untraceable
+construct there is an error instead.
 
-Both engines trace select-list lineage by default: columns used only in
+Source nodes take their names from the backend: table paths for dbplyr,
+the `name` given to
+[`dtplyr::lazy_dt()`](https://dtplyr.tidyverse.org/reference/lazy_dt.html)
+(auto-named `_DT1`, `_DT2`, ... otherwise, so passing `name` is
+worthwhile), and file paths for duckplyr file readers and arrow
+datasets. In-memory duckplyr frames and arrow tables carry no name of
+their own and get placeholders (`df`, `df_1`, ... and `arrow_table`,
+`arrow_table_2`, ...).
+
+Every engine traces select-list lineage by default: columns used only in
 [`filter()`](https://dplyr.tidyverse.org/reference/filter.html), join
 conditions, or
 [`arrange()`](https://dplyr.tidyverse.org/reference/arrange.html) do not
@@ -128,13 +162,16 @@ create lineage edges. A window function's partition and ordering columns
 do: they sit inside the expression's `OVER` clause, so
 [`row_number()`](https://dplyr.tidyverse.org/reference/row_number.html)
 under `group_by(g)` and `window_order(d)` draws direct edges from both
-`g` and `d`. Set `include_indirect = TRUE` to add the rest as dashed
-edges: a column that only filters the result still breaks the pipeline
-if it is dropped, so impact analysis usually wants them. Indirect edges
-connect each filter/join/group/sort column (window `ORDER BY` columns
-included) to every output column, since these conditions shape the whole
-result, and are classified by how the column is used (`"filter"`,
-`"join"`, `"group_by"`, `"sort"`).
+`g` and `d`. That window rule belongs to the SQL backends; data.table
+and Acero have no `OVER` clause, so on dtplyr and arrow pipelines a
+windowed column's grouping keys stay indirect (`"group_by"`) instead of
+becoming direct sources. Set `include_indirect = TRUE` to add the rest
+as dashed edges: a column that only filters the result still breaks the
+pipeline if it is dropped, so impact analysis usually wants them.
+Indirect edges connect each filter/join/group/sort column (window
+`ORDER BY` columns included) to every output column, since these
+conditions shape the whole result, and are classified by how the column
+is used (`"filter"`, `"join"`, `"group_by"`, `"sort"`).
 
 A named list stitches a multi-model pipeline into one graph. Each
 element (lazy table or SQL string) is analyzed on its own, and any
@@ -188,7 +225,7 @@ library(dplyr)
 
 con <- DBI::dbConnect(duckdb::duckdb())
 #> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/RtmpBOHepe/duckdb
+#> ℹ /tmp/RtmpVvSiRi/duckdb
 #> This is removed when the R session ends.
 #> • Extensions are re-downloaded each session.
 #> • Secrets are lost.

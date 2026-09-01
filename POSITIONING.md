@@ -114,8 +114,13 @@ package stands:
   propagation shipped in 0.3.0.9000 (#15): `label` attributes and
   database column comments carried on nodes, propagated along identity
   edges, shown in widget tooltips, and emitted as OpenLineage
-  schema-facet descriptions. arrow/dtplyr/duckplyr engines (#14) and
-  targets integration (#16) remain open.
+  schema-facet descriptions. The arrow/dtplyr/duckplyr engines (#14)
+  also shipped in 0.3.0.9000: dtplyr step trees and arrow queries walked
+  natively in R, duckplyr relations rendered to duckdb SQL for the
+  sqlglot engine (the relation itself is opaque to R), each pinned by a
+  parity suite against the dbplyr walker. That makes dplyneage the only
+  column-level lineage extractor for dataframe code on four backends;
+  elsewhere only Spark has one. Targets integration (#16) remains open.
 
 ## Non-goals
 

@@ -246,6 +246,66 @@ The duckdb connection from earlier in this vignette works just as well
 [`tbl_lazy()`](https://dbplyr.tidyverse.org/reference/tbl_lazy.html) is
 simply the fastest route when no connection exists and none is needed.
 
+## Other lazy backends
+
+dbplyr is not the only backend that builds a query tree before
+executing. [dtplyr](https://dtplyr.tidyverse.org/) records steps toward
+data.table code, [duckplyr](https://duckplyr.tidyverse.org/) holds a
+duckdb relation behind an ordinary-looking tibble, and
+[arrow](https://arrow.apache.org/docs/r/) queries compile to Acero
+plans.
+[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
+reads all of them, and the pipe looks the same:
+
+``` r
+
+dtplyr::lazy_dt(
+  data.frame(
+    customer_id = c(1, 1, 2),
+    amount = c(100, 250, 40)
+  ),
+  name = "sales"
+) |>
+  group_by(customer_id) |>
+  summarise(total = sum(amount, na.rm = TRUE)) |>
+  extract_lineage() |>
+  lineage_flow(height = "300px")
+```
+
+dtplyr and arrow pipelines are walked natively in R, like dbplyr’s.
+duckplyr is the exception: its relation is a duckdb object with no
+R-readable structure, so the engine renders it to duckdb SQL and
+analyzes that with sqlglot, which means duckplyr lineage needs
+reticulate where the others need nothing. The metadata records which
+engine ran and a matching dialect label (`"data.table"` for dtplyr,
+`"arrow"` for arrow, `"duckdb"` for duckplyr).
+
+Three backend habits affect the diagram you get:
+
+- Name your frames where the backend lets you.
+  `lazy_dt(df, name = "sales")` puts `sales` on the source node; without
+  it dtplyr auto-names frames `_DT1`, `_DT2`, and so on. In-memory
+  duckplyr frames and arrow tables have no name slot at all, so their
+  nodes come out as `df`/`df_1` and `arrow_table`/`arrow_table_2`.
+  File-backed sources
+  ([`duckplyr::read_csv_duckdb()`](https://duckplyr.tidyverse.org/reference/read_csv_duckdb.html),
+  [`arrow::open_dataset()`](https://arrow.apache.org/docs/r/reference/open_dataset.html))
+  use the file path, which reads much better.
+- data.table and Acero have no `OVER` clause, so a windowed column’s
+  grouping keys stay indirect on dtplyr and arrow (dashed `group_by`
+  edges under `include_indirect = TRUE`) instead of becoming direct
+  sources the way rendered SQL makes them.
+- duckplyr silently hands unsupported verbs (grouped
+  [`mutate()`](https://dplyr.tidyverse.org/reference/mutate.html),
+  [`rowwise()`](https://dplyr.tidyverse.org/reference/rowwise.html))
+  back to eager dplyr, and the result is a plain tibble with no tree
+  left to read. Prefer `summarise(.by = )` forms, and extract lineage
+  before anything materializes.
+
+Column labels travel on every backend: `label` attributes survive
+`lazy_dt()` and `arrow_table()`, and arrow schemas contribute column
+types to the hover cards for free.
+
 ## Column labels
 
 Column names say what a thing is called; labels say what it means. R
@@ -458,12 +518,12 @@ g <- igraph::read_graph(path, format = "graphml")
 
 # Everything upstream of total_spent
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from d30a8eb:
+#> + 2/6 vertices, named, from 5d101c1:
 #> [1] output.total_spent orders.amount
 
 # Everything downstream of orders.amount
 igraph::subcomponent(g, "orders.amount", mode = "out")
-#> + 2/6 vertices, named, from d30a8eb:
+#> + 2/6 vertices, named, from 5d101c1:
 #> [1] orders.amount      output.total_spent
 ```
 

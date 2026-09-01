@@ -60,13 +60,13 @@
 <!-- badges: start -->
 
 <p>dplyneage draws interactive column-level lineage diagrams for dplyr and dbplyr pipelines. Pipe a query into <code><a href="reference/extract_lineage.html">extract_lineage()</a></code> and it traces every output column back to the source columns it came from (through joins, aggregations, CTEs, unions, and computed expressions), then renders the result as a draggable, zoomable <a href="https://reactflow.dev/" class="external-link">React Flow</a> diagram with <code><a href="reference/lineage_flow.html">lineage_flow()</a></code>.</p>
-<p>dbplyr pipelines are analyzed in pure R by walking their lazy query tree, so no Python is involved. Raw SQL goes through <a href="https://github.com/tobymao/sqlglot" class="external-link">sqlglot</a>’s dedicated lineage engine instead, which means many dialects (DuckDB, PostgreSQL, Snowflake, BigQuery, …) work too.</p>
+<p>dbplyr, <a href="https://dtplyr.tidyverse.org/" class="external-link">dtplyr</a>, and <a href="https://arrow.apache.org/docs/r/" class="external-link">arrow</a> pipelines are analyzed in pure R by walking their lazy query trees, so no Python is involved. Raw SQL goes through <a href="https://github.com/tobymao/sqlglot" class="external-link">sqlglot</a>’s dedicated lineage engine instead, which means many dialects (DuckDB, PostgreSQL, Snowflake, BigQuery, …) work too, and <a href="https://duckplyr.tidyverse.org/" class="external-link">duckplyr</a> frames take the same route: their lazy tree lives inside duckdb, so it is rendered to SQL and parsed.</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"tgerke/dplyneage"</span><span class="op">)</span></span></code></pre></div>
-<p>dbplyr pipelines need no Python at all, not even reticulate. For raw SQL input, install the reticulate package once; the Python dependency (sqlglot) is then provisioned automatically the first time it’s needed. See <code><a href="articles/python-integration.html">vignette("python-integration")</a></code> if you manage your own Python environment.</p>
+<p>dbplyr, dtplyr, and arrow pipelines need no Python at all, not even reticulate. For raw SQL input and duckplyr frames, install the reticulate package once; the Python dependency (sqlglot) is then provisioned automatically the first time it’s needed. See <code><a href="articles/python-integration.html">vignette("python-integration")</a></code> if you manage your own Python environment.</p>
 </div>
 <div class="section level2">
 <h2 id="usage">Usage<a class="anchor" aria-label="anchor" href="#usage"></a>
@@ -134,7 +134,7 @@
 <span>  <span class="fu"><a href="reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="reference/lineage_flow.html">lineage_flow</a></span><span class="op">(</span>height <span class="op">=</span> <span class="st">"350px"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="reference/figures/README-unnamed-chunk-4-1.png" alt="Column-level lineage diagram tracing the summarised output table's total column back to the amount column of the sales source table"></p>
-<p>A <code><a href="https://dbplyr.tidyverse.org/reference/tbl_lazy.html" class="external-link">tbl_lazy()</a></code> pipeline can’t be collected, since there is no database to run it against; lineage never runs the query, so a diagram doesn’t need one. To keep the pipeline runnable too, <code><a href="https://dbplyr.tidyverse.org/reference/memdb.html" class="external-link">dbplyr::memdb_frame()</a></code> builds the data in throwaway in-memory SQLite instead, and <code>copy_to(dbplyr::memdb(), df, name = "df")</code> does the same for a frame you already have. Lineage depends only on the pipeline’s structure, never on the data, so copying a slice with <code>head(df)</code> yields the same diagram as copying every row. Column <code>label</code> attributes on the frame (the convention haven and labelled use for imported SAS, SPSS, and Stata data) ride along too: they show as hover cards in the diagram, propagate to downstream columns along identity edges, and become field <code>description</code>s in the OpenLineage export. Database column comments (duckdb, postgres) and a <code>labels</code> argument feed the same machinery. See the <a href="https://tgerke.github.io/dplyneage/articles/getting-started.html#local-data-frames">Local data frames</a> section of the getting-started vignette for more.</p>
+<p>A <code><a href="https://dbplyr.tidyverse.org/reference/tbl_lazy.html" class="external-link">tbl_lazy()</a></code> pipeline can’t be collected, since there is no database to run it against; lineage never runs the query, so a diagram doesn’t need one. To keep the pipeline runnable too, <code><a href="https://dbplyr.tidyverse.org/reference/memdb.html" class="external-link">dbplyr::memdb_frame()</a></code> builds the data in throwaway in-memory SQLite instead, and <code>copy_to(dbplyr::memdb(), df, name = "df")</code> does the same for a frame you already have. If the pipeline already runs on dtplyr, duckplyr, or arrow, no wrapping is needed at all: <code><a href="reference/extract_lineage.html">extract_lineage()</a></code> reads those backends’ lazy structures directly. Lineage depends only on the pipeline’s structure, never on the data, so copying a slice with <code>head(df)</code> yields the same diagram as copying every row. Column <code>label</code> attributes on the frame (the convention haven and labelled use for imported SAS, SPSS, and Stata data) ride along too: they show as hover cards in the diagram, propagate to downstream columns along identity edges, and become field <code>description</code>s in the OpenLineage export. Database column comments (duckdb, postgres) and a <code>labels</code> argument feed the same machinery. See the <a href="https://tgerke.github.io/dplyneage/articles/getting-started.html#local-data-frames">Local data frames</a> section of the getting-started vignette for more.</p>
 </div>
 <div class="section level2">
 <h2 id="multi-model-pipelines">Multi-model pipelines<a class="anchor" aria-label="anchor" href="#multi-model-pipelines"></a>
@@ -333,7 +333,7 @@
 <span></span>
 <span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/read_graph.html" class="external-link">read_graph</a></span><span class="op">(</span><span class="va">path</span>, format <span class="op">=</span> <span class="st">"graphml"</span><span class="op">)</span></span>
 <span><span class="fu">igraph</span><span class="fu">::</span><span class="fu"><a href="https://r.igraph.org/reference/subcomponent.html" class="external-link">subcomponent</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"output.total_spent"</span>, mode <span class="op">=</span> <span class="st">"in"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; + 2/6 vertices, named, from 0a76554:</span></span>
+<span><span class="co">#&gt; + 2/6 vertices, named, from 304be66:</span></span>
 <span><span class="co">#&gt; [1] output.total_spent orders.amount</span></span></code></pre></div>
 <p>For data catalogs, <code><a href="reference/lineage_openlineage.html">lineage_openlineage()</a></code> emits <a href="https://openlineage.io/" class="external-link">OpenLineage</a> events, the interchange format Marquez, DataHub, and OpenMetadata ingest. Dataset namespaces come from the table’s actual connection, schema facets carry column types and descriptions (from <code>label</code> attributes, database comments, or a <code>labels</code> argument), and <code>events = "job"</code> produces the spec’s run-less design-time events, one per model. <code><a href="reference/lineage_emit.html">lineage_emit()</a></code> POSTs any of it to a running backend:</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
@@ -344,7 +344,7 @@
 <div class="section level2">
 <h2 id="how-it-compares">How it compares<a class="anchor" aria-label="anchor" href="#how-it-compares"></a>
 </h2>
-<p>No other maintained R package extracts column-level lineage: <a href="https://cran.r-project.org/package=dtrackr" class="external-link">dtrackr</a> documents pipeline <em>steps</em>, lineager tracks row provenance, and <a href="https://cran.r-project.org/package=rdtLite" class="external-link">rdtLite</a> records execution history. None answer “which source columns feed this output column?” Outside R, that question is well served for SQL text but not for dataframe code, which is the corner dplyneage sits in: dbplyr renders dplyr pipelines as SQL, so the same lineage machinery covers your R code and your warehouse queries alike.</p>
+<p>No other maintained R package extracts column-level lineage: <a href="https://cran.r-project.org/package=dtrackr" class="external-link">dtrackr</a> documents pipeline <em>steps</em>, lineager tracks row provenance, and <a href="https://cran.r-project.org/package=rdtLite" class="external-link">rdtLite</a> records execution history. None answer “which source columns feed this output column?” Outside R, that question is well served for SQL text but not for dataframe code (only Spark has an equivalent), which is the corner dplyneage sits in: the same lineage machinery covers dplyr pipelines on four lazy backends and your warehouse queries alike.</p>
 <table style="width:100%;" class="table">
 <colgroup>
 <col width="16%">
@@ -372,7 +372,7 @@
 <td>free UI</td>
 </tr>
 <tr>
-<td>dplyr / dbplyr pipelines</td>
+<td>dplyr pipelines (dbplyr, dtplyr, duckplyr, arrow)</td>
 <td>native</td>
 <td>—</td>
 <td>—</td>
