@@ -2,7 +2,7 @@
 % Please edit documentation in R/sqlglot_utils.R
 \name{harvest_schema}
 \alias{harvest_schema}
-\title{Harvest Table Schemas from a Database Connection}
+\title{Harvest table schemas from a database connection}
 \usage{
 harvest_schema(con, sql, dialect = "duckdb")
 }

@@ -29,8 +29,8 @@ For a table, the table's own columns are not part of the answer.
 \description{
 \code{lineage_upstream()} lists every column that feeds into \code{column},
 following edges transitively; \code{lineage_downstream()} lists every column
-\code{column} feeds into. This is the core impact-analysis question — "what
-breaks if this column changes?" — answered directly on the lineage
+\code{column} feeds into. This is the core impact-analysis question ("what
+breaks if this column changes?") answered directly on the lineage
 object, without exporting to a graph tool. Passing a table name instead
 of a column traces from every column of that table at once.
 }

@@ -13,7 +13,7 @@ has_sqlglot()
 Python is only involved when \code{\link[=extract_lineage]{extract_lineage()}} analyzes raw SQL
 strings (or falls back to sqlglot for a pipeline it cannot trace in R);
 dbplyr pipelines are analyzed by a pure-R engine. The sqlglot engine
-needs the reticulate package (a Suggests dependency — install it with
+needs the reticulate package (a Suggests dependency; install it with
 \code{install.packages("reticulate")}); dplyneage then declares its sqlglot
 dependency via \code{\link[reticulate:py_require]{reticulate::py_require()}}, so sqlglot itself is
 provisioned automatically the first time it is needed. Use this to

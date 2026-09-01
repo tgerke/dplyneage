@@ -2,8 +2,8 @@
 #'
 #' Builds the same events as [lineage_openlineage()] and POSTs each one
 #' to an OpenLineage endpoint, so dplyneage-extracted lineage lands in a
-#' running catalog — Marquez, DataHub, or anything else that speaks the
-#' protocol — next to lineage from dbt, Airflow, or Spark. One request
+#' running catalog (Marquez, DataHub, or anything else that speaks the
+#' protocol) next to lineage from dbt, Airflow, or Spark. One request
 #' per event, JSON body, matching how the reference OpenLineage clients
 #' transport events.
 #'
@@ -27,7 +27,7 @@
 #' @return Invisibly, a data frame with one row per event sent: `event`
 #'   (index) and `status` (HTTP status code).
 #' @section Errors:
-#' A failed request — connection refused, or an HTTP error status —
+#' A failed request (connection refused, or an HTTP error status)
 #' stops with a condition of class `dplyneage_emit_failure` carrying
 #' `event` (the failing index), `status` (the HTTP status, `NA` when the
 #' request never got a response), and `results` (the rows for events

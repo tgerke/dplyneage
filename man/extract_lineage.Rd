@@ -21,11 +21,11 @@ Details). Lazy tables are analyzed directly from their lazy query
 tree (the SQL recorded in \code{metadata} still comes from
 \code{\link[dbplyr:sql_render]{dbplyr::sql_render()}}); when one is handled by the sqlglot engine
 instead, its database connection is used to harvest table schemas
-automatically. Plain data frames are not accepted — dplyr executes
+automatically. Plain data frames are not accepted: dplyr executes
 each verb on them immediately, leaving no query tree to read. Wrap
 the frame first: \code{dbplyr::tbl_lazy(df, name = "df")} builds a lazy
 table with no database at all, which is enough for lineage;
-\code{\link[dbplyr:memdb_frame]{dbplyr::memdb_frame()}} (or \code{copy_to(dbplyr::memdb(), df, name = "df")}) additionally makes the pipeline collectable. See
+\code{\link[dbplyr:memdb_frame]{dbplyr::memdb_frame()}} (or \code{copy_to(dbplyr::memdb(), df, name = "df")}) also makes the pipeline collectable. See
 \code{vignette("getting-started")}.}
 
 \item{dialect}{SQL dialect the query is written in, e.g. \code{"duckdb"},
@@ -39,7 +39,7 @@ parsed as \code{"duckdb"} unless a dialect is given.}
 attribute unqualified columns to the right table and to expand
 \verb{SELECT *}: a named list mapping table names to character vectors of
 column names, e.g. \code{list(orders = c("order_id", "amount"))}. Only
-relevant for SQL strings — the R engine reads exact provenance from
+relevant for SQL strings: the R engine reads exact provenance from
 the lazy query tree, and a lazy table that falls back to sqlglot
 harvests its schema from the database connection automatically.}
 
@@ -85,7 +85,7 @@ operations like \code{UNION}, and multi-source expressions such as
 }
 \details{
 Two engines are available. dbplyr lazy tables are analyzed by a pure-R
-fast path that walks the pipeline's lazy query tree directly — no Python
+fast path that walks the pipeline's lazy query tree directly, no Python
 required. SQL strings are analyzed by
 \href{https://github.com/tobymao/sqlglot}{sqlglot}'s lineage engine via
 reticulate (a Suggests dependency: install reticulate to enable this
@@ -95,11 +95,11 @@ a construct the R engine cannot trace (e.g. raw SQL injected with
 
 Both engines trace select-list lineage by default: columns used only in
 \code{filter()}, join conditions, or \code{arrange()} do not create lineage
-edges. A window function's partition and ordering columns do — they sit
+edges. A window function's partition and ordering columns do: they sit
 inside the expression's \code{OVER} clause, so \code{row_number()} under
 \code{group_by(g)} and \code{window_order(d)} draws direct edges from both \code{g}
 and \code{d}. Set \code{include_indirect = TRUE} to add the rest as dashed
-edges — a column that only filters the result still breaks the
+edges: a column that only filters the result still breaks the
 pipeline if it is dropped, so impact analysis usually wants them.
 Indirect edges connect each filter/join/group/sort column (window
 \verb{ORDER BY} columns included) to every output column, since these
@@ -109,7 +109,7 @@ column is used (\code{"filter"}, \code{"join"}, \code{"group_by"}, \code{"sort"}
 A named list stitches a multi-model pipeline into one graph. Each
 element (lazy table or SQL string) is analyzed on its own, and any
 source table whose name matches another element's name connects to that
-model's node — so a bronze/silver/gold flow where each layer is
+model's node, so a bronze/silver/gold flow where each layer is
 materialized under its model's name renders as a single multi-hop DAG,
 with intermediate models drawn as orange transform nodes and terminal
 models as green targets.

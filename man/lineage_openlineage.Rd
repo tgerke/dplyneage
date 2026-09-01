@@ -56,12 +56,12 @@ section.}
 \code{"FAIL"}, or \code{"OTHER"}. Static events carry no run state.}
 
 \item{output_name}{Name recorded for the output dataset in place of
-the synthetic \code{"output"} node id of a single-query extraction — use
+the synthetic \code{"output"} node id of a single-query extraction; use
 it when the query's result lands in a known table. Errors on
 multi-model lineage, whose models already carry their real names.}
 
-\item{nominal_time}{One or two ISO-8601 timestamps — the scheduled
-\code{nominalStartTime} and optionally \code{nominalEndTime} — emitted as the
+\item{nominal_time}{One or two ISO-8601 timestamps (the scheduled
+\code{nominalStartTime} and optionally \code{nominalEndTime}) emitted as the
 \code{nominalTime} run facet. \code{NULL} (the default) omits the facet.}
 
 \item{parent}{A \code{list(run_id = , job_name = )}, optionally with a
@@ -76,7 +76,7 @@ each applies).
 }
 \description{
 Serializes a lineage object to
-\href{https://openlineage.io/}{OpenLineage} JSON — the interchange format
+\href{https://openlineage.io/}{OpenLineage} JSON, the interchange format
 that data catalogs and lineage backends (Marquez, DataHub,
 OpenMetadata, ...) ingest. The default is one \code{RunEvent} with a
 \code{ColumnLineage} facet on each output dataset; POST it to an
@@ -87,17 +87,17 @@ lineage appears alongside lineage from dbt, Airflow, or Spark.
 
 dplyneage extracts lineage from code without running it, which is the
 case OpenLineage defines run-less events for. \code{events = "job"} emits
-one \code{JobEvent} per model — its job named after the model, its inputs
+one \code{JobEvent} per model: its job named after the model, its inputs
 the datasets the model reads (upstream models included), its output
-carrying the \code{columnLineage} facet — and \code{events = "dataset"} emits
+carrying the \code{columnLineage} facet. \code{events = "dataset"} emits
 one \code{DatasetEvent} per dataset, sources included, as a static schema
 registration. Both carry no \code{run}, so no run has to be fabricated for
 design-time lineage. Kinds combine: \code{events = c("job", "dataset")}
 emits both sets in one document.
 
 When the selection yields a single event and \code{pretty = TRUE}, the
-result is one indented JSON document. Anything else — several events,
-or \code{pretty = FALSE} — is NDJSON, one compact event per line, the
+result is one indented JSON document. Anything else (several events,
+or \code{pretty = FALSE}) is NDJSON, one compact event per line, the
 format OpenLineage's \code{FileTransport} writes and replay tooling reads:
 a committed events file can later be replayed into any backend.
 
@@ -118,11 +118,12 @@ defining expression is carried in the transformation's \code{description}.
 OpenLineage groups datasets by namespace, and catalogs join events to
 known datasets through it, so the spec expects scheme URIs derived
 from the data store (\verb{postgres://host:port}, \verb{mysql://host:port}).
-\code{\link[=extract_lineage]{extract_lineage()}} captures that URI from the table's live connection
-— \verb{duckdb:<path>} and \verb{sqlite:<path>} for file-backed databases (bare
-\code{duckdb}/\code{sqlite} in memory, since the spec names no convention for
-either), the spec's host:port form for server databases — and each
-dataset in the event uses the namespace captured for its model. A
+\code{\link[=extract_lineage]{extract_lineage()}} captures that URI from the table's live
+connection: \verb{duckdb:<path>} and \verb{sqlite:<path>} for file-backed
+databases (bare \code{duckdb}/\code{sqlite} in memory, since the spec names no
+convention for either), the spec's host:port form for server
+databases. Each dataset in the event uses the namespace captured for
+its model. A
 URI-shaped namespace is also recorded in the dataset's \code{dataSource}
 facet. Where nothing was captured (local frames via
 \code{\link[dbplyr:tbl_lazy]{dbplyr::tbl_lazy()}}, hand-built graphs, unrecognized drivers),
@@ -138,8 +139,8 @@ Beyond \code{schema}, \code{dataSource}, and \code{columnLineage} on datasets, t
 event carries job facets: \code{jobType} (\code{BATCH}/\code{DPLYNEAGE}/\code{QUERY}) and,
 for single-model lineage, \code{sql} with the analyzed query and its
 dialect. Schema facet fields include a \code{type} when column types were
-captured — from a live connection's tables, or a \code{schema} argument
-with named entries like \code{list(orders = list(amount = "DOUBLE"))} —
+captured (from a live connection's tables, or a \code{schema} argument
+with named entries like \code{list(orders = list(amount = "DOUBLE"))}),
 and a \code{description} when column labels were: from \code{label} attributes
 on a local frame (the haven/labelled convention), database column
 comments, or \code{\link[=extract_lineage]{extract_lineage()}}'s \code{labels} argument. Both propagate

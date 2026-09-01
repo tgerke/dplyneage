@@ -48,8 +48,8 @@ print.dplyneage_lineage <- function(x, ...) {
 #' `"aggregation"`, or `"transformation"`) and `expression` records the
 #' output column's defining expression; both are `NA` for hand-built
 #' edges. With `include_indirect = TRUE`, indirect edges are classified by
-#' how the source column is used — `"filter"`, `"join"`, `"group_by"`, or
-#' `"sort"` — with `NA` for `expression`. A column used in several of
+#' how the source column is used (`"filter"`, `"join"`, `"group_by"`, or
+#' `"sort"`), with `NA` for `expression`. A column used in several of
 #' those ways keeps one edge classified by the first kind; the full set
 #' is in the [lineage_json()] artifact and the OpenLineage export.
 #'
@@ -128,8 +128,8 @@ lineage_tables <- function(lineage) {
 #'
 #' `lineage_upstream()` lists every column that feeds into `column`,
 #' following edges transitively; `lineage_downstream()` lists every column
-#' `column` feeds into. This is the core impact-analysis question — "what
-#' breaks if this column changes?" — answered directly on the lineage
+#' `column` feeds into. This is the core impact-analysis question ("what
+#' breaks if this column changes?") answered directly on the lineage
 #' object, without exporting to a graph tool. Passing a table name instead
 #' of a column traces from every column of that table at once.
 #'
@@ -257,14 +257,14 @@ node_types <- function(lineage) {
 #' The dead-column report: every column on a source or transform table
 #' from which no chain of edges reaches a target table. In a multi-model
 #' lineage that surfaces base-table columns nothing reads and
-#' intermediate-model outputs no downstream model consumes — both safe to
+#' intermediate-model outputs no downstream model consumes, both safe to
 #' drop as far as the graph can see.
 #'
 #' A single-query extraction usually reports nothing, because its source
 #' nodes only carry columns the query referenced. Tables whose type is
 #' unknown (hand-built nodes without a `table_type`) count as targets, on
 #' the same reasoning as [lineage_diff()] severity: the graph cannot see
-#' who consumes them, so their columns — and columns feeding them — are
+#' who consumes them, so their columns, and columns feeding them, are
 #' not called unused.
 #'
 #' @inheritParams lineage_edges
@@ -351,7 +351,7 @@ change_severity <- function(old, tables, columns) {
 #' Compare two lineage extractions
 #'
 #' Reports the column-level edges and table columns that changed between
-#' two lineage objects — typically the same pipeline before and after an
+#' two lineage objects, typically the same pipeline before and after an
 #' edit. Edges are keyed by their endpoints, and an edge present in both
 #' objects still counts as changed when its transformation classification
 #' or defining expression differs: rewriting `sum(amount)` as
@@ -368,7 +368,7 @@ change_severity <- function(old, tables, columns) {
 #'
 #' @details
 #' Severity is judged against `old`, the lineage existing consumers were
-#' built on. A removed or changed edge — and a removed column — is
+#' built on. A removed or changed edge (and a removed column) is
 #' `"breaking"` when its target column fed other columns downstream, or
 #' belonged to a target node: target columns are the pipeline's consumed
 #' surface, and the graph cannot see the dashboards and jobs reading
@@ -525,7 +525,7 @@ lineage_has_changes <- function(diff) {
 #' fails the merge on breaking changes.
 #'
 #' @param old,new Lineage objects from [extract_lineage()] (or lists
-#'   with `nodes` and `edges`), in before/after order — typically main's
+#'   with `nodes` and `edges`), in before/after order: typically main's
 #'   extraction and the branch's.
 #' @param fail_on Which changes fail the check: `"breaking"` (the
 #'   default) stops on breaking changes only, `"any"` stops on any

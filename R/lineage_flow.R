@@ -6,8 +6,8 @@
 #' automatically, so piping works), or build `nodes` and `edges` yourself
 #' with [create_table_node()] and [create_column_edge()].
 #'
-#' Clicking a column isolates its trace cone — the transitive upstream and
-#' downstream subgraph — and dims everything else; clicking it again,
+#' Clicking a column isolates its trace cone (the transitive upstream and
+#' downstream subgraph) and dims everything else; clicking it again,
 #' clicking the background, or pressing Escape releases it. In Shiny, the
 #' traced column is reported as `input$<outputId>_selected`, a list with
 #' `table` and `column` entries (`NULL` when nothing is traced).
@@ -31,10 +31,10 @@
 #' @param legend If `TRUE` (the default), overlays a small legend naming
 #'   the node colors and edge styles present in the graph.
 #' @param theme `"light"` (the default), `"dark"`, or `"auto"`, which
-#'   follows the viewer's `prefers-color-scheme` — the operating-system
-#'   setting, not the theme of a surrounding Quarto or R Markdown
-#'   document, so documents rendered dark should pass `theme = "dark"`
-#'   explicitly.
+#'   follows the viewer's `prefers-color-scheme`. That is the
+#'   operating-system setting, not the theme of a surrounding Quarto or
+#'   R Markdown document, so documents rendered dark should pass
+#'   `theme = "dark"` explicitly.
 #' @param export_button If `TRUE` (the default), the zoom controls gain a
 #'   button that downloads the diagram as a PNG.
 #' @return An htmlwidget that prints in the RStudio viewer, R Markdown /
@@ -127,9 +127,9 @@ lineage_flow <- function(nodes = list(), edges = list(), width = NULL, height = 
 #'
 #' Output and render functions for using lineage_flow within Shiny
 #' applications and interactive Rmd documents. When the viewer clicks a
-#' column to trace it, the app receives `input$<outputId>_selected` — a
+#' column to trace it, the app receives `input$<outputId>_selected`: a
 #' list with `table` and `column` entries, or `NULL` once the trace is
-#' released — ready to feed [lineage_upstream()] and
+#' released, ready to feed [lineage_upstream()] and
 #' [lineage_downstream()] on the server side.
 #'
 #' @param outputId output variable to read from

@@ -91,7 +91,7 @@ comments read from a live connection's catalog (duckdb and postgres;
 one small metadata query per base table), or a `labels` argument like
 `labels = list(orders = c(amount = "Order amount in USD"))`, which
 wins over both. The comments on this article's fixture are why the
-event above carries a `description` on each input field — and on the
+event above carries a `description` on each input field, and on the
 output's `customer_id`: types and descriptions propagate along
 identity edges, so a passthrough column arrives documented while the
 aggregated `total` stays bare. Whatever is captured also lands in

@@ -2,7 +2,7 @@
 % Please edit documentation in R/zzz.R
 \name{build_bundle}
 \alias{build_bundle}
-\title{Build React Flow Bundle}
+\title{Build the React Flow bundle}
 \usage{
 build_bundle(force = FALSE)
 }

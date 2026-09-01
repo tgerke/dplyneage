@@ -27,7 +27,7 @@ summarises the changes; zero-row elements mean no change.
 }
 \description{
 Reports the column-level edges and table columns that changed between
-two lineage objects — typically the same pipeline before and after an
+two lineage objects, typically the same pipeline before and after an
 edit. Edges are keyed by their endpoints, and an edge present in both
 objects still counts as changed when its transformation classification
 or defining expression differs: rewriting \code{sum(amount)} as
@@ -44,7 +44,7 @@ Details for the rule.
 errors when the changes cross a severity threshold.
 
 Severity is judged against \code{old}, the lineage existing consumers were
-built on. A removed or changed edge — and a removed column — is
+built on. A removed or changed edge (and a removed column) is
 \code{"breaking"} when its target column fed other columns downstream, or
 belonged to a target node: target columns are the pipeline's consumed
 surface, and the graph cannot see the dashboards and jobs reading

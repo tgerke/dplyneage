@@ -54,7 +54,7 @@ lineage_module <- function() {
 #' Python is only involved when [extract_lineage()] analyzes raw SQL
 #' strings (or falls back to sqlglot for a pipeline it cannot trace in R);
 #' dbplyr pipelines are analyzed by a pure-R engine. The sqlglot engine
-#' needs the reticulate package (a Suggests dependency — install it with
+#' needs the reticulate package (a Suggests dependency; install it with
 #' `install.packages("reticulate")`); dplyneage then declares its sqlglot
 #' dependency via [reticulate::py_require()], so sqlglot itself is
 #' provisioned automatically the first time it is needed. Use this to
@@ -73,7 +73,7 @@ has_sqlglot <- function() {
   reticulate_available() && reticulate::py_module_available("sqlglot")
 }
 
-#' Build React Flow Bundle
+#' Build the React Flow bundle
 #'
 #' Developer tool that rebuilds the React Flow JavaScript bundle from the
 #' `srcjs/` sources. The bundle ships pre-built with the package, so end

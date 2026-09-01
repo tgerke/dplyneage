@@ -2,7 +2,7 @@
 % Please edit documentation in R/sqlglot_utils.R
 \name{convert_lineage_to_graph}
 \alias{convert_lineage_to_graph}
-\title{Convert Lineage Data to Graph Structure}
+\title{Convert lineage data to a graph structure}
 \usage{
 convert_lineage_to_graph(lineage_data)
 }

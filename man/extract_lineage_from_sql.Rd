@@ -2,7 +2,7 @@
 % Please edit documentation in R/sqlglot_utils.R
 \name{extract_lineage_from_sql}
 \alias{extract_lineage_from_sql}
-\title{Extract Lineage from SQL using sqlglot}
+\title{Extract lineage from SQL using sqlglot}
 \usage{
 extract_lineage_from_sql(
   sql,

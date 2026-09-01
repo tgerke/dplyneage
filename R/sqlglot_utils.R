@@ -7,7 +7,7 @@
 #' `COALESCE(a.x, b.x)` all resolve to their true source columns.
 #'
 #' Two engines are available. dbplyr lazy tables are analyzed by a pure-R
-#' fast path that walks the pipeline's lazy query tree directly — no Python
+#' fast path that walks the pipeline's lazy query tree directly, no Python
 #' required. SQL strings are analyzed by
 #' [sqlglot](https://github.com/tobymao/sqlglot)'s lineage engine via
 #' reticulate (a Suggests dependency: install reticulate to enable this
@@ -17,11 +17,11 @@
 #'
 #' Both engines trace select-list lineage by default: columns used only in
 #' `filter()`, join conditions, or `arrange()` do not create lineage
-#' edges. A window function's partition and ordering columns do — they sit
+#' edges. A window function's partition and ordering columns do: they sit
 #' inside the expression's `OVER` clause, so `row_number()` under
 #' `group_by(g)` and `window_order(d)` draws direct edges from both `g`
 #' and `d`. Set `include_indirect = TRUE` to add the rest as dashed
-#' edges — a column that only filters the result still breaks the
+#' edges: a column that only filters the result still breaks the
 #' pipeline if it is dropped, so impact analysis usually wants them.
 #' Indirect edges connect each filter/join/group/sort column (window
 #' `ORDER BY` columns included) to every output column, since these
@@ -31,7 +31,7 @@
 #' A named list stitches a multi-model pipeline into one graph. Each
 #' element (lazy table or SQL string) is analyzed on its own, and any
 #' source table whose name matches another element's name connects to that
-#' model's node — so a bronze/silver/gold flow where each layer is
+#' model's node, so a bronze/silver/gold flow where each layer is
 #' materialized under its model's name renders as a single multi-hop DAG,
 #' with intermediate models drawn as orange transform nodes and terminal
 #' models as green targets.
@@ -42,12 +42,12 @@
 #'   tree (the SQL recorded in `metadata` still comes from
 #'   [dbplyr::sql_render()]); when one is handled by the sqlglot engine
 #'   instead, its database connection is used to harvest table schemas
-#'   automatically. Plain data frames are not accepted — dplyr executes
+#'   automatically. Plain data frames are not accepted: dplyr executes
 #'   each verb on them immediately, leaving no query tree to read. Wrap
 #'   the frame first: `dbplyr::tbl_lazy(df, name = "df")` builds a lazy
 #'   table with no database at all, which is enough for lineage;
 #'   [dbplyr::memdb_frame()] (or `copy_to(dbplyr::memdb(), df, name =
-#'   "df")`) additionally makes the pipeline collectable. See
+#'   "df")`) also makes the pipeline collectable. See
 #'   `vignette("getting-started")`.
 #' @param dialect SQL dialect the query is written in, e.g. `"duckdb"`,
 #'   `"postgres"`, `"mysql"`, `"snowflake"`, `"bigquery"`. Any dialect
@@ -59,7 +59,7 @@
 #'   attribute unqualified columns to the right table and to expand
 #'   `SELECT *`: a named list mapping table names to character vectors of
 #'   column names, e.g. `list(orders = c("order_id", "amount"))`. Only
-#'   relevant for SQL strings — the R engine reads exact provenance from
+#'   relevant for SQL strings: the R engine reads exact provenance from
 #'   the lazy query tree, and a lazy table that falls back to sqlglot
 #'   harvests its schema from the database connection automatically.
 #' @param labels Optional human-readable column labels: a named list
@@ -332,7 +332,7 @@ show_analyzed_sql <- function(sql) {
   cat(sql, "\n\n")
 }
 
-#' Get SQL String from dplyr Query
+#' Get the SQL string from a dplyr query
 #'
 #' Converts a dbplyr lazy table to SQL string using sql_render
 #'
@@ -473,7 +473,7 @@ ol_namespace_from_info <- function(dialect, info) {
   )
 }
 
-#' Harvest Table Schemas from a Database Connection
+#' Harvest table schemas from a database connection
 #'
 #' Lists the columns of each base table referenced by the query so sqlglot
 #' can resolve unqualified columns and expand `*`, with their database
@@ -696,7 +696,7 @@ harvest_all_column_labels <- function(con, tables, dialect) {
   out
 }
 
-#' Extract Lineage from SQL using sqlglot
+#' Extract lineage from SQL using sqlglot
 #'
 #' Internal function that calls the bundled Python module (built on
 #' sqlglot.lineage) to parse SQL and trace each output column to its
@@ -742,7 +742,7 @@ extract_lineage_from_sql <- function(sql, dialect = "duckdb", schema = NULL,
   out
 }
 
-#' Convert Lineage Data to Graph Structure
+#' Convert lineage data to a graph structure
 #'
 #' Converts lineage information to nodes and edges for visualization
 #'

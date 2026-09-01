@@ -37,10 +37,10 @@ Off by default; it earns its space on large multi-model graphs.}
 the node colors and edge styles present in the graph.}
 
 \item{theme}{\code{"light"} (the default), \code{"dark"}, or \code{"auto"}, which
-follows the viewer's \code{prefers-color-scheme} — the operating-system
-setting, not the theme of a surrounding Quarto or R Markdown
-document, so documents rendered dark should pass \code{theme = "dark"}
-explicitly.}
+follows the viewer's \code{prefers-color-scheme}. That is the
+operating-system setting, not the theme of a surrounding Quarto or
+R Markdown document, so documents rendered dark should pass
+\code{theme = "dark"} explicitly.}
 
 \item{export_button}{If \code{TRUE} (the default), the zoom controls gain a
 button that downloads the diagram as a PNG.}
@@ -57,8 +57,8 @@ automatically, so piping works), or build \code{nodes} and \code{edges} yourself
 with \code{\link[=create_table_node]{create_table_node()}} and \code{\link[=create_column_edge]{create_column_edge()}}.
 }
 \details{
-Clicking a column isolates its trace cone — the transitive upstream and
-downstream subgraph — and dims everything else; clicking it again,
+Clicking a column isolates its trace cone (the transitive upstream and
+downstream subgraph) and dims everything else; clicking it again,
 clicking the background, or pressing Escape releases it. In Shiny, the
 traced column is reported as \verb{input$<outputId>_selected}, a list with
 \code{table} and \code{column} entries (\code{NULL} when nothing is traced).

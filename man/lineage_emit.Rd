@@ -57,12 +57,12 @@ reproducible output.}
 \code{"FAIL"}, or \code{"OTHER"}. Static events carry no run state.}
 
 \item{output_name}{Name recorded for the output dataset in place of
-the synthetic \code{"output"} node id of a single-query extraction — use
+the synthetic \code{"output"} node id of a single-query extraction; use
 it when the query's result lands in a known table. Errors on
 multi-model lineage, whose models already carry their real names.}
 
-\item{nominal_time}{One or two ISO-8601 timestamps — the scheduled
-\code{nominalStartTime} and optionally \code{nominalEndTime} — emitted as the
+\item{nominal_time}{One or two ISO-8601 timestamps (the scheduled
+\code{nominalStartTime} and optionally \code{nominalEndTime}) emitted as the
 \code{nominalTime} run facet. \code{NULL} (the default) omits the facet.}
 
 \item{parent}{A \code{list(run_id = , job_name = )}, optionally with a
@@ -86,8 +86,8 @@ Invisibly, a data frame with one row per event sent: \code{event}
 \description{
 Builds the same events as \code{\link[=lineage_openlineage]{lineage_openlineage()}} and POSTs each one
 to an OpenLineage endpoint, so dplyneage-extracted lineage lands in a
-running catalog — Marquez, DataHub, or anything else that speaks the
-protocol — next to lineage from dbt, Airflow, or Spark. One request
+running catalog (Marquez, DataHub, or anything else that speaks the
+protocol) next to lineage from dbt, Airflow, or Spark. One request
 per event, JSON body, matching how the reference OpenLineage clients
 transport events.
 }
@@ -100,7 +100,7 @@ alike.
 }
 \section{Errors}{
 
-A failed request — connection refused, or an HTTP error status —
+A failed request (connection refused, or an HTTP error status)
 stops with a condition of class \code{dplyneage_emit_failure} carrying
 \code{event} (the failing index), \code{status} (the HTTP status, \code{NA} when the
 request never got a response), and \code{results} (the rows for events

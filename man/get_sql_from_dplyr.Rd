@@ -2,7 +2,7 @@
 % Please edit documentation in R/sqlglot_utils.R
 \name{get_sql_from_dplyr}
 \alias{get_sql_from_dplyr}
-\title{Get SQL String from dplyr Query}
+\title{Get the SQL string from a dplyr query}
 \usage{
 get_sql_from_dplyr(query)
 }

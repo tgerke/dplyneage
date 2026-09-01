@@ -13,7 +13,7 @@ lineage_check(
 }
 \arguments{
 \item{old, new}{Lineage objects from \code{\link[=extract_lineage]{extract_lineage()}} (or lists
-with \code{nodes} and \code{edges}), in before/after order — typically main's
+with \code{nodes} and \code{edges}), in before/after order: typically main's
 extraction and the branch's.}
 
 \item{fail_on}{Which changes fail the check: \code{"breaking"} (the

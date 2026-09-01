@@ -20,7 +20,7 @@ when every column reaches a target.
 The dead-column report: every column on a source or transform table
 from which no chain of edges reaches a target table. In a multi-model
 lineage that surfaces base-table columns nothing reads and
-intermediate-model outputs no downstream model consumes — both safe to
+intermediate-model outputs no downstream model consumes, both safe to
 drop as far as the graph can see.
 }
 \details{
@@ -28,7 +28,7 @@ A single-query extraction usually reports nothing, because its source
 nodes only carry columns the query referenced. Tables whose type is
 unknown (hand-built nodes without a \code{table_type}) count as targets, on
 the same reasoning as \code{\link[=lineage_diff]{lineage_diff()}} severity: the graph cannot see
-who consumes them, so their columns — and columns feeding them — are
+who consumes them, so their columns, and columns feeding them, are
 not called unused.
 }
 \examples{
