@@ -83,7 +83,28 @@ stop_plain_data_frame <- function() {
 #' engine functions regardless of file collation order.
 #' @noRd
 lineage_native_engines <- function() {
-  list()
+  list(
+    dtplyr = list(
+      available = dtplyr_engine_available,
+      requirement = "dtplyr (>= 1.3.1)",
+      what = "dtplyr (data.table) pipelines",
+      code_label = "data.table code",
+      supports = "r",
+      engine_errors = list(
+        sqlglot = paste0(
+          "The sqlglot engine analyzes SQL, but dtplyr pipelines compile ",
+          "to data.table code, not SQL. Use engine = \"auto\" or \"r\" to ",
+          "walk the step tree directly."
+        )
+      ),
+      no_fallback = paste0(
+        "dtplyr pipelines compile to data.table code, not SQL, so the ",
+        "sqlglot engine cannot take over; rewrite the unsupported verb ",
+        "or extract lineage from an upstream step."
+      ),
+      extract = extract_lineage_from_dtplyr
+    )
+  )
 }
 
 #' Run one native engine, mirroring the dbplyr/sqlglot branch behavior

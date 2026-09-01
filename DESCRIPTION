@@ -36,9 +36,11 @@ Imports:
     htmlwidgets,
     jsonlite
 Suggests:
+    data.table,
     DBI,
     dbplyr,
     dplyr,
+    dtplyr,
     duckdb,
     httr2,
     igraph,

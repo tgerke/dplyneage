@@ -82,7 +82,22 @@ extract_lineage_from_tbl <- function(tbl, dialect = "duckdb",
     collector$sources <- list()
   }
   cols <- lineage_walk(tbl$lazy_query, con, collector)
+  assemble_lineage_data(
+    cols, collector, include_indirect,
+    sql = as.character(dbplyr::sql_render(tbl)),
+    dialect = dialect,
+    engine = "r"
+  )
+}
 
+#' Assemble a walk's column map into the lineage_data shape
+#'
+#' The shared tail of every walking engine (dbplyr, dtplyr): flattens
+#' the column map, derives the source-table list from the resolved
+#' sources, and attaches whatever the collector gathered.
+#' @noRd
+assemble_lineage_data <- function(cols, collector, include_indirect,
+                                  sql, dialect, engine) {
   columns <- vector("list", length(cols))
   for (i in seq_along(cols)) {
     columns[[i]] <- list(
@@ -101,9 +116,9 @@ extract_lineage_from_tbl <- function(tbl, dialect = "duckdb",
   out <- list(
     tables = tables,
     columns = columns,
-    sql = as.character(dbplyr::sql_render(tbl)),
+    sql = sql,
     dialect = dialect,
-    engine = "r"
+    engine = engine
   )
   if (length(collector$labels) > 0) {
     out$column_labels <- collector$labels
