@@ -29,10 +29,10 @@
 # return plain tibbles, so they never reach this engine — the resolver's
 # data-frame error covers them.
 #
-# Known shape gap, pinned by tests: any verb after a projection wraps it
-# in SELECT *, which re-classifies inner computed columns as identity
-# (their sources stay exact). Pre-existing sqlglot behavior for nested
-# SQL, not specific to this engine.
+# Any verb after a projection wraps it in SELECT *. The sqlglot engine
+# classifies hop by hop through such wrappers, so an inner computed
+# column keeps its kind and expression (see _computed_kind() in the
+# Python module).
 
 #' Is the duckplyr lineage engine usable?
 #' @noRd

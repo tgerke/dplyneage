@@ -2,7 +2,7 @@
 # rewrites it (pointer scans to named tables, aggregate macros to
 # standard spellings), and analyzes it with the sqlglot engine. These
 # tests use real duckplyr objects; the shapes pin the rewrite rules and
-# the documented wrapper-SELECT-* gap.
+# kind propagation through the wrapper SELECT * every later verb adds.
 
 skip_if_no_duckplyr_engine <- function() {
   skip_if_no_sqlglot()
@@ -84,7 +84,7 @@ test_that("conditional mutates classify as transformations", {
   expect_identical(t_edge$data$transformation, "transformation")
 })
 
-test_that("mutate-then-filter keeps exact sources through the wrapper", {
+test_that("mutate-then-filter keeps sources and kinds through the wrapper", {
   skip_if_no_duckplyr_engine()
 
   lineage <- points_ddt() |>
@@ -92,9 +92,8 @@ test_that("mutate-then-filter keeps exact sources through the wrapper", {
     dplyr::filter(z > 2) |>
     extract_lineage()
 
-  # Documented gap: the verb after a projection wraps it in SELECT *,
-  # which re-classifies the computed column as identity — but its
-  # source stays exactly df.x
+  # The verb after a projection wraps it in SELECT *; the computed column
+  # keeps its kind and expression through that identity hop
   expect_edges(lineage, c(
     "df.x -> x",
     "df.g -> g",
@@ -104,7 +103,8 @@ test_that("mutate-then-filter keeps exact sources through the wrapper", {
     function(e) identical(e$targetHandle, "z"),
     lineage$edges
   )[[1]]
-  expect_identical(z_edge$data$transformation, "identity")
+  expect_identical(z_edge$data$transformation, "transformation")
+  expect_match(z_edge$data$expression, "(x, 1.0)", fixed = TRUE)
 })
 
 test_that("filter-only pipelines recover columns via the retry schema", {

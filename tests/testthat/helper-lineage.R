@@ -57,6 +57,26 @@ expect_edges <- function(lineage, expected) {
   testthat::expect_identical(edge_set(lineage), sort(expected))
 }
 
+# edge_set() plus each edge's kinds: the direct type, or every indirect
+# kind the edge carries (data$transformations, else data$transformation),
+# sorted and comma-joined inside brackets
+edge_kind_set <- function(lineage) {
+  if (length(lineage$edges) == 0) {
+    return(character(0))
+  }
+  sort(vapply(
+    lineage$edges,
+    function(e) {
+      kinds <- e$data$transformations %||% e$data$transformation %||% ""
+      paste0(
+        e$source, ".", e$sourceHandle, " -> ", e$targetHandle,
+        " [", paste(sort(unique(kinds)), collapse = ","), "]"
+      )
+    },
+    character(1)
+  ))
+}
+
 node_ids <- function(lineage) {
   sort(vapply(lineage$nodes, function(n) n$id, character(1)))
 }

@@ -221,6 +221,51 @@ test_that("sqlglot edges are classified and carry expressions", {
   )
 })
 
+test_that("kinds and expressions survive passthrough projections", {
+  skip_if_no_sqlglot()
+
+  # A CTE read back by name: the aggregate keeps its kind
+  cte <- extract_lineage("
+    WITH r AS (
+      SELECT customer_id, SUM(amount) AS total FROM orders GROUP BY customer_id
+    )
+    SELECT customer_id, total FROM r WHERE total > 100
+  ")
+  edges <- lineage_edges(cte)
+  total <- edges[edges$target_column == "total", ]
+  expect_identical(total$transformation, "aggregation")
+  expect_identical(total$expression, "SUM(amount)")
+  expect_identical(
+    edges[edges$target_column == "customer_id", ]$transformation,
+    "identity"
+  )
+
+  # dbplyr's nested-select shape for chained mutates, star-expanded
+  nested <- extract_lineage(
+    "SELECT * FROM (SELECT *, a + b AS total FROM df) AS q",
+    schema = list(df = c("a", "b"))
+  )
+  edges <- lineage_edges(nested)
+  total <- edges[edges$target_column == "total", ]
+  expect_setequal(total$source_column, c("a", "b"))
+  expect_identical(unique(total$transformation), "transformation")
+  expect_identical(unique(total$expression), "a + b")
+  expect_identical(
+    edges[edges$target_column == "a", ]$transformation,
+    "identity"
+  )
+
+  # Set operations take the strongest branch kind
+  unioned <- extract_lineage(
+    "SELECT a AS x FROM df UNION ALL SELECT SUM(b) AS x FROM df",
+    schema = list(df = c("a", "b"))
+  )
+  expect_identical(
+    unique(lineage_edges(unioned)$transformation),
+    "aggregation"
+  )
+})
+
 test_that("dialect is forwarded to sqlglot", {
   skip_if_no_sqlglot()
 

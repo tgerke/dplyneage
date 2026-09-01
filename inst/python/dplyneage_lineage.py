@@ -88,9 +88,8 @@ def _leaves(node):
         yield from _leaves(child)
 
 
-def _column_sources(column, sql, schema, dialect):
-    """Trace one output column to its base-table source columns."""
-    node = lineage(column, sql, schema=schema, dialect=dialect)
+def _node_sources(node, dialect):
+    """Collect the base-table source columns under a lineage node."""
     sources = []
     seen = set()
     for leaf in _leaves(node):
@@ -113,10 +112,22 @@ def _column_sources(column, sql, schema, dialect):
     return sources
 
 
+_KIND_RANK = {"identity": 0, "transformation": 1, "aggregation": 2}
+
+
+def _classify(expr):
+    """Coarse kind of one select expression (identity / aggregation /
+    transformation), mirroring OpenLineage's transformation types."""
+    if isinstance(expr, exp.Column):
+        return "identity"
+    if expr.find(exp.AggFunc):
+        return "aggregation"
+    return "transformation"
+
+
 def _select_info(expression, dialect):
-    """Map each output column name to its defining expression SQL and a
-    coarse lineage classification (identity / aggregation / transformation),
-    mirroring OpenLineage's transformation types."""
+    """Map each output column name to its defining expression SQL and its
+    kind, read from the outermost select list as written."""
     try:
         selects = expression.selects
     except Exception:
@@ -124,17 +135,65 @@ def _select_info(expression, dialect):
     info = {}
     for select in selects:
         inner = select.this if isinstance(select, exp.Alias) else select
-        if isinstance(inner, exp.Column):
-            kind = "identity"
-        elif inner.find(exp.AggFunc):
-            kind = "aggregation"
-        else:
-            kind = "transformation"
         info[select.alias_or_name] = {
             "expression": inner.sql(dialect=dialect),
-            "type": kind,
+            "type": _classify(inner),
         }
     return info
+
+
+def _hop_expression(node):
+    expr = node.expression
+    return expr.this if isinstance(expr, exp.Alias) else expr
+
+
+def _computes(node):
+    """Does this lineage hop compute something?
+
+    to_node() gives every real select-item hop a trimmed Select as its
+    `source`. Set-operation roots carry the SetOperation instead (their
+    `expression` is only the left branch's item), and leaves plus star
+    children have `expression is source` (a Table, a derived Select, a
+    Values, a Placeholder). Those all pass through; a select item that
+    is not a bare column or star computes.
+    """
+    if node.expression is node.source or not isinstance(node.source, exp.Select):
+        return False
+    expr = _hop_expression(node)
+    return not isinstance(
+        expr, (exp.Column, exp.Star, exp.Select, exp.SetOperation)
+    )
+
+
+def _unqualified_sql(expr, dialect):
+    """Render without table qualifiers so inner-hop labels read like the
+    as-written outer ones. transform() copies; the Node tree is untouched."""
+    return expr.transform(
+        lambda n: exp.column(n.this) if isinstance(n, exp.Column) else n
+    ).sql(dialect=dialect)
+
+
+def _computed_kind(node, dialect):
+    """(kind, expression) of the outermost hop below `node` that computes.
+
+    Design rule, chosen to match dplyneage's R walkers rather than
+    inherited from sqlglot: identity hops are transparent, so a column
+    that passes unchanged through outer projections (dbplyr's nested
+    selects for chained mutates, duckplyr's SELECT * wrappers, a CTE read
+    back by name) keeps the kind and expression of the hop that computed
+    it. Across set-operation branches, aggregation outranks
+    transformation. None when every hop passes through.
+    """
+    best = None
+    for child in node.downstream:
+        if _computes(child):
+            expr = _hop_expression(child)
+            found = (_classify(expr), _unqualified_sql(expr, dialect))
+        else:
+            found = _computed_kind(child, dialect)
+        if found and (best is None or _KIND_RANK[found[0]] > _KIND_RANK[best[0]]):
+            best = found
+    return best
 
 
 def _indirect_refs(qualified, dialect):
@@ -240,9 +299,17 @@ def extract_lineage(sql, dialect="duckdb", schema=None, include_indirect=False):
             "sources": [],
         }
         try:
-            col_info["sources"] = _column_sources(name, sql, schema, dialect)
+            node = lineage(name, sql, schema=schema, dialect=dialect)
         except SqlglotError as err:
             warnings.append(f"Could not trace column '{name}': {err}")
+        else:
+            col_info["sources"] = _node_sources(node, dialect)
+            # A root that only passes a column through (or a set-operation
+            # root) takes the kind of the outermost hop that computed it
+            if not _computes(node):
+                computed = _computed_kind(node, dialect)
+                if computed:
+                    col_info["type"], col_info["expression"] = computed
         columns.append(col_info)
 
     result = {

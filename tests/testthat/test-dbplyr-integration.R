@@ -109,10 +109,15 @@ test_that("the R and sqlglot engines agree on real pipelines", {
     )
   )
 
+  # Kinds are compared too: the sqlglot engine classifies through the
+  # nested selects dbplyr renders for chained verbs
   for (nm in names(queries)) {
     r_lineage <- extract_lineage(queries[[nm]], engine = "r")
     sqlglot_lineage <- extract_lineage(queries[[nm]], engine = "sqlglot")
-    expect_identical(edge_set(r_lineage), edge_set(sqlglot_lineage), label = nm)
+    expect_identical(
+      edge_kind_set(r_lineage), edge_kind_set(sqlglot_lineage),
+      label = nm
+    )
     expect_identical(node_ids(r_lineage), node_ids(sqlglot_lineage), label = nm)
   }
 })
