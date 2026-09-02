@@ -17,6 +17,7 @@ articles:
     - articles/ducklake-lineage
     - articles/lineage-ci
     - articles/openlineage
+    - articles/targets-lineage
   - title: Configuration
     contents:
     - python-integration

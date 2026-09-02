@@ -61,4 +61,6 @@ Roxygen: list(markdown = TRUE)
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.1.0
 Config/Needs/website:
-    ducklake=github::tgerke/ducklake-r
+    ducklake=github::tgerke/ducklake-r,
+    pharmaversesdtm,
+    targets

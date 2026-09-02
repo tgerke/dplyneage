@@ -87,6 +87,20 @@ filed as tiered issues on GitHub.
   `schema` in the signature, so positional `show_sql`/`engine`/
   `include_indirect` arguments shift by one. (#15)
 
+* Project-level lineage for `targets` pipelines, as a site article
+  rather than a new function. [Project-level lineage for targets
+  pipelines](https://tgerke.github.io/dplyneage/articles/targets-lineage.html)
+  runs a bronze/silver/gold clinical-trial lake (SDTM domains from
+  pharmaversesdtm, materialized with ducklake) as a `targets` pipeline
+  whose target values carry the lazy query that built each layer, then
+  passes those values to `extract_lineage()` as a named list to get one
+  column-level diagram of the whole project. A later data cut reruns
+  one branch and leaves the lineage unchanged; a refactor that repoints
+  `TRT01A` reruns two targets and fails `lineage_check()`, so
+  `tar_outdated()` and `lineage_diff()` answer different questions
+  about the same run. targets and pharmaversesdtm are needed only to
+  build the site. (#16)
+
 * `lineage_flow()` grows its widget chrome: `theme = "dark"` (or
   `"auto"`, following the viewer's OS preference) redraws the whole
   diagram on a dark palette; `legend = TRUE` (the default) overlays a

@@ -271,5 +271,6 @@ The scope has edges on purpose: orchestration, materialization, dashboard-level 
 - `vignette("getting-started")` walks from a first diagram through CTEs, multi-source columns, and schemas
 - The [lineage checks in CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html) article sets up the provenance gate on GitHub Actions
 - The [OpenLineage article](https://tgerke.github.io/dplyneage/articles/openlineage.html) sends lineage into a data catalog
+- The [targets article](https://tgerke.github.io/dplyneage/articles/targets-lineage.html) stitches a whole `targets` pipeline into one project-level diagram and separates data refreshes from provenance changes
 - `vignette("python-integration")` covers how the Python dependency is managed
 - Full function reference at [tgerke.github.io/dplyneage](https://tgerke.github.io/dplyneage/)
