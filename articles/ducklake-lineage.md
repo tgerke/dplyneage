@@ -168,6 +168,14 @@ lineage_upstream(lake_lineage, "top_regions.total_sales")
 So a rename of `orders.amount` touches every layer of this lake. Better
 to know that before you commit it.
 
+When a pipeline builds the layers instead of a notebook, the named list
+can come from the pipeline’s own store. The [project-level lineage for
+targets
+pipelines](https://tgerke.github.io/dplyneage/articles/targets-lineage.html)
+article runs a bronze/silver/gold lake as a `targets` pipeline, keeps
+each layer’s build query in the target’s value, and stitches the whole
+project from `tar_read()` without opening the lake.
+
 ## Time travel and lineage
 
 ducklake’s snapshots version your *data*; lineage describes your

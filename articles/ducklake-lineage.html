@@ -210,6 +210,12 @@ so <code>total_sales</code> reads as
 <span><span class="co">#&gt; [1] "orders.amount"            "region_sales.total_sales"</span></span></code></pre></div>
 <p>So a rename of <code>orders.amount</code> touches every layer of this
 lake. Better to know that before you commit it.</p>
+<p>When a pipeline builds the layers instead of a notebook, the named
+list can come from the pipeline’s own store. The <a href="https://tgerke.github.io/dplyneage/articles/targets-lineage.html">project-level
+lineage for targets pipelines</a> article runs a bronze/silver/gold lake
+as a <code>targets</code> pipeline, keeps each layer’s build query in
+the target’s value, and stitches the whole project from
+<code>tar_read()</code> without opening the lake.</p>
 </div>
 <div class="section level2">
 <h2 id="time-travel-and-lineage">Time travel and lineage<a class="anchor" aria-label="anchor" href="#time-travel-and-lineage"></a>
