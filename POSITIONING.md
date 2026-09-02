@@ -120,7 +120,14 @@ package stands:
   sqlglot engine (the relation itself is opaque to R), each pinned by a
   parity suite against the dbplyr walker. That makes dplyneage the only
   column-level lineage extractor for dataframe code on four backends;
-  elsewhere only Spark has one. Targets integration (#16) remains open.
+  elsewhere only Spark has one. Targets integration (#16) shipped in
+  0.3.0.9000 as a site article rather than an API: a target’s value
+  carries the lazy query that built its layer,
+  [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
+  on those values stitches the project graph, and `tar_outdated()`
+  beside
+  [`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
+  separates data refreshes from provenance changes.
 
 ## Non-goals
 

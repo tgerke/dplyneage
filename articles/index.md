@@ -13,6 +13,8 @@
   CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.md):
 - [OpenLineage export and catalog
   round-trips](https://tgerke.github.io/dplyneage/articles/openlineage.md):
+- [Project-level lineage for targets
+  pipelines](https://tgerke.github.io/dplyneage/articles/targets-lineage.md):
 
 ### Configuration
 

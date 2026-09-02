@@ -503,6 +503,10 @@ comparison, with per-tool notes and the roadmap rationale, is in
 - The [OpenLineage
   article](https://tgerke.github.io/dplyneage/articles/openlineage.html)
   sends lineage into a data catalog
+- The [targets
+  article](https://tgerke.github.io/dplyneage/articles/targets-lineage.html)
+  stitches a whole `targets` pipeline into one project-level diagram and
+  separates data refreshes from provenance changes
 - [`vignette("python-integration")`](https://tgerke.github.io/dplyneage/articles/python-integration.md)
   covers how the Python dependency is managed
 - Full function reference at
