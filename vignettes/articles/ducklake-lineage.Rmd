@@ -157,6 +157,8 @@ One implementation detail surfaces here. `get_ducklake_table_version()` builds i
 
 The diagram is the same at every version, and that's the point: snapshots change what the data *was*, not where the columns *come from*. If a refactor ever does change provenance, `lineage_check()` can fail the pull request that introduced it; the [lineage checks in CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html) article has a copy-paste GitHub Actions job.
 
+A time-travel query carries today's recipe over yesterday's rows, so it cannot say how those rows were derived at the time. To keep that record, store the lineage on the snapshot itself: the [lineage that travels with the data](https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html) article passes `lineage_json()` as the `commit_extra_info` of the commit that materializes each layer, and reads it back with `lineage_from_json()` as of any snapshot.
+
 ```{r, include = FALSE}
 detach_ducklake()
 ```
@@ -164,5 +166,6 @@ detach_ducklake()
 ## Next steps
 
 - ducklake's [time travel](https://tgerke.github.io/ducklake-r/articles/time-travel.html) and [transactions](https://tgerke.github.io/ducklake-r/articles/transactions.html) vignettes cover the lake side of this story
+- The [lineage that travels with the data](https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html) article stores each layer's lineage on its ducklake commit, so a snapshot's rows and derivation come back together
 - `vignette("getting-started")` works through the cases where lineage gets hard: CTEs, multi-source columns, and `SELECT *`
 - Found a lake query that traces incorrectly? Please [open an issue](https://github.com/tgerke/dplyneage/issues)

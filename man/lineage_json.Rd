@@ -35,15 +35,19 @@ with their columns and table type, plus one record per column-level
 edge. React Flow presentation details (positions, colors) are
 deliberately dropped, so the output is suitable for scripting with jq,
 committing to version control (a CI diff catches accidental provenance
-changes when a pipeline is edited), or feeding to a data catalog.
+changes when a pipeline is edited), feeding to a data catalog, or
+storing on the lake commit that materialized a table.
 }
 \details{
 \code{lineage_from_json()} reads that document back into a lineage object,
 rebuilding the nodes and edges every accessor and exporter works on.
 A committed artifact can then stand in for a fresh extraction as the
 \code{old} side of \code{\link[=lineage_diff]{lineage_diff()}} or \code{\link[=lineage_check]{lineage_check()}}, and lineage kept
-in a catalog or a database row comes back for \code{\link[=lineage_upstream]{lineage_upstream()}}
-and the exports.
+in a catalog, a database row, or the \code{commit_extra_info} of a ducklake
+commit comes back for \code{\link[=lineage_upstream]{lineage_upstream()}} and the exports. The
+\href{https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html}{lineage that travels with the data}
+article stores each lake layer's lineage on the commit that
+materialized it and diffs it between snapshots.
 }
 \section{Document shape}{
 

@@ -15,6 +15,7 @@ articles:
   - title: Integrations
     contents:
     - articles/ducklake-lineage
+    - articles/ducklake-versioned-lineage
     - articles/lineage-ci
     - articles/openlineage
     - articles/targets-lineage

@@ -5,14 +5,18 @@
 #' edge. React Flow presentation details (positions, colors) are
 #' deliberately dropped, so the output is suitable for scripting with jq,
 #' committing to version control (a CI diff catches accidental provenance
-#' changes when a pipeline is edited), or feeding to a data catalog.
+#' changes when a pipeline is edited), feeding to a data catalog, or
+#' storing on the lake commit that materialized a table.
 #'
 #' `lineage_from_json()` reads that document back into a lineage object,
 #' rebuilding the nodes and edges every accessor and exporter works on.
 #' A committed artifact can then stand in for a fresh extraction as the
 #' `old` side of [lineage_diff()] or [lineage_check()], and lineage kept
-#' in a catalog or a database row comes back for [lineage_upstream()]
-#' and the exports.
+#' in a catalog, a database row, or the `commit_extra_info` of a ducklake
+#' commit comes back for [lineage_upstream()] and the exports. The
+#' [lineage that travels with the data](https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html)
+#' article stores each lake layer's lineage on the commit that
+#' materialized it and diffs it between snapshots.
 #'
 #' @param lineage The result of [extract_lineage()], or any list with
 #'   `nodes` and `edges` built with [create_table_node()] and

@@ -265,6 +265,17 @@ filed as tiered issues on GitHub.
   document reproduces its nodes, edges, types, labels, and metadata
   (#19).
 
+* Lineage stored with the data it describes, as a site article.
+  [Lineage that travels with the
+  data](https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html)
+  passes `lineage_json()` of a layer's build query as the
+  `commit_extra_info` of the ducklake commit that materializes the
+  layer, so `get_ducklake_table_version()` and `lineage_from_json()`
+  of one snapshot return the rows and the derivation together, from the
+  catalog alone. A data refresh adds a snapshot with identical lineage
+  and a refactor adds one whose lineage diffs, which is how the lake
+  answers which commit changed a derivation. (#20)
+
 * The `lineage_json()` document is now versioned: a top-level
   `format_version` key (currently 1) leads the artifact, bumping only
   when a change would break an existing consumer. Metadata also takes

@@ -253,7 +253,11 @@ The [ducklake lineage
 vignette](https://tgerke.github.io/dplyneage/articles/ducklake-lineage.html)
 works through a full example: building a small lake, diagramming each
 layer of a bronze/silver/gold pipeline, and extracting lineage from
-time-travel queries.
+time-travel queries. The [lineage that travels with the
+data](https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html)
+article stores each layer's lineage on the ducklake commit that wrote
+it, so any snapshot's rows and derivation come back from the catalog
+together.
 
 ## Lineage as data
 
@@ -462,6 +466,10 @@ comparison, with per-tool notes and the roadmap rationale, is in
   article](https://tgerke.github.io/dplyneage/articles/targets-lineage.html)
   stitches a whole `targets` pipeline into one project-level diagram
   and separates data refreshes from provenance changes
+- The [lineage that travels with the
+  data](https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html)
+  article keeps each lake layer's lineage on the ducklake commit that
+  wrote it, versioned with the rows and diffable between snapshots
 - `vignette("python-integration")` covers how the Python dependency is
   managed
 - Full function reference at
