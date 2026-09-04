@@ -48,7 +48,8 @@ Serialize lineage to interchange formats for graph tools, CI, and data
 catalogs
 
 - [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
-  : Export lineage as JSON
+  [`lineage_from_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+  : Export lineage as JSON, and read it back
 - [`lineage_graphml()`](https://tgerke.github.io/dplyneage/reference/lineage_graphml.md)
   : Export lineage as GraphML
 - [`lineage_mermaid()`](https://tgerke.github.io/dplyneage/reference/lineage_mermaid.md)

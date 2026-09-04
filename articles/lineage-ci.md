@@ -157,6 +157,43 @@ branch’s copy produces `new`. Swap the install step for
 manages packages that way, and adjust the script paths to match your
 layout.
 
+## Comparing against a committed artifact
+
+The worktree exists only to rebuild main’s lineage. If that lineage is
+committed as a file instead, the job needs one extraction.
+[`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+writes the file from the same script:
+
+``` r
+
+lineage_json(
+  source("ci/extract-lineage.R", chdir = TRUE)$value,
+  path = "ci/lineage.json"
+)
+```
+
+[`lineage_from_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+reads it back as `old`, so the step that checks out main and the second
+[`source()`](https://rdrr.io/r/base/source.html) call both drop out of
+the job:
+
+``` yaml
+      - name: Lineage check
+        run: |
+          Rscript -e '
+            old <- dplyneage::lineage_from_json("ci/lineage.json")
+            new <- source("ci/extract-lineage.R", chdir = TRUE)$value
+            dplyneage::lineage_check(old, new)
+          '
+```
+
+The file has to track main. A workflow that runs on pushes to main,
+rewrites `ci/lineage.json`, and commits the result keeps it current, the
+way any generated file kept in a repository is maintained; until that
+run lands, a pull request is checked against the lineage of the previous
+merge. In return, the artifact documents the pipeline on its own: its
+diff shows which edges changed, and `jq` can query it without R.
+
 ## Tuning the policy
 
 `fail_on` sets the threshold. The default `"breaking"` lets additive

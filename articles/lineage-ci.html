@@ -201,6 +201,35 @@ already manages packages that way, and adjust the script paths to match
 your layout.</p>
 </div>
 <div class="section level2">
+<h2 id="comparing-against-a-committed-artifact">Comparing against a committed artifact<a class="anchor" aria-label="anchor" href="#comparing-against-a-committed-artifact"></a>
+</h2>
+<p>The worktree exists only to rebuild main’s lineage. If that lineage
+is committed as a file instead, the job needs one extraction.
+<code><a href="../reference/lineage_json.html">lineage_json()</a></code> writes the file from the same script:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/lineage_json.html">lineage_json</a></span><span class="op">(</span></span>
+<span>  <span class="kw"><a href="https://rdrr.io/r/base/source.html" class="external-link">source</a></span><span class="op">(</span><span class="st">"ci/extract-lineage.R"</span>, chdir <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">$</span><span class="va">value</span>,</span>
+<span>  path <span class="op">=</span> <span class="st">"ci/lineage.json"</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p><code><a href="../reference/lineage_json.html">lineage_from_json()</a></code> reads it back as <code>old</code>,
+so the step that checks out main and the second <code><a href="https://rdrr.io/r/base/source.html" class="external-link">source()</a></code>
+call both drop out of the job:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Lineage check</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="fu">        run</span><span class="kw">: </span><span class="ch">|</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>          Rscript -e '</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>            old &lt;- dplyneage::lineage_from_json("ci/lineage.json")</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>            new &lt;- source("ci/extract-lineage.R", chdir = TRUE)$value</span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>            dplyneage::lineage_check(old, new)</span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>          '</span></code></pre></div>
+<p>The file has to track main. A workflow that runs on pushes to main,
+rewrites <code>ci/lineage.json</code>, and commits the result keeps it
+current, the way any generated file kept in a repository is maintained;
+until that run lands, a pull request is checked against the lineage of
+the previous merge. In return, the artifact documents the pipeline on
+its own: its diff shows which edges changed, and <code>jq</code> can
+query it without R.</p>
+</div>
+<div class="section level2">
 <h2 id="tuning-the-policy">Tuning the policy<a class="anchor" aria-label="anchor" href="#tuning-the-policy"></a>
 </h2>
 <p><code>fail_on</code> sets the threshold. The default
@@ -211,7 +240,7 @@ acknowledged. <code>"none"</code> never fails and just prints the
 findings, useful while you calibrate.</p>
 <p>For custom reporting, catch the classed condition. It carries the
 full diff:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="../reference/lineage_check.html">lineage_check</a></span><span class="op">(</span><span class="va">old</span>, <span class="va">new</span><span class="op">)</span>,</span>
 <span>  dplyneage_lineage_check_failure <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">cnd</span><span class="op">)</span> <span class="op">{</span></span>

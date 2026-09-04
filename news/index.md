@@ -317,6 +317,21 @@ tiered issues on GitHub.
   instead of no keys, and the diff invented one added (or removed) edge
   of `NA`s. The same guard now covers node-free lineages and traversals.
 
+- New
+  [`lineage_from_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+  reads a
+  [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+  document back into a lineage object, making the artifact an input as
+  well as an output. A committed file can be the `old` side of
+  [`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
+  and
+  [`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md)
+  (the CI article shows the job with one extraction and no worktree),
+  and lineage kept in a catalog or a database row comes back for the
+  accessors and exports. Reading an extraction’s document reproduces its
+  nodes, edges, types, labels, and metadata
+  ([\#19](https://github.com/tgerke/dplyneage/issues/19)).
+
 - The
   [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
   document is now versioned: a top-level `format_version` key

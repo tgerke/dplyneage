@@ -1,4 +1,4 @@
-# Export lineage as JSON
+# Export lineage as JSON, and read it back
 
 Serializes a lineage object to a small, stable JSON document: node ids
 with their columns and table type, plus one record per column-level
@@ -11,6 +11,8 @@ changes when a pipeline is edited), or feeding to a data catalog.
 
 ``` r
 lineage_json(lineage, path = NULL, pretty = TRUE)
+
+lineage_from_json(x)
 ```
 
 ## Arguments
@@ -34,9 +36,30 @@ lineage_json(lineage, path = NULL, pretty = TRUE)
   If `TRUE` (the default), indent the output for readability. Use
   `FALSE` for a single-line document.
 
+- x:
+
+  The document to read: a JSON string as `lineage_json()` returns it, or
+  the path to a file it wrote.
+
 ## Value
 
-A JSON string; see the Document shape section.
+`lineage_json()` returns a JSON string; see the Document shape section.
+`lineage_from_json()` returns a lineage object (class
+`dplyneage_lineage`) with `nodes`, `edges`, and, when the document
+carries it, `metadata`.
+
+## Details
+
+`lineage_from_json()` reads that document back into a lineage object,
+rebuilding the nodes and edges every accessor and exporter works on. A
+committed artifact can then stand in for a fresh extraction as the `old`
+side of
+[`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
+or
+[`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md),
+and lineage kept in a catalog or a database row comes back for
+[`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
+and the exports.
 
 ## Document shape
 
@@ -74,6 +97,11 @@ The top-level keys, in order:
   indirect edge whose column shapes the result in several ways (filtered
   and sorted on, say) adds `transformations`, the full set of kinds with
   the first one leading.
+
+`lineage_from_json()` rebuilds a lineage object from these fields. Node
+positions and edge labels are recomputed by the layout rules rather than
+restored, and the `label` and `animated` settings of a hand-built edge
+do not come back, since the document never carried them.
 
 ## See also
 
@@ -126,6 +154,10 @@ lineage_json(lineage)
 # Write to a file instead
 path <- tempfile(fileext = ".json")
 lineage_json(lineage, path = path)
+
+# Read it back: the rebuilt lineage feeds every accessor and exporter
+lineage_diff(lineage, lineage_from_json(path))
+#> No lineage changes.
 extract_lineage("SELECT customer_id, SUM(amount) AS total
                  FROM orders GROUP BY customer_id") |>
   lineage_json()
