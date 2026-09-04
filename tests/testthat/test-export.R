@@ -367,3 +367,93 @@ test_that("lineage_json carries captured column labels", {
   expect_null(orders$labels)
   expect_identical(parsed$format_version, 1L)
 })
+
+# Reading JSON back ------------------------------------------------------
+
+test_that("lineage_from_json rebuilds a single-query lineage", {
+  graph <- fixture_graph()
+
+  back <- lineage_from_json(lineage_json(graph))
+
+  expect_s3_class(back, "dplyneage_lineage")
+  expect_false(lineage_has_changes(lineage_diff(graph, back)))
+  expect_identical(lineage_edges(back), lineage_edges(graph))
+  # The document rebuilds through the node and edge builders extraction
+  # uses, so the whole object comes back, layout included
+  expect_identical(back, graph)
+})
+
+test_that("lineage_from_json rebuilds multi-model lineage with indirect edges", {
+  skip_if_no_r_engine()
+
+  silver <- dbplyr::lazy_frame(customer_id = 1L, amount = 1, .name = "orders") |>
+    dplyr::filter(amount > 0) |>
+    dplyr::group_by(customer_id) |>
+    dplyr::summarise(total_spent = sum(amount, na.rm = TRUE))
+  gold <- dbplyr::lazy_frame(customer_id = 1L, total_spent = 1, .name = "silver") |>
+    dplyr::filter(total_spent > 0) |>
+    dplyr::arrange(total_spent) |>
+    dplyr::mutate(big = total_spent > 100)
+  lineage <- extract_lineage(
+    list(silver = silver, gold = gold),
+    engine = "r",
+    include_indirect = TRUE,
+    labels = list(orders = c(amount = "Order amount"))
+  )
+
+  back <- lineage_from_json(lineage_json(lineage))
+
+  expect_false(lineage_has_changes(lineage_diff(lineage, back)))
+  expect_identical(lineage_edges(back), lineage_edges(lineage))
+  expect_identical(lineage_tables(back), lineage_tables(lineage))
+  # An edge reached through two indirect kinds keeps both in memory
+  kinds <- edge_kind_set(back)
+  expect_identical(kinds, edge_kind_set(lineage))
+  expect_true(any(grepl("[filter,sort]", kinds, fixed = TRUE)))
+  # Types, labels, and metadata survive too: the rebuilt object writes
+  # the same document and the same OpenLineage event
+  expect_identical(lineage_json(back), lineage_json(lineage))
+  expect_identical(
+    lineage_openlineage(back, run_id = "x", event_time = "t"),
+    lineage_openlineage(lineage, run_id = "x", event_time = "t")
+  )
+  # Layers are recomputed from the edges, so the multi-hop layout holds
+  expect_identical(
+    lapply(back$nodes, function(n) n$position),
+    lapply(lineage$nodes, function(n) n$position)
+  )
+})
+
+test_that("lineage_from_json reads the file lineage_json() wrote", {
+  path <- withr::local_tempfile(fileext = ".json")
+  lineage_json(fixture_graph(), path = path)
+
+  expect_identical(
+    lineage_from_json(path),
+    lineage_from_json(lineage_json(fixture_graph()))
+  )
+})
+
+test_that("hand-built lineage reads back without metadata", {
+  graph <- manual_graph()
+
+  back <- lineage_from_json(lineage_json(graph))
+
+  expect_null(back$metadata)
+  expect_false(lineage_has_changes(lineage_diff(graph, back)))
+  expect_identical(lineage_edges(back), lineage_edges(graph))
+  expect_identical(lineage_tables(back), lineage_tables(graph))
+})
+
+test_that("lineage_from_json rejects documents it cannot read", {
+  expect_snapshot(error = TRUE, lineage_from_json("{}"))
+  expect_snapshot(
+    error = TRUE,
+    lineage_from_json('{"format_version": 2, "nodes": [], "edges": []}')
+  )
+  expect_snapshot(
+    error = TRUE,
+    lineage_from_json('{"format_version": 1, "nodes": [{"id": "t"}], "edges": []}')
+  )
+  expect_snapshot(error = TRUE, lineage_from_json("no-such-lineage.json"))
+})

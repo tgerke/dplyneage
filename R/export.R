@@ -1,4 +1,4 @@
-#' Export lineage as JSON
+#' Export lineage as JSON, and read it back
 #'
 #' Serializes a lineage object to a small, stable JSON document: node ids
 #' with their columns and table type, plus one record per column-level
@@ -7,6 +7,13 @@
 #' committing to version control (a CI diff catches accidental provenance
 #' changes when a pipeline is edited), or feeding to a data catalog.
 #'
+#' `lineage_from_json()` reads that document back into a lineage object,
+#' rebuilding the nodes and edges every accessor and exporter works on.
+#' A committed artifact can then stand in for a fresh extraction as the
+#' `old` side of [lineage_diff()] or [lineage_check()], and lineage kept
+#' in a catalog or a database row comes back for [lineage_upstream()]
+#' and the exports.
+#'
 #' @param lineage The result of [extract_lineage()], or any list with
 #'   `nodes` and `edges` built with [create_table_node()] and
 #'   [create_column_edge()].
@@ -14,7 +21,10 @@
 #'   string is returned invisibly.
 #' @param pretty If `TRUE` (the default), indent the output for
 #'   readability. Use `FALSE` for a single-line document.
-#' @return A JSON string; see the Document shape section.
+#' @return `lineage_json()` returns a JSON string; see the Document shape
+#'   section. `lineage_from_json()` returns a lineage object (class
+#'   `dplyneage_lineage`) with `nodes`, `edges`, and, when the document
+#'   carries it, `metadata`.
 #' @section Document shape:
 #' The top-level keys, in order:
 #'
@@ -45,6 +55,12 @@
 #'   edge whose column shapes the result in several ways (filtered and
 #'   sorted on, say) adds `transformations`, the full set of kinds with
 #'   the first one leading.
+#'
+#' `lineage_from_json()` rebuilds a lineage object from these fields.
+#' Node positions and edge labels are recomputed by the layout rules
+#' rather than restored, and the `label` and `animated` settings of a
+#' hand-built edge do not come back, since the document never carried
+#' them.
 #' @family lineage exporters
 #' @seealso [extract_lineage()] to compute lineage automatically
 #' @export
@@ -63,6 +79,9 @@
 #' # Write to a file instead
 #' path <- tempfile(fileext = ".json")
 #' lineage_json(lineage, path = path)
+#'
+#' # Read it back: the rebuilt lineage feeds every accessor and exporter
+#' lineage_diff(lineage, lineage_from_json(path))
 #' @examplesIf identical(Sys.getenv("NOT_CRAN"), "true") && dplyneage::has_sqlglot()
 #' extract_lineage("SELECT customer_id, SUM(amount) AS total
 #'                  FROM orders GROUP BY customer_id") |>
@@ -79,6 +98,148 @@ lineage_json <- function(lineage, path = NULL, pretty = TRUE) {
 # Version of the lineage_json() document shape. Bump only when a change
 # would break an existing consumer; added fields do not bump it.
 lineage_json_version <- 1L
+
+#' @rdname lineage_json
+#' @param x The document to read: a JSON string as `lineage_json()`
+#'   returns it, or the path to a file it wrote.
+#' @export
+lineage_from_json <- function(x) {
+  doc <- read_lineage_document(x)
+  nodes <- build_layout_nodes(document_node_specs(doc))
+  edges <- dedupe_edge_labels(lapply(doc$edges, document_edge))
+  lineage <- list(nodes = nodes, edges = edges)
+  if (!is.null(doc$metadata)) {
+    lineage$metadata <- doc$metadata
+  }
+  # Classed even for hand-built input so the print method applies;
+  # nothing else dispatches on the class
+  structure(lineage, class = "dplyneage_lineage")
+}
+
+# Parse a lineage_json() string, or the file it wrote, and check the
+# document against the shape this package writes
+#' @noRd
+read_lineage_document <- function(x) {
+  usage <- paste0(
+    "`x` must be a JSON document from lineage_json(), or the path to a ",
+    "file it wrote"
+  )
+  if (!is.character(x) || length(x) != 1 || is.na(x)) {
+    stop(usage, ".", call. = FALSE)
+  }
+  doc <- if (startsWith(trimws(x), "{")) {
+    jsonlite::parse_json(x)
+  } else if (file.exists(x)) {
+    jsonlite::read_json(x)
+  } else {
+    stop(usage, "; '", x, "' is neither.", call. = FALSE)
+  }
+
+  if (!is.list(doc) || is.null(doc$format_version)) {
+    stop(
+      "Not a lineage_json() document: it has no `format_version`.",
+      call. = FALSE
+    )
+  }
+  version <- doc$format_version
+  if (!is.numeric(version) || length(version) != 1 ||
+    version != lineage_json_version) {
+    stop(
+      "This document has format_version ", format(version), "; this ",
+      "version of dplyneage reads format_version ", lineage_json_version,
+      ". Update dplyneage to read it.",
+      call. = FALSE
+    )
+  }
+  if (!is.list(doc$nodes) || !is.list(doc$edges)) {
+    stop(
+      "Not a lineage_json() document: it has no `nodes` and `edges` arrays.",
+      call. = FALSE
+    )
+  }
+  check_document_fields(doc$nodes, c("id", "type", "columns"), "node")
+  check_document_fields(
+    doc$edges, c("source", "source_column", "target", "target_column"), "edge"
+  )
+  doc
+}
+
+#' @noRd
+check_document_fields <- function(items, fields, what) {
+  for (i in seq_along(items)) {
+    missing <- setdiff(fields, names(items[[i]]))
+    if (length(missing) > 0) {
+      stop(
+        "Not a lineage_json() document: ", what, " ", i, " has no `",
+        missing[[1]], "`.",
+        call. = FALSE
+      )
+    }
+  }
+}
+
+# Node specs for build_layout_nodes(): the document's fields plus a
+# layer, recomputed because positions are not stored
+#' @noRd
+document_node_specs <- function(doc) {
+  ids <- vapply(doc$nodes, function(n) n$id, character(1))
+  layers <- document_layers(ids, doc$edges)
+  lapply(seq_along(doc$nodes), function(i) {
+    n <- doc$nodes[[i]]
+    list(
+      id = n$id,
+      columns = as.character(unlist(n$columns)),
+      type = n$type,
+      layer = layers[[i]],
+      types = n$types,
+      labels = n$labels
+    )
+  })
+}
+
+# Longest path from the nodes nothing feeds: the layering rule the
+# extractors use, so the rebuilt graph lays out like the original.
+# Edges touching ids with no node are skipped, and the sweep is capped
+# at the node count so a cycle in hand-built input stops growing
+# instead of erroring; layout is presentation only
+#' @noRd
+document_layers <- function(ids, edges) {
+  layers <- stats::setNames(rep(0L, length(ids)), ids)
+  edges <- Filter(function(e) e$source %in% ids && e$target %in% ids, edges)
+  for (sweep in seq_along(ids)) {
+    changed <- FALSE
+    for (e in edges) {
+      if (layers[[e$target]] < layers[[e$source]] + 1L) {
+        layers[[e$target]] <- layers[[e$source]] + 1L
+        changed <- TRUE
+      }
+    }
+    if (!changed) break
+  }
+  unname(layers)
+}
+
+# Rebuild one edge through the builders extraction uses, so the
+# in-memory edge matches what extract_lineage() produced
+#' @noRd
+document_edge <- function(e) {
+  source <- list(table = e$source, column_name = e$source_column)
+  kind <- e$transformation
+  if (!is.null(kind) && kind %in% ol_indirect_kinds) {
+    source$kind <- kind
+    edge <- indirect_edge_for(source, e$target, e$target_column)
+    if (length(e$transformations) > 1) {
+      edge$data$transformations <- as.character(unlist(e$transformations))
+    }
+    return(edge)
+  }
+  col <- list(
+    output_name = e$target_column,
+    expression = e$expression,
+    type = kind
+  )
+  lineage_edge_for(col, source, e$target)
+}
 
 #' Export lineage as GraphML
 #'

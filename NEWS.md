@@ -256,6 +256,15 @@ filed as tiered issues on GitHub.
   keys, and the diff invented one added (or removed) edge of `NA`s.
   The same guard now covers node-free lineages and traversals.
 
+* New `lineage_from_json()` reads a `lineage_json()` document back into
+  a lineage object, making the artifact an input as well as an output.
+  A committed file can be the `old` side of `lineage_diff()` and
+  `lineage_check()` (the CI article shows the job with one extraction
+  and no worktree), and lineage kept in a catalog or a database row
+  comes back for the accessors and exports. Reading an extraction's
+  document reproduces its nodes, edges, types, labels, and metadata
+  (#19).
+
 * The `lineage_json()` document is now versioned: a top-level
   `format_version` key (currently 1) leads the artifact, bumping only
   when a change would break an existing consumer. Metadata also takes

@@ -2,9 +2,12 @@
 % Please edit documentation in R/export.R
 \name{lineage_json}
 \alias{lineage_json}
-\title{Export lineage as JSON}
+\alias{lineage_from_json}
+\title{Export lineage as JSON, and read it back}
 \usage{
 lineage_json(lineage, path = NULL, pretty = TRUE)
+
+lineage_from_json(x)
 }
 \arguments{
 \item{lineage}{The result of \code{\link[=extract_lineage]{extract_lineage()}}, or any list with
@@ -16,9 +19,15 @@ string is returned invisibly.}
 
 \item{pretty}{If \code{TRUE} (the default), indent the output for
 readability. Use \code{FALSE} for a single-line document.}
+
+\item{x}{The document to read: a JSON string as \code{lineage_json()}
+returns it, or the path to a file it wrote.}
 }
 \value{
-A JSON string; see the Document shape section.
+\code{lineage_json()} returns a JSON string; see the Document shape
+section. \code{lineage_from_json()} returns a lineage object (class
+\code{dplyneage_lineage}) with \code{nodes}, \code{edges}, and, when the document
+carries it, \code{metadata}.
 }
 \description{
 Serializes a lineage object to a small, stable JSON document: node ids
@@ -27,6 +36,14 @@ edge. React Flow presentation details (positions, colors) are
 deliberately dropped, so the output is suitable for scripting with jq,
 committing to version control (a CI diff catches accidental provenance
 changes when a pipeline is edited), or feeding to a data catalog.
+}
+\details{
+\code{lineage_from_json()} reads that document back into a lineage object,
+rebuilding the nodes and edges every accessor and exporter works on.
+A committed artifact can then stand in for a fresh extraction as the
+\code{old} side of \code{\link[=lineage_diff]{lineage_diff()}} or \code{\link[=lineage_check]{lineage_check()}}, and lineage kept
+in a catalog or a database row comes back for \code{\link[=lineage_upstream]{lineage_upstream()}}
+and the exports.
 }
 \section{Document shape}{
 
@@ -62,6 +79,12 @@ edge whose column shapes the result in several ways (filtered and
 sorted on, say) adds \code{transformations}, the full set of kinds with
 the first one leading.
 }
+
+\code{lineage_from_json()} rebuilds a lineage object from these fields.
+Node positions and edge labels are recomputed by the layout rules
+rather than restored, and the \code{label} and \code{animated} settings of a
+hand-built edge do not come back, since the document never carried
+them.
 }
 
 \examples{
@@ -79,6 +102,9 @@ lineage_json(lineage)
 # Write to a file instead
 path <- tempfile(fileext = ".json")
 lineage_json(lineage, path = path)
+
+# Read it back: the rebuilt lineage feeds every accessor and exporter
+lineage_diff(lineage, lineage_from_json(path))
 \dontshow{if (identical(Sys.getenv("NOT_CRAN"), "true") && dplyneage::has_sqlglot()) withAutoprint(\{ # examplesIf}
 extract_lineage("SELECT customer_id, SUM(amount) AS total
                  FROM orders GROUP BY customer_id") |>
