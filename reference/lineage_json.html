@@ -4,12 +4,14 @@ with their columns and table type, plus one record per column-level
 edge. React Flow presentation details (positions, colors) are
 deliberately dropped, so the output is suitable for scripting with jq,
 committing to version control (a CI diff catches accidental provenance
-changes when a pipeline is edited), or feeding to a data catalog."><meta property="og:description" content="Serializes a lineage object to a small, stable JSON document: node ids
+changes when a pipeline is edited), feeding to a data catalog, or
+storing on the lake commit that materialized a table."><meta property="og:description" content="Serializes a lineage object to a small, stable JSON document: node ids
 with their columns and table type, plus one record per column-level
 edge. React Flow presentation details (positions, colors) are
 deliberately dropped, so the output is suitable for scripting with jq,
 committing to version control (a CI diff catches accidental provenance
-changes when a pipeline is edited), or feeding to a data catalog."></head><body>
+changes when a pipeline is edited), feeding to a data catalog, or
+storing on the lake commit that materialized a table."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -55,7 +57,8 @@ with their columns and table type, plus one record per column-level
 edge. React Flow presentation details (positions, colors) are
 deliberately dropped, so the output is suitable for scripting with jq,
 committing to version control (a CI diff catches accidental provenance
-changes when a pipeline is edited), or feeding to a data catalog.</p>
+changes when a pipeline is edited), feeding to a data catalog, or
+storing on the lake commit that materialized a table.</p>
     </div>
 
     <div class="section level2">
@@ -103,8 +106,11 @@ carries it, <code>metadata</code>.</p>
 rebuilding the nodes and edges every accessor and exporter works on.
 A committed artifact can then stand in for a fresh extraction as the
 <code>old</code> side of <code><a href="lineage_diff.html">lineage_diff()</a></code> or <code><a href="lineage_check.html">lineage_check()</a></code>, and lineage kept
-in a catalog or a database row comes back for <code><a href="lineage_upstream.html">lineage_upstream()</a></code>
-and the exports.</p>
+in a catalog, a database row, or the <code>commit_extra_info</code> of a ducklake
+commit comes back for <code><a href="lineage_upstream.html">lineage_upstream()</a></code> and the exports. The
+<a href="https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html">lineage that travels with the data</a>
+article stores each lake layer's lineage on the commit that
+materialized it and diffs it between snapshots.</p>
     </div>
     <div class="section level2">
     <h2 id="document-shape">Document shape<a class="anchor" aria-label="anchor" href="#document-shape"></a></h2>

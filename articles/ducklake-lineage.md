@@ -213,6 +213,18 @@ can fail the pull request that introduced it; the [lineage checks in
 CI](https://tgerke.github.io/dplyneage/articles/lineage-ci.html) article
 has a copy-paste GitHub Actions job.
 
+A time-travel query carries today’s recipe over yesterday’s rows, so it
+cannot say how those rows were derived at the time. To keep that record,
+store the lineage on the snapshot itself: the [lineage that travels with
+the
+data](https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html)
+article passes
+[`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+as the `commit_extra_info` of the commit that materializes each layer,
+and reads it back with
+[`lineage_from_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+as of any snapshot.
+
 ## Next steps
 
 - ducklake’s [time
@@ -220,6 +232,10 @@ has a copy-paste GitHub Actions job.
   and
   [transactions](https://tgerke.github.io/ducklake-r/articles/transactions.html)
   vignettes cover the lake side of this story
+- The [lineage that travels with the
+  data](https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html)
+  article stores each layer’s lineage on its ducklake commit, so a
+  snapshot’s rows and derivation come back together
 - [`vignette("getting-started")`](https://tgerke.github.io/dplyneage/articles/getting-started.md)
   works through the cases where lineage gets hard: CTEs, multi-source
   columns, and `SELECT *`

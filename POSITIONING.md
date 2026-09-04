@@ -110,7 +110,7 @@ package stands:
   input — table-level impact queries and the
   [`lineage_unused()`](https://tgerke.github.io/dplyneage/reference/lineage_unused.md)
   dead-column report, column-level SVG fallback): shipped in 0.3.0.9000.
-- **Tier 4** (#14–#16): strategic bets. Label and description
+- **Tier 4** (#14–#16, \#20): strategic bets. Label and description
   propagation shipped in 0.3.0.9000 (#15): `label` attributes and
   database column comments carried on nodes, propagated along identity
   edges, shown in widget tooltips, and emitted as OpenLineage
@@ -127,7 +127,14 @@ package stands:
   on those values stitches the project graph, and `tar_outdated()`
   beside
   [`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
-  separates data refreshes from provenance changes.
+  separates data refreshes from provenance changes. Lineage stored with
+  the data (#20) shipped the same way: the site article passes
+  [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+  as the `commit_extra_info` of the ducklake commit that materializes a
+  layer, and
+  [`lineage_from_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+  (#19) reads it back as of any snapshot, so the lake answers which
+  commit changed a derivation without the repository.
 
 ## Non-goals
 

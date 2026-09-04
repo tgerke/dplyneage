@@ -247,6 +247,13 @@ snapshots change what the data <em>was</em>, not where the columns
 <code><a href="../reference/lineage_check.html">lineage_check()</a></code> can fail the pull request that introduced
 it; the <a href="https://tgerke.github.io/dplyneage/articles/lineage-ci.html">lineage
 checks in CI</a> article has a copy-paste GitHub Actions job.</p>
+<p>A time-travel query carries today’s recipe over yesterday’s rows, so
+it cannot say how those rows were derived at the time. To keep that
+record, store the lineage on the snapshot itself: the <a href="https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html">lineage
+that travels with the data</a> article passes
+<code><a href="../reference/lineage_json.html">lineage_json()</a></code> as the <code>commit_extra_info</code> of the
+commit that materializes each layer, and reads it back with
+<code><a href="../reference/lineage_json.html">lineage_from_json()</a></code> as of any snapshot.</p>
 </div>
 <div class="section level2">
 <h2 id="next-steps">Next steps<a class="anchor" aria-label="anchor" href="#next-steps"></a>
@@ -255,6 +262,10 @@ checks in CI</a> article has a copy-paste GitHub Actions job.</p>
 <li>ducklake’s <a href="https://tgerke.github.io/ducklake-r/articles/time-travel.html" class="external-link">time
 travel</a> and <a href="https://tgerke.github.io/ducklake-r/articles/transactions.html" class="external-link">transactions</a>
 vignettes cover the lake side of this story</li>
+<li>The <a href="https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html">lineage
+that travels with the data</a> article stores each layer’s lineage on
+its ducklake commit, so a snapshot’s rows and derivation come back
+together</li>
 <li>
 <code><a href="../articles/getting-started.html">vignette("getting-started")</a></code> works through the cases
 where lineage gets hard: CTEs, multi-source columns, and

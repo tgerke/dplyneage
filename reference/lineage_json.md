@@ -5,7 +5,8 @@ with their columns and table type, plus one record per column-level
 edge. React Flow presentation details (positions, colors) are
 deliberately dropped, so the output is suitable for scripting with jq,
 committing to version control (a CI diff catches accidental provenance
-changes when a pipeline is edited), or feeding to a data catalog.
+changes when a pipeline is edited), feeding to a data catalog, or
+storing on the lake commit that materialized a table.
 
 ## Usage
 
@@ -57,9 +58,13 @@ side of
 [`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
 or
 [`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md),
-and lineage kept in a catalog or a database row comes back for
+and lineage kept in a catalog, a database row, or the
+`commit_extra_info` of a ducklake commit comes back for
 [`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
-and the exports.
+and the exports. The [lineage that travels with the
+data](https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html)
+article stores each lake layer's lineage on the commit that materialized
+it and diffs it between snapshots.
 
 ## Document shape
 

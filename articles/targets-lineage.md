@@ -482,6 +482,11 @@ value the lineage check compares between branches.
 - The [ducklake
   lineage](https://tgerke.github.io/dplyneage/articles/ducklake-lineage.html)
   article covers per-hop diagrams and lineage from time-travel queries
+- The [lineage that travels with the
+  data](https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html)
+  article stores each layer’s lineage on its ducklake commit, a one-line
+  addition to `publish()`, so the derivation as of any snapshot comes
+  back from the lake without the store
 - ducklake-r’s [Clinical Trial Data
   Lake](https://tgerke.github.io/ducklake-r/articles/clinical-trial-datalake.html)
   article builds the full SDTM-to-ADaM lake, admiral derivations

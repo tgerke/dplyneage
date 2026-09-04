@@ -332,6 +332,22 @@ tiered issues on GitHub.
   nodes, edges, types, labels, and metadata
   ([\#19](https://github.com/tgerke/dplyneage/issues/19)).
 
+- Lineage stored with the data it describes, as a site article. [Lineage
+  that travels with the
+  data](https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html)
+  passes
+  [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+  of a layer’s build query as the `commit_extra_info` of the ducklake
+  commit that materializes the layer, so
+  [`get_ducklake_table_version()`](https://tgerke.github.io/ducklake-r/reference/get_ducklake_table_version.html)
+  and
+  [`lineage_from_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+  of one snapshot return the rows and the derivation together, from the
+  catalog alone. A data refresh adds a snapshot with identical lineage
+  and a refactor adds one whose lineage diffs, which is how the lake
+  answers which commit changed a derivation.
+  ([\#20](https://github.com/tgerke/dplyneage/issues/20))
+
 - The
   [`lineage_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
   document is now versioned: a top-level `format_version` key
