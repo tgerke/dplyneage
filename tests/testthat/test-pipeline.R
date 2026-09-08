@@ -330,6 +330,40 @@ test_that("raw-vs-model name overlap does not warn when the columns differ", {
   expect_no_warning(extract_lineage(list(orders = clean)))
 })
 
+test_that("same-named layers across schemas do not warn", {
+  skip_if_no_r_engine()
+
+  # The medallion convention: one table name under several schemas, each
+  # layer built from the previous one with the same columns carried
+  # through. bronze.vehicles is the source of silver.vehicles, not a
+  # materialization of it
+  silver <- dbplyr::lazy_frame(
+    mpg = 1, cyl = 1, hp = 1,
+    .name = "bronze.vehicles"
+  ) |>
+    dplyr::mutate(cyl = as.integer(cyl))
+
+  gold <- dbplyr::lazy_frame(
+    mpg = 1, cyl = 1L, hp = 1,
+    .name = "silver.vehicles"
+  ) |>
+    dplyr::mutate(efficient = mpg > 25)
+
+  expect_no_warning(
+    lineage <- extract_lineage(
+      list("silver.vehicles" = silver, "gold.vehicle_efficiency" = gold)
+    )
+  )
+  expect_setequal(
+    node_ids(lineage),
+    c("bronze.vehicles", "silver.vehicles", "gold.vehicle_efficiency")
+  )
+  expect_in(
+    "bronze.vehicles.mpg",
+    lineage_upstream(lineage, "gold.vehicle_efficiency.efficient")
+  )
+})
+
 test_that("pipeline models keep one indirect edge per pair with all kinds", {
   skip_if_no_r_engine()
 

@@ -100,7 +100,9 @@ convert_pipeline_to_graph <- function(model_data) {
     }
   }
 
-  warn_unstitched_models(base_cols, model_names, model_outputs, model_extra)
+  warn_unstitched_models(
+    base_cols, model_names, model_outputs, model_extra, deps
+  )
 
   # Longest-path layering: base tables sit in layer 0, every model at
   # least one layer right of everything it reads from
@@ -217,10 +219,12 @@ convert_pipeline_to_graph <- function(model_data) {
 #' named `silver` — the graph silently renders disconnected. When an
 #' unstitched base table shares a model's final name component
 #' (case-insensitively) and reads only columns that model carries, it is
-#' probably that model's materialization, so say so.
+#' probably that model's materialization, so say so. A model's own source
+#' tables are exempt: `bronze.vehicles` feeding a model named
+#' `silver.vehicles` is a hop between layers, not a materialization.
 #' @noRd
 warn_unstitched_models <- function(base_cols, model_names, model_outputs,
-                                   model_extra) {
+                                   model_extra, deps) {
   last_component <- function(x) {
     parts <- strsplit(x, ".", fixed = TRUE)[[1]]
     parts[[length(parts)]]
@@ -228,6 +232,7 @@ warn_unstitched_models <- function(base_cols, model_names, model_outputs,
   pairs <- character()
   for (bt in names(base_cols)) {
     for (m in model_names) {
+      if (bt %in% deps[[m]]) next
       if (tolower(last_component(bt)) != tolower(last_component(m))) next
       if (!all(base_cols[[bt]] %in% c(model_outputs[[m]], model_extra[[m]]))) next
       pairs <- c(pairs, paste0("'", bt, "' (model '", m, "')"))
