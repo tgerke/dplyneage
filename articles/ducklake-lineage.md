@@ -53,16 +53,14 @@ with_transaction(
   author = "Data Engineer",
   commit_message = "Load customer master"
 )
-#> Transaction started.
-#> Transaction committed.
+#> Committed snapshot 1 (Data Engineer): Load customer master
 
 with_transaction(
   create_table(orders, "orders"),
   author = "Data Engineer",
   commit_message = "Load order transactions"
 )
-#> Transaction started.
-#> Transaction committed.
+#> Committed snapshot 2 (Data Engineer): Load order transactions
 ```
 
 ## Lineage for a lake pipeline
@@ -113,8 +111,7 @@ with_transaction(
   author = "Data Analyst",
   commit_message = "Gold layer: sales by region"
 )
-#> Transaction started.
-#> Transaction committed.
+#> Committed snapshot 3 (Data Analyst): Gold layer: sales by region
 ```
 
 A downstream query now sees `region_sales` as its source, and its

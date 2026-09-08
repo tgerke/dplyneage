@@ -43,6 +43,13 @@ renderLineageFlow(expr, env = parent.frame(), quoted = FALSE)
   [`quote()`](https://rdrr.io/r/base/substitute.html))? This is useful
   if you want to save an expression in a variable.
 
+## Value
+
+`lineage_flowOutput()` returns a `shiny.tag.list` holding the HTML
+element and dependencies that place the lineage widget in a Shiny UI.
+`renderLineageFlow()` returns a `shiny.render.function` to assign to an
+`output` slot; Shiny calls it to render the widget `expr` produces.
+
 ## Examples
 
 ``` r

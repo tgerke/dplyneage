@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">dplyneage</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -54,7 +54,7 @@
 
 
 
-<script src="ducklake-lineage_files/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="ducklake-lineage_files/reactflow-bundle-1.0.0/reactflow-bundle.min.js"></script><script src="ducklake-lineage_files/lineage_flow-binding-0.3.0.9000/lineage_flow.js"></script><div class="row">
+<script src="ducklake-lineage_files/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="ducklake-lineage_files/reactflow-bundle-1.0.0/reactflow-bundle.min.js"></script><script src="ducklake-lineage_files/lineage_flow-binding-0.3.1.9000/lineage_flow.js"></script><div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Column lineage for ducklake pipelines</h1>
@@ -110,16 +110,14 @@ audit trail says why each table exists:</p>
 <span>  author <span class="op">=</span> <span class="st">"Data Engineer"</span>,</span>
 <span>  commit_message <span class="op">=</span> <span class="st">"Load customer master"</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; Transaction started.</span></span>
-<span><span class="co">#&gt; Transaction committed.</span></span>
+<span><span class="co">#&gt; Committed snapshot 1 (Data Engineer): Load customer master</span></span>
 <span></span>
 <span><span class="fu"><a href="https://tgerke.github.io/ducklake-r/reference/with_transaction.html" class="external-link">with_transaction</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://tgerke.github.io/ducklake-r/reference/create_table.html" class="external-link">create_table</a></span><span class="op">(</span><span class="va">orders</span>, <span class="st">"orders"</span><span class="op">)</span>,</span>
 <span>  author <span class="op">=</span> <span class="st">"Data Engineer"</span>,</span>
 <span>  commit_message <span class="op">=</span> <span class="st">"Load order transactions"</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; Transaction started.</span></span>
-<span><span class="co">#&gt; Transaction committed.</span></span></code></pre></div>
+<span><span class="co">#&gt; Committed snapshot 2 (Data Engineer): Load order transactions</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="lineage-for-a-lake-pipeline">Lineage for a lake pipeline<a class="anchor" aria-label="anchor" href="#lineage-for-a-lake-pipeline"></a>
@@ -167,8 +165,7 @@ the hop at the moment you materialize it.</p>
 <span>  author <span class="op">=</span> <span class="st">"Data Analyst"</span>,</span>
 <span>  commit_message <span class="op">=</span> <span class="st">"Gold layer: sales by region"</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; Transaction started.</span></span>
-<span><span class="co">#&gt; Transaction committed.</span></span></code></pre></div>
+<span><span class="co">#&gt; Committed snapshot 3 (Data Analyst): Gold layer: sales by region</span></span></code></pre></div>
 <p>A downstream query now sees <code>region_sales</code> as its source,
 and its lineage diagram documents just that hop:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">

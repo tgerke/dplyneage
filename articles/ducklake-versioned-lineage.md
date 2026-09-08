@@ -212,8 +212,8 @@ get_ducklake_table_version("adsl", v1) |>
 #> # A tibble: 2 × 2
 #>   SAFFL     n
 #>   <chr> <dbl>
-#> 1 N        94
-#> 2 Y       212
+#> 1 Y       212
+#> 2 N        94
 
 lineage_upstream(lineage_at("adsl", v1), "adsl.SAFFL")
 #> [1] "ex.EXSTDTC"
@@ -267,8 +267,8 @@ get_ducklake_table_version("adsl", v2) |>
 #> # A tibble: 2 × 2
 #>   SAFFL     n
 #>   <chr> <dbl>
-#> 1 N        54
-#> 2 Y       252
+#> 1 Y       252
+#> 2 N        54
 ```
 
 The lineage did not:

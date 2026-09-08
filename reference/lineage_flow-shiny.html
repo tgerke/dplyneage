@@ -17,7 +17,7 @@ lineage_downstream() on the server side."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">dplyneage</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -92,6 +92,13 @@ string and have <code>'px'</code> appended.</p></dd>
 is useful if you want to save an expression in a variable.</p></dd>
 
 </dl></div>
+    <div class="section level2">
+    <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
+    <p><code>lineage_flowOutput()</code> returns a <code>shiny.tag.list</code> holding the HTML
+element and dependencies that place the lineage widget in a Shiny UI.
+<code>renderLineageFlow()</code> returns a <code>shiny.render.function</code> to assign to an
+<code>output</code> slot; Shiny calls it to render the widget <code>expr</code> produces.</p>
+    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
