@@ -1,4 +1,4 @@
-# dplyneage 0.3.0
+# dplyneage 0.3.1
 
 First CRAN release. No user-facing behavior changed since 0.2.1; the work
 here was packaging.
