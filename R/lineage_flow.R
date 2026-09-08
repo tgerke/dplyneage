@@ -141,6 +141,11 @@ lineage_flow <- function(nodes = list(), edges = list(), width = NULL, height = 
 #' @param quoted Is \code{expr} a quoted expression (with \code{quote()})? This
 #'   is useful if you want to save an expression in a variable.
 #'
+#' @return `lineage_flowOutput()` returns a `shiny.tag.list` holding the HTML
+#'   element and dependencies that place the lineage widget in a Shiny UI.
+#'   `renderLineageFlow()` returns a `shiny.render.function` to assign to an
+#'   `output` slot; Shiny calls it to render the widget `expr` produces.
+#'
 #' @name lineage_flow-shiny
 #'
 #' @examples

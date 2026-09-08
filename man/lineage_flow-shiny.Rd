@@ -24,6 +24,12 @@ string and have \code{'px'} appended.}
 \item{quoted}{Is \code{expr} a quoted expression (with \code{quote()})? This
 is useful if you want to save an expression in a variable.}
 }
+\value{
+\code{lineage_flowOutput()} returns a \code{shiny.tag.list} holding the HTML
+element and dependencies that place the lineage widget in a Shiny UI.
+\code{renderLineageFlow()} returns a \code{shiny.render.function} to assign to an
+\code{output} slot; Shiny calls it to render the widget \code{expr} produces.
+}
 \description{
 Output and render functions for using lineage_flow within Shiny
 applications and interactive Rmd documents. When the viewer clicks a
