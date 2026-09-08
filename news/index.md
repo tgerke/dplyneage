@@ -383,7 +383,10 @@ tiered issues on GitHub.
   `silver` read back as `main.silver` or `SILVER` used to render a
   silently disconnected graph with no hint why. Naming the model with
   the table’s full name (`list("main.silver" = ...)`) has always
-  stitched, and the warning points there.
+  stitched, and the warning points there. A model’s own source tables
+  are exempt, so the medallion convention of one table name under
+  several schemas (`bronze.vehicles` feeding a model named
+  `silver.vehicles`) stitches without a warning.
 
 - [`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
   now compares edge definitions, not just endpoints. An edge whose
