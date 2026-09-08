@@ -1,3 +1,10 @@
+## Resubmission
+
+This is a resubmission. In this version I have:
+
+* Added a `\value` tag to `lineage_flow-shiny.Rd` describing the class and
+  meaning of what `lineage_flowOutput()` and `renderLineageFlow()` return.
+
 ## R CMD check results
 
 0 errors | 0 warnings | 1 note
