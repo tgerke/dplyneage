@@ -359,7 +359,7 @@ filed as tiered issues on GitHub.
   still called the deleted `install_sqlglot()` and described a
   heuristic attribution design the engines replaced.
 
-# dplyneage 0.3.0
+# dplyneage 0.3.1
 
 First CRAN release. Apart from dropping a deprecated function, the work
 here was packaging rather than behavior.
