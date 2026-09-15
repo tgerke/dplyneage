@@ -182,6 +182,20 @@ tiered issues on GitHub.
   which also makes the 0.2.1 resize behavior work in hosts that resize
   elements without a window resize event.
 
+- [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
+  edges no longer detach from their column handles when the widget sits
+  inside an element scaled by CSS: a Quarto revealjs slide fitted to the
+  window, a zoomed iframe. React Flow measures each handle’s offset
+  within its node with `getBoundingClientRect()` and divides by its own
+  viewport zoom, so an ancestor `transform: scale()` inflated every
+  stored offset by that factor while node sizes, read from
+  `offsetWidth`, stayed correct. The graph broke whenever a measurement
+  ran at a scale other than 1: a first mount in fullscreen, or the
+  re-measure after a slide left and re-entered reveal’s view distance.
+  The bundled `@xyflow/system` now folds the container’s ancestor scale
+  into that zoom, applied as a `patch-package` patch in `srcjs/patches/`
+  at build time.
+
 - The static SVG fallback (drawn when the bundled React Flow assets
   cannot load) is now a real lineage diagram: table boxes with their
   headers, colors, and column rows; edges anchored to the columns they

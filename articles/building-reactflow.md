@@ -75,6 +75,27 @@ than failing to render. `srcjs/package-lock.json` is committed so a
 rebuild from a fresh clone resolves the same dependency versions that
 produced the committed bundle.
 
+## Local patch to @xyflow/system
+
+`srcjs/patches/@xyflow+system+0.0.74.patch` changes one function in the
+library, `updateNodeInternals`. React Flow measures each handle’s offset
+inside its node with `getBoundingClientRect()` and divides by its own
+viewport zoom, which ignores any CSS scale applied by an ancestor of the
+widget. Inside a Quarto revealjs slide, which reveal fits to the window
+with `transform: scale()`, every stored handle offset came out inflated
+by that scale and the edges detached from the columns. The patch folds
+the ancestor scale (the container’s bounding-rect width over its
+`offsetWidth`) into the zoom used for that measurement. Upstream has the
+same code as of `@xyflow/react` 12.11.6, so a version bump does not
+replace the patch.
+
+`patch-package` applies it from the `postinstall` script, so a plain
+`npm install` is enough, and the install fails if the patch no longer
+applies. When bumping `@xyflow/react`, re-apply the change by hand in
+`node_modules/@xyflow/system/dist/esm/index.js` and run
+`npx patch-package @xyflow/system`, which rewrites the patch file for
+the new version.
+
 ## Development mode
 
 For active development with auto-rebuild:

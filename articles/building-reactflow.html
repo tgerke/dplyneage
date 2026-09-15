@@ -152,6 +152,29 @@ fresh clone resolves the same dependency versions that produced the
 committed bundle.</p>
 </div>
 <div class="section level2">
+<h2 id="local-patch-to-xyflowsystem">Local patch to <span class="citation">@xyflow/system</span><a class="anchor" aria-label="anchor" href="#local-patch-to-xyflowsystem"></a>
+</h2>
+<p><code>srcjs/patches/@xyflow+system+0.0.74.patch</code> changes one
+function in the library, <code>updateNodeInternals</code>. React Flow
+measures each handle’s offset inside its node with
+<code>getBoundingClientRect()</code> and divides by its own viewport
+zoom, which ignores any CSS scale applied by an ancestor of the widget.
+Inside a Quarto revealjs slide, which reveal fits to the window with
+<code>transform: scale()</code>, every stored handle offset came out
+inflated by that scale and the edges detached from the columns. The
+patch folds the ancestor scale (the container’s bounding-rect width over
+its <code>offsetWidth</code>) into the zoom used for that measurement.
+Upstream has the same code as of <code>@xyflow/react</code> 12.11.6, so
+a version bump does not replace the patch.</p>
+<p><code>patch-package</code> applies it from the
+<code>postinstall</code> script, so a plain <code>npm install</code> is
+enough, and the install fails if the patch no longer applies. When
+bumping <code>@xyflow/react</code>, re-apply the change by hand in
+<code>node_modules/@xyflow/system/dist/esm/index.js</code> and run
+<code>npx patch-package @xyflow/system</code>, which rewrites the patch
+file for the new version.</p>
+</div>
+<div class="section level2">
 <h2 id="development-mode">Development mode<a class="anchor" aria-label="anchor" href="#development-mode"></a>
 </h2>
 <p>For active development with auto-rebuild:</p>
