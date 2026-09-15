@@ -1,0 +1,29 @@
+diff --git a/node_modules/@xyflow/system/dist/esm/index.js b/node_modules/@xyflow/system/dist/esm/index.js
+index 173a1b0..2471af7 100644
+--- a/node_modules/@xyflow/system/dist/esm/index.js
++++ b/node_modules/@xyflow/system/dist/esm/index.js
+@@ -1802,6 +1802,13 @@ function updateNodeInternals(updates, nodeLookup, parentLookup, domNode, nodeOri
+     const changes = [];
+     const style = window.getComputedStyle(viewportNode);
+     const { m22: zoom } = new window.DOMMatrixReadOnly(style.transform);
++    // Ancestor transforms and CSS zoom (a reveal.js slide scaled to fit the
++    // screen, a zoomed iframe) are in getBoundingClientRect() but not in
++    // offsetWidth. getHandleBounds divides screen offsets by this factor, so
++    // it has to include that scale or handle offsets come out inflated by it.
++    const domRect = domNode.getBoundingClientRect();
++    const ancestorScale = domNode.offsetWidth > 0 && domRect.width > 0 ? domRect.width / domNode.offsetWidth : 1;
++    const handleZoom = zoom * ancestorScale;
+     // in this array we collect nodes, that might trigger changes (like expanding parent)
+     const parentExpandChildren = [];
+     for (const update of updates.values()) {
+@@ -1842,8 +1849,8 @@ function updateNodeInternals(updates, nodeLookup, parentLookup, domNode, nodeOri
+                     ...node.internals,
+                     positionAbsolute,
+                     handleBounds: {
+-                        source: getHandleBounds('source', update.nodeElement, nodeBounds, zoom, node.id),
+-                        target: getHandleBounds('target', update.nodeElement, nodeBounds, zoom, node.id),
++                        source: getHandleBounds('source', update.nodeElement, nodeBounds, handleZoom, node.id),
++                        target: getHandleBounds('target', update.nodeElement, nodeBounds, handleZoom, node.id),
+                     },
+                 },
+             };
