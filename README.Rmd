@@ -18,10 +18,11 @@ knitr::opts_chunk$set(
 )
 ```
 
-# dplyneage
+# dplyneage <a href="https://tgerke.github.io/dplyneage/"><img src="man/figures/logo.png" align="right" height="139" alt="dplyneage website" /></a>
 
 <!-- badges: start -->
-[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![CRAN status](https://www.r-pkg.org/badges/version/dplyneage)](https://CRAN.R-project.org/package=dplyneage)
+[![Lifecycle: stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 [![R-CMD-check](https://github.com/tgerke/dplyneage/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/tgerke/dplyneage/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
@@ -30,6 +31,14 @@ dplyneage draws interactive column-level lineage diagrams for dplyr and dbplyr p
 dbplyr, [dtplyr](https://dtplyr.tidyverse.org/), and [arrow](https://arrow.apache.org/docs/r/) pipelines are analyzed in pure R by walking their lazy query trees, so no Python is involved. Raw SQL goes through [sqlglot](https://github.com/tobymao/sqlglot)'s dedicated lineage engine instead, which means many dialects (DuckDB, PostgreSQL, Snowflake, BigQuery, ...) work too, and [duckplyr](https://duckplyr.tidyverse.org/) frames take the same route: their lazy tree lives inside duckdb, so it is rendered to SQL and parsed.
 
 ## Installation
+
+Install the released version from CRAN:
+
+```{r, eval = FALSE}
+install.packages("dplyneage")
+```
+
+Or the development version from GitHub:
 
 ```{r, eval = FALSE}
 pak::pak("tgerke/dplyneage")

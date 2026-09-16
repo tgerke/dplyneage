@@ -31,6 +31,14 @@ This vignette starts with the smallest possible example and works up to the case
 
 ## Installation
 
+Install the released version from CRAN:
+
+```{r, eval = FALSE}
+install.packages("dplyneage")
+```
+
+Or the development version from GitHub:
+
 ```{r, eval = FALSE}
 pak::pak("tgerke/dplyneage")
 ```

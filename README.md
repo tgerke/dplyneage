@@ -1,12 +1,14 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# dplyneage
+# dplyneage <a href="https://tgerke.github.io/dplyneage/"><img src="man/figures/logo.png" align="right" height="139" alt="dplyneage website" /></a>
 
 <!-- badges: start -->
 
+[![CRAN
+status](https://www.r-pkg.org/badges/version/dplyneage)](https://CRAN.R-project.org/package=dplyneage)
 [![Lifecycle:
-experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 [![R-CMD-check](https://github.com/tgerke/dplyneage/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/tgerke/dplyneage/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
@@ -28,6 +30,14 @@ their lazy tree lives inside duckdb, so it is rendered to SQL and
 parsed.
 
 ## Installation
+
+Install the released version from CRAN:
+
+``` r
+install.packages("dplyneage")
+```
+
+Or the development version from GitHub:
 
 ``` r
 pak::pak("tgerke/dplyneage")
@@ -83,7 +93,7 @@ tbl(con, "customers") |>
   lineage_flow(height = "600px")
 ```
 
-<img src="man/figures/README-unnamed-chunk-3-1.png" alt="Column-level lineage diagram with the customers and orders tables on the left and the summarised output table on the right, with edges tracing each output column, including the derived avg_order column, back to its source columns"  />
+<img src="man/figures/README-unnamed-chunk-4-1.png" alt="Column-level lineage diagram with the customers and orders tables on the left and the summarised output table on the right, with edges tracing each output column, including the derived avg_order column, back to its source columns"  />
 
 Behind that one pipe, `extract_lineage()`:
 
@@ -133,7 +143,7 @@ sales |>
   lineage_flow(height = "350px")
 ```
 
-<img src="man/figures/README-unnamed-chunk-4-1.png" alt="Column-level lineage diagram tracing the summarised output table's total column back to the amount column of the sales source table"  />
+<img src="man/figures/README-unnamed-chunk-5-1.png" alt="Column-level lineage diagram tracing the summarised output table's total column back to the amount column of the sales source table"  />
 
 A `tbl_lazy()` pipeline can’t be collected, since there is no database
 to run it against; lineage never runs the query, so a diagram doesn’t
@@ -174,7 +184,7 @@ extract_lineage(list(silver = silver, gold = gold)) |>
   lineage_flow(height = "450px")
 ```
 
-<img src="man/figures/README-unnamed-chunk-5-1.png" alt="Three-layer lineage diagram: the orders source table in blue feeds the silver transform table in orange, which feeds the gold target table in green, with column-level edges through all three layers"  />
+<img src="man/figures/README-unnamed-chunk-6-1.png" alt="Three-layer lineage diagram: the orders source table in blue feeds the silver transform table in orange, which feeds the gold target table in green, with column-level edges through all three layers"  />
 
 Intermediate models render as orange transform nodes, terminal models as
 green targets, and impact questions now span the whole pipeline:
@@ -222,7 +232,7 @@ edges <- list(
 lineage_flow(nodes, edges, height = "600px")
 ```
 
-<img src="man/figures/README-unnamed-chunk-7-1.png" alt="Hand-built lineage diagram showing the customers and orders source tables in blue connected to a customer_summary target table in green, with a SUM() label on the total_spent edge"  />
+<img src="man/figures/README-unnamed-chunk-8-1.png" alt="Hand-built lineage diagram showing the customers and orders source tables in blue connected to a customer_summary target table in green, with a SUM() label on the total_spent edge"  />
 
 Table types follow the color conventions used by dbt and SQLMesh:
 
@@ -255,8 +265,8 @@ works through a full example: building a small lake, diagramming each
 layer of a bronze/silver/gold pipeline, and extracting lineage from
 time-travel queries. The [lineage that travels with the
 data](https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html)
-article stores each layer's lineage on the ducklake commit that wrote
-it, so any snapshot's rows and derivation come back from the catalog
+article stores each layer’s lineage on the ducklake commit that wrote
+it, so any snapshot’s rows and derivation come back from the catalog
 together.
 
 ## Lineage as data
@@ -398,7 +408,7 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/7 vertices, named, from 858a739:
+#> + 2/7 vertices, named, from 62a0e70:
 #> [1] output.total_spent orders.amount
 ```
 
@@ -464,11 +474,11 @@ comparison, with per-tool notes and the roadmap rationale, is in
   sends lineage into a data catalog
 - The [targets
   article](https://tgerke.github.io/dplyneage/articles/targets-lineage.html)
-  stitches a whole `targets` pipeline into one project-level diagram
-  and separates data refreshes from provenance changes
+  stitches a whole `targets` pipeline into one project-level diagram and
+  separates data refreshes from provenance changes
 - The [lineage that travels with the
   data](https://tgerke.github.io/dplyneage/articles/ducklake-versioned-lineage.html)
-  article keeps each lake layer's lineage on the ducklake commit that
+  article keeps each lake layer’s lineage on the ducklake commit that
   wrote it, versioned with the rows and diffable between snapshots
 - `vignette("python-integration")` covers how the Python dependency is
   managed
