@@ -99,6 +99,6 @@ path <- tempfile(fileext = ".graphml")
 lineage_graphml(lineage, path = path)
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "daily_totals.total", mode = "in")
-#> + 2/3 vertices, named, from 573dfae:
+#> + 2/3 vertices, named, from e72ba61:
 #> [1] daily_totals.total orders.amount     
 ```

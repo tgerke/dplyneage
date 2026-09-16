@@ -21,6 +21,15 @@ parsed.
 
 ## Installation
 
+Install the released version from CRAN:
+
+``` r
+
+install.packages("dplyneage")
+```
+
+Or the development version from GitHub:
+
 ``` r
 
 pak::pak("tgerke/dplyneage")
@@ -82,7 +91,7 @@ tbl(con, "customers") |>
 ![Column-level lineage diagram with the customers and orders tables on
 the left and the summarised output table on the right, with edges
 tracing each output column, including the derived avg_order column, back
-to its source columns](reference/figures/README-unnamed-chunk-3-1.png)
+to its source columns](reference/figures/README-unnamed-chunk-4-1.png)
 
 Behind that one pipe,
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md):
@@ -141,7 +150,7 @@ sales |>
 
 ![Column-level lineage diagram tracing the summarised output table's
 total column back to the amount column of the sales source
-table](reference/figures/README-unnamed-chunk-4-1.png)
+table](reference/figures/README-unnamed-chunk-5-1.png)
 
 A [`tbl_lazy()`](https://dbplyr.tidyverse.org/reference/tbl_lazy.html)
 pipeline can’t be collected, since there is no database to run it
@@ -191,7 +200,7 @@ extract_lineage(list(silver = silver, gold = gold)) |>
 ![Three-layer lineage diagram: the orders source table in blue feeds the
 silver transform table in orange, which feeds the gold target table in
 green, with column-level edges through all three
-layers](reference/figures/README-unnamed-chunk-5-1.png)
+layers](reference/figures/README-unnamed-chunk-6-1.png)
 
 Intermediate models render as orange transform nodes, terminal models as
 green targets, and impact questions now span the whole pipeline:
@@ -247,7 +256,7 @@ lineage_flow(nodes, edges, height = "600px")
 ![Hand-built lineage diagram showing the customers and orders source
 tables in blue connected to a customer_summary target table in green,
 with a SUM() label on the total_spent
-edge](reference/figures/README-unnamed-chunk-7-1.png)
+edge](reference/figures/README-unnamed-chunk-8-1.png)
 
 Table types follow the color conventions used by dbt and SQLMesh:
 
@@ -439,7 +448,7 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/7 vertices, named, from 858a739:
+#> + 2/7 vertices, named, from 62a0e70:
 #> [1] output.total_spent orders.amount
 ```
 

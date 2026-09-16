@@ -13,6 +13,15 @@ and columns computed from several sources at once.
 
 ## Installation
 
+Install the released version from CRAN:
+
+``` r
+
+install.packages("dplyneage")
+```
+
+Or the development version from GitHub:
+
 ``` r
 
 pak::pak("tgerke/dplyneage")
@@ -621,12 +630,12 @@ g <- igraph::read_graph(path, format = "graphml")
 
 # Everything upstream of total_spent
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from 8cf8a1f:
+#> + 2/6 vertices, named, from 7c58ccf:
 #> [1] output.total_spent orders.amount
 
 # Everything downstream of orders.amount
 igraph::subcomponent(g, "orders.amount", mode = "out")
-#> + 2/6 vertices, named, from 8cf8a1f:
+#> + 2/6 vertices, named, from 7c58ccf:
 #> [1] orders.amount      output.total_spent
 ```
 

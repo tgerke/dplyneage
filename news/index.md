@@ -465,6 +465,8 @@ tiered issues on GitHub.
 
 ## dplyneage 0.3.1
 
+CRAN release: 2026-09-16
+
 First CRAN release. Apart from dropping a deprecated function, the work
 here was packaging rather than behavior.
 
