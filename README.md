@@ -10,6 +10,8 @@ status](https://www.r-pkg.org/badges/version/dplyneage)](https://CRAN.R-project.
 [![Lifecycle:
 stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 [![R-CMD-check](https://github.com/tgerke/dplyneage/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/tgerke/dplyneage/actions/workflows/R-CMD-check.yaml)
+[![Codecov test
+coverage](https://codecov.io/gh/tgerke/dplyneage/graph/badge.svg)](https://app.codecov.io/gh/tgerke/dplyneage)
 <!-- badges: end -->
 
 dplyneage draws interactive column-level lineage diagrams for dplyr and

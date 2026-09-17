@@ -24,6 +24,7 @@ knitr::opts_chunk$set(
 [![CRAN status](https://www.r-pkg.org/badges/version/dplyneage)](https://CRAN.R-project.org/package=dplyneage)
 [![Lifecycle: stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 [![R-CMD-check](https://github.com/tgerke/dplyneage/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/tgerke/dplyneage/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/tgerke/dplyneage/graph/badge.svg)](https://app.codecov.io/gh/tgerke/dplyneage)
 <!-- badges: end -->
 
 dplyneage draws interactive column-level lineage diagrams for dplyr and dbplyr pipelines. Pipe a query into `extract_lineage()` and it traces every output column back to the source columns it came from (through joins, aggregations, CTEs, unions, and computed expressions), then renders the result as a draggable, zoomable [React Flow](https://reactflow.dev/) diagram with `lineage_flow()`.
