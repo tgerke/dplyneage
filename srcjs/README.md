@@ -27,6 +27,16 @@ For development with auto-rebuild:
 npm run dev
 ```
 
+## Test
+
+The unit tests cover the parts of `inst/htmlwidgets/lineage_flow.js` that run without a browser. They use Node's built-in test runner, so there is nothing to install:
+
+```bash
+npm test
+```
+
+CI runs the same tests with coverage from the repository root (see `.github/workflows/test-coverage.yaml`). The React Flow render path is not covered yet because it needs a browser.
+
 ## What Gets Bundled
 
 - React 18.2.0

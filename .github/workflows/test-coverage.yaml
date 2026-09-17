@@ -91,3 +91,34 @@ jobs:
         with:
           name: coverage-test-failures
           path: ${{ runner.temp }}/package
+
+  # Unit tests for the parts of the widget JS that run without a browser.
+  # They use Node's built-in runner, so no npm install. The React Flow render
+  # path needs a browser and is not measured yet.
+  js-coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+
+      # Run from the repository root so the lcov paths match the repo layout
+      - name: Test coverage
+        run: >
+          node --test --experimental-test-coverage
+          --test-coverage-include='inst/htmlwidgets/lineage_flow.js'
+          --test-reporter=spec --test-reporter-destination=stdout
+          --test-reporter=lcov --test-reporter-destination=coverage-js.lcov
+          'srcjs/tests/**/*.test.js'
+
+      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
+        with:
+          fail_ci_if_error: ${{ github.event_name != 'pull_request' || secrets.CODECOV_TOKEN }}
+          files: ./coverage-js.lcov
+          flags: js
+          plugins: noop
+          disable_search: true
+          token: ${{ secrets.CODECOV_TOKEN }}
