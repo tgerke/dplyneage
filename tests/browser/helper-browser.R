@@ -64,7 +64,16 @@ window.__t = {
   legend: function() {
     var panel = document.querySelector('.react-flow__panel.top.right');
     return panel ? panel.innerText.split('\\n') : null;
-  }
+  },
+  // The column and edge hover cards share one floating div
+  hoverCard: function() {
+    var card = this.all('.react-flow div').find(function(d) { return d.style.zIndex === '1100'; });
+    return card ? card.innerText : null;
+  },
+  button: function(title) {
+    return this.all('.react-flow__controls button').find(function(b) { return b.title === title; });
+  },
+  widget: function() { return HTMLWidgets.find('.lineage_flow'); }
 };
 "
 
@@ -73,9 +82,10 @@ window.__t = {
 #   wrap         function(widget) returning tags, to place the widget inside
 #                a scaled or hidden ancestor
 #   before_load  JavaScript to run before any page script
+#   setup        function(b) for DevTools calls that must precede navigation
 #   ready        FALSE skips the wait for a mounted graph
 local_widget_page <- function(widget, wrap = identity, before_load = NULL,
-                              ready = TRUE, env = parent.frame()) {
+                              setup = NULL, ready = TRUE, env = parent.frame()) {
   skip_if_no_browser()
 
   dir <- withr::local_tempdir(.local_envir = env)
@@ -135,7 +145,12 @@ local_widget_page <- function(widget, wrap = identity, before_load = NULL,
   }, envir = env)
 
   if (!is.null(before_load)) {
+    # Without Page.enable the script is accepted but never runs
+    b$Page$enable()
     b$Page$addScriptToEvaluateOnNewDocument(source = before_load)
+  }
+  if (!is.null(setup)) {
+    setup(b)
   }
   b$Page$navigate(paste0("file://", normalizePath(file)))
   wait_for(page, "document.readyState === 'complete' && typeof HTMLWidgets !== 'undefined'")
@@ -239,6 +254,30 @@ mouse_click <- function(page, point) {
       type = type, x = point$x, y = point$y, button = "left", clickCount = 1
     )
   }
+  invisible(page)
+}
+
+# React re-renders after the event, so state is awaited, not read once
+expect_eventually <- function(page, expr, timeout = 5) {
+  ok <- tryCatch(wait_for(page, expr, timeout = timeout), error = function(e) FALSE)
+  testthat::expect_true(ok, label = paste("eventually:", expr))
+}
+
+mouse_drag <- function(page, from, to, steps = 6) {
+  mouse_move(page, from)
+  page$b$Input$dispatchMouseEvent(
+    type = "mousePressed", x = from$x, y = from$y, button = "left", buttons = 1, clickCount = 1
+  )
+  for (i in seq_len(steps)) {
+    page$b$Input$dispatchMouseEvent(
+      type = "mouseMoved", button = "left", buttons = 1,
+      x = from$x + (to$x - from$x) * i / steps,
+      y = from$y + (to$y - from$y) * i / steps
+    )
+  }
+  page$b$Input$dispatchMouseEvent(
+    type = "mouseReleased", x = to$x, y = to$y, button = "left", clickCount = 1
+  )
   invisible(page)
 }
 
