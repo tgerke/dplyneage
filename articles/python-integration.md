@@ -1,23 +1,27 @@
 # Python Integration
 
-dplyneage has two lineage engines, and only one of them involves Python:
+Whether dplyneage involves Python depends on what you hand to
+[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md):
 
-- **dbplyr pipelines** are analyzed by a pure-R engine that walks the
-  pipeline’s lazy query tree. No Python is initialized, let alone
+- **dbplyr, dtplyr, and arrow pipelines** are walked in pure R, straight
+  from their lazy query trees. No Python is initialized, let alone
   required.
-- **Raw SQL strings**, and the rare pipeline that embeds raw SQL via
-  [`dbplyr::sql()`](https://dbplyr.tidyverse.org/reference/sql.html),
-  are analyzed by [sqlglot](https://github.com/tobymao/sqlglot)’s
-  lineage engine, called through the `reticulate` package. reticulate is
-  a Suggests dependency, so install it once with
-  `install.packages("reticulate")` to enable this engine.
+- **Raw SQL strings and duckplyr frames** are analyzed by
+  [sqlglot](https://github.com/tobymao/sqlglot)’s lineage engine, called
+  through the `reticulate` package. A duckplyr frame keeps its lazy tree
+  inside duckdb, where R cannot read it, so dplyneage renders the
+  relation to SQL and parses that. The rare dbplyr pipeline that embeds
+  raw SQL via
+  [`dbplyr::sql()`](https://dbplyr.tidyverse.org/reference/sql.html)
+  takes this route too. reticulate is a Suggests dependency, so install
+  it once with `install.packages("reticulate")` to enable this engine.
 
-So if you only ever pipe dplyr/dbplyr queries into
+So if you only ever pipe dbplyr, dtplyr, or arrow queries into
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md),
 you can stop reading here: Python never enters the picture, and neither
 does reticulate. The rest of this vignette covers how the sqlglot
-dependency is managed when you do analyze raw SQL. It follows the setup
-the [reticulate package
+dependency is managed when you do need it. It follows the setup the
+[reticulate package
 documentation](https://rstudio.github.io/reticulate/articles/package.html)
 recommends: Python dependencies are declared with
 [`reticulate::py_require()`](https://rstudio.github.io/reticulate/reference/py_require.html)
@@ -79,9 +83,10 @@ other ways to select an environment.
 
 ### Architecture
 
-    dbplyr pipeline ──→ pure-R walk of the lazy query tree
+    dbplyr, dtplyr, or arrow pipeline ──→ pure-R walk of the lazy query tree
                                       │
-    raw SQL string ──→ Python (sqlglot.lineage engine)
+    raw SQL string ─────────────────→ Python (sqlglot.lineage engine)
+    duckplyr frame ──→ duckdb SQL ──→ Python (sqlglot.lineage engine)
                                       ↓
                   Column Lineage Metadata (per output column)
                                       ↓
@@ -89,27 +94,43 @@ other ways to select an environment.
                                       ↓
                      React Flow Visualization
 
-Both engines emit the same lineage metadata, so everything downstream is
+Every path emits the same lineage metadata, so everything downstream is
 shared. Which one runs is controlled by the `engine` argument of
-[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md):
-`"auto"` (the default) picks the R engine for lazy tables and sqlglot
-for SQL strings, falling back to sqlglot if a pipeline uses something
-the R engine cannot trace. `metadata$engine` in the result records which
-one ran.
+[`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md).
+`"auto"` (the default) picks by input: the R walkers for dbplyr, dtplyr,
+and arrow pipelines, and sqlglot for SQL strings and duckplyr frames. A
+dbplyr pipeline that uses something its walker cannot trace falls back
+to sqlglot. dtplyr and arrow pipelines have no such fallback, because
+they compile to data.table code and Acero plans, not SQL, so an
+untraceable construct there is an error. `metadata$engine` in the result
+records which one ran.
 
 ### Key components
 
-1.  **R/lineage_r_engine.R**: The pure-R engine
+1.  **R/lineage_r_engine.R**: The pure-R engine for dbplyr
     - Walks dbplyr’s lazy query tree, reading exact column provenance
       through selects, mutates, window functions, joins, and set
       operations: no SQL parsing, no Python
-2.  **R/zzz.R**: Package initialization
+2.  **R/lineage_dtplyr_engine.R** and **R/lineage_arrow_engine.R**: The
+    other R walkers
+    - Walk dtplyr’s `lazy_dt()` step tree and arrow’s query objects the
+      same way, reading the translated forms each backend produces
+      ([`n()`](https://dplyr.tidyverse.org/reference/context.html)
+      arrives as `.N` on dtplyr, for instance). No Python here either
+3.  **R/lineage_duckplyr_engine.R**: The duckplyr route
+    - Renders the frame’s duckdb relation to SQL, rewrites it into a
+      form sqlglot can bind without a live database, and hands it to the
+      sqlglot engine
+4.  **R/lineage_engines.R**: Engine dispatch
+    - Maps each input to its kind and holds the registry of native
+      engines, including which `engine =` values each one accepts
+5.  **R/zzz.R**: Package initialization
     - `.onLoad()`: declares the sqlglot requirement via `py_require()`
       and imports the bundled Python module with `delay_load` (Python
       does not start until first use)
     - [`has_sqlglot()`](https://tgerke.github.io/dplyneage/reference/has_sqlglot.md):
       checks availability
-3.  **inst/python/dplyneage_lineage.py**: The sqlglot engine
+6.  **inst/python/dplyneage_lineage.py**: The sqlglot engine
     - Built on `sqlglot.lineage.lineage()`, which handles scope
       resolution, aliases, CTE trace-through, set operations, and star
       expansion
@@ -117,7 +138,7 @@ one ran.
       traces each output column to its source columns
     - `list_tables()`: enumerates base tables (used for schema
       harvesting)
-4.  **R/sqlglot_utils.R**: R-side orchestration
+7.  **R/sqlglot_utils.R**: R-side orchestration
     - [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md):
       main user-facing function, dispatches to an engine
     - [`harvest_schema()`](https://tgerke.github.io/dplyneage/reference/harvest_schema.md):
@@ -129,11 +150,13 @@ one ran.
 ## Schemas and attribution accuracy
 
 SQL alone does not always say which table an unqualified column belongs
-to. dbplyr lazy tables sidestep the problem entirely: the R engine reads
-provenance from the query tree, so no schema is ever needed. (When a
-lazy table falls back to sqlglot, dplyneage lists the columns of each
-referenced table from the live connection and hands that schema to
-sqlglot automatically.)
+to. Pipelines walked in R (dbplyr, dtplyr, arrow) sidestep the problem
+entirely: the walker reads provenance from the query tree, so no schema
+is ever needed. (When a dbplyr table falls back to sqlglot, dplyneage
+lists the columns of each referenced table from the live connection and
+hands that schema to sqlglot automatically. duckplyr frames do the
+equivalent for their file readers, so a `read_parquet_duckdb()` source
+binds its columns without help.)
 
 For raw SQL strings, you can pass a schema yourself:
 
@@ -155,8 +178,9 @@ unqualified ones may not be traceable, and `SELECT *` cannot be expanded
 ## SQL dialects
 
 sqlglot supports many SQL dialects. A dbplyr pipeline that reaches the
-sqlglot engine infers its dialect from the database connection; for SQL
-strings, pass it explicitly:
+sqlglot engine infers its dialect from the database connection, and a
+duckplyr frame is always parsed as `"duckdb"`. For SQL strings, pass it
+explicitly:
 
 ``` r
 
@@ -173,10 +197,10 @@ full list of dialects.
 
 ## Performance
 
-- **dbplyr pipelines**: no Python startup cost at all; the R engine runs
-  immediately
-- **First raw-SQL call**: may take a moment while the Python environment
-  initializes (and, on the very first run, provisions)
+- **dbplyr, dtplyr, and arrow pipelines**: no Python startup cost at
+  all; the R walkers run immediately
+- **First raw-SQL or duckplyr call**: may take a moment while the Python
+  environment initializes (and, on the very first run, provisions)
 - **Subsequent calls**: fast (\<100ms for typical queries)
 - **Complex queries**: sqlglot handles CTEs, subqueries, window
   functions, complex joins, and set operations (UNION, INTERSECT, etc.)

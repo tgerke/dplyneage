@@ -1,7 +1,7 @@
 # dplyneage
 
-dplyneage draws interactive column-level lineage diagrams for dplyr and
-dbplyr pipelines. Pipe a query into
+dplyneage draws interactive column-level lineage diagrams for dplyr
+pipelines and SQL queries. Pipe a query into
 [`extract_lineage()`](https://tgerke.github.io/dplyneage/reference/extract_lineage.md)
 and it traces every output column back to the source columns it came
 from (through joins, aggregations, CTEs, unions, and computed
@@ -35,10 +35,23 @@ Or the development version from GitHub:
 pak::pak("tgerke/dplyneage")
 ```
 
+This README follows the development version, which is ahead of the 0.3.1
+release on CRAN. The dtplyr, duckplyr, and arrow engines, column labels,
+[`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md),
+[`lineage_unused()`](https://tgerke.github.io/dplyneage/reference/lineage_unused.md),
+[`lineage_emit()`](https://tgerke.github.io/dplyneage/reference/lineage_emit.md),
+and the theme, legend, and minimap options of
+[`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
+all need the GitHub install for now; the
+[changelog](https://tgerke.github.io/dplyneage/news/) has the full list.
+
 dbplyr, dtplyr, and arrow pipelines need no Python at all, not even
-reticulate. For raw SQL input and duckplyr frames, install the
-reticulate package once; the Python dependency (sqlglot) is then
-provisioned automatically the first time it’s needed. See
+reticulate. Raw SQL input and duckplyr frames do, and so does the
+occasional dbplyr pipeline that embeds raw SQL with
+[`dbplyr::sql()`](https://dbplyr.tidyverse.org/reference/sql.html). For
+those, install the reticulate package once; the Python dependency
+(sqlglot) is then provisioned automatically the first time it’s needed.
+See
 [`vignette("python-integration")`](https://tgerke.github.io/dplyneage/articles/python-integration.md)
 if you manage your own Python environment.
 
@@ -117,8 +130,19 @@ through the two aggregates it divides back to `orders.amount` and
 `orders.order_id`), and aggregation edges animate. Long expressions are
 trimmed; hover an edge for the full text.
 [`lineage_flow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow.md)
-also takes `theme = "dark"` (or `"auto"`), `minimap = TRUE` for an
-overview map, and a PNG download button lives in the zoom controls.
+also takes `theme = "dark"` (or `"auto"`) and `minimap = TRUE` for an
+overview map. A legend keyed to the node colors and edge styles in the
+diagram shows by default (`legend = FALSE` hides it), and a PNG download
+button lives in the zoom controls. In Shiny,
+[`lineage_flowOutput()`](https://tgerke.github.io/dplyneage/reference/lineage_flow-shiny.md)
+and
+[`renderLineageFlow()`](https://tgerke.github.io/dplyneage/reference/lineage_flow-shiny.md)
+embed the diagram, and a clicked column arrives on the server as
+`input$<outputId>_selected`, a list with `table` and `column` entries to
+feed
+[`lineage_upstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md)
+or
+[`lineage_downstream()`](https://tgerke.github.io/dplyneage/reference/lineage_upstream.md).
 
 ## Local data frames
 
@@ -336,6 +360,13 @@ lineage_upstream(lineage, "output.total_spent")
 #> [1] "orders.amount"
 ```
 
+By default lineage follows the select list, so the columns a pipeline
+filters, joins, groups, or sorts on draw no edges for doing so.
+`extract_lineage(include_indirect = TRUE)` adds them as dashed edges,
+classified as `filter`, `join`, `group_by`, or `sort`. Impact analysis
+usually wants them: dropping a column that only filters the result still
+breaks the pipeline.
+
 [`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
 compares two extractions and classifies every change by blast radius:
 breaking when the change reaches columns that anything downstream
@@ -436,6 +467,14 @@ jq -r '.edges[] | select(.target_column == "total_spent")
 #> orders.amount
 ```
 
+[`lineage_from_json()`](https://tgerke.github.io/dplyneage/reference/lineage_json.md)
+reads the document back into a lineage object, so a committed file can
+be the `old` side of
+[`lineage_diff()`](https://tgerke.github.io/dplyneage/reference/lineage_diff.md)
+and
+[`lineage_check()`](https://tgerke.github.io/dplyneage/reference/lineage_check.md)
+with no second extraction.
+
 [`lineage_graphml()`](https://tgerke.github.io/dplyneage/reference/lineage_graphml.md)
 writes GraphML, which opens directly in graph tools like Gephi, yEd, and
 igraph. The same question works as a graph query, and scales to
@@ -448,9 +487,15 @@ lineage_graphml(lineage, path)
 
 g <- igraph::read_graph(path, format = "graphml")
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/7 vertices, named, from 62a0e70:
+#> + 2/7 vertices, named, from 23aaa89:
 #> [1] output.total_spent orders.amount
 ```
+
+[`lineage_mermaid()`](https://tgerke.github.io/dplyneage/reference/lineage_mermaid.md)
+writes a [Mermaid](https://mermaid.js.org/) flowchart instead. GitHub,
+Quarto, and most documentation tools render Mermaid from a plain code
+fence, so the diagram can sit in a README or a design doc with no R
+behind it.
 
 For data catalogs,
 [`lineage_openlineage()`](https://tgerke.github.io/dplyneage/reference/lineage_openlineage.md)

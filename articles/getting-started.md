@@ -27,11 +27,12 @@ Or the development version from GitHub:
 pak::pak("tgerke/dplyneage")
 ```
 
-dplyr/dbplyr pipelines are analyzed entirely in R, so for those there is
-nothing else to install. Raw SQL strings are analyzed by sqlglot,
-dplyneage’s one Python dependency: install the reticulate package to
-enable that engine, and sqlglot itself is provisioned automatically the
-first time it’s needed. See
+dbplyr, dtplyr, and arrow pipelines are analyzed entirely in R, so for
+those there is nothing else to install. Raw SQL strings and duckplyr
+frames (see [Other lazy backends](#other-lazy-backends)) are analyzed by
+sqlglot, dplyneage’s one Python dependency: install the reticulate
+package to enable that engine, and sqlglot itself is provisioned
+automatically the first time it’s needed. See
 [`vignette("python-integration")`](https://tgerke.github.io/dplyneage/articles/python-integration.md)
 if you manage your own Python environment.
 
@@ -630,12 +631,12 @@ g <- igraph::read_graph(path, format = "graphml")
 
 # Everything upstream of total_spent
 igraph::subcomponent(g, "output.total_spent", mode = "in")
-#> + 2/6 vertices, named, from 89be2f6:
+#> + 2/6 vertices, named, from 55ab4d9:
 #> [1] output.total_spent orders.amount
 
 # Everything downstream of orders.amount
 igraph::subcomponent(g, "orders.amount", mode = "out")
-#> + 2/6 vertices, named, from 89be2f6:
+#> + 2/6 vertices, named, from 55ab4d9:
 #> [1] orders.amount      output.total_spent
 ```
 

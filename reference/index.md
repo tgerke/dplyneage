@@ -61,8 +61,9 @@ catalogs
 
 ## Python Integration
 
-Python (sqlglot) is only used for raw SQL input and is provisioned
-automatically; this helper checks availability
+Python (sqlglot) is used for raw SQL input, duckplyr frames, and dbplyr
+pipelines that embed raw SQL. It is provisioned automatically; this
+helper checks availability
 
 - [`has_sqlglot()`](https://tgerke.github.io/dplyneage/reference/has_sqlglot.md)
   : Is the Python sqlglot dependency available?

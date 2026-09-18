@@ -71,25 +71,28 @@
 
     
     
-<p>dplyneage has two lineage engines, and only one of them involves
-Python:</p>
+<p>Whether dplyneage involves Python depends on what you hand to
+<code><a href="../reference/extract_lineage.html">extract_lineage()</a></code>:</p>
 <ul>
 <li>
-<strong>dbplyr pipelines</strong> are analyzed by a pure-R engine
-that walks the pipeline’s lazy query tree. No Python is initialized, let
-alone required.</li>
+<strong>dbplyr, dtplyr, and arrow pipelines</strong> are walked in
+pure R, straight from their lazy query trees. No Python is initialized,
+let alone required.</li>
 <li>
-<strong>Raw SQL strings</strong>, and the rare pipeline that embeds
-raw SQL via <code><a href="https://dbplyr.tidyverse.org/reference/sql.html" class="external-link">dbplyr::sql()</a></code>, are analyzed by <a href="https://github.com/tobymao/sqlglot" class="external-link">sqlglot</a>’s lineage engine,
-called through the <code>reticulate</code> package. reticulate is a
-Suggests dependency, so install it once with
+<strong>Raw SQL strings and duckplyr frames</strong> are analyzed by
+<a href="https://github.com/tobymao/sqlglot" class="external-link">sqlglot</a>’s lineage
+engine, called through the <code>reticulate</code> package. A duckplyr
+frame keeps its lazy tree inside duckdb, where R cannot read it, so
+dplyneage renders the relation to SQL and parses that. The rare dbplyr
+pipeline that embeds raw SQL via <code><a href="https://dbplyr.tidyverse.org/reference/sql.html" class="external-link">dbplyr::sql()</a></code> takes this
+route too. reticulate is a Suggests dependency, so install it once with
 <code>install.packages("reticulate")</code> to enable this engine.</li>
 </ul>
-<p>So if you only ever pipe dplyr/dbplyr queries into
+<p>So if you only ever pipe dbplyr, dtplyr, or arrow queries into
 <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code>, you can stop reading here: Python never
 enters the picture, and neither does reticulate. The rest of this
-vignette covers how the sqlglot dependency is managed when you do
-analyze raw SQL. It follows the setup the <a href="https://rstudio.github.io/reticulate/articles/package.html" class="external-link">reticulate
+vignette covers how the sqlglot dependency is managed when you do need
+it. It follows the setup the <a href="https://rstudio.github.io/reticulate/articles/package.html" class="external-link">reticulate
 package documentation</a> recommends: Python dependencies are declared
 with <code><a href="https://rstudio.github.io/reticulate/reference/py_require.html" class="external-link">reticulate::py_require()</a></code> when the package loads, and
 reticulate provisions them automatically.</p>
@@ -138,33 +141,63 @@ Python version docs</a> for other ways to select an environment.</p>
 <div class="section level3">
 <h3 id="architecture">Architecture<a class="anchor" aria-label="anchor" href="#architecture"></a>
 </h3>
-<pre><code>dbplyr pipeline ──→ pure-R walk of the lazy query tree
+<pre><code>dbplyr, dtplyr, or arrow pipeline ──→ pure-R walk of the lazy query tree
                                   │
-raw SQL string ──→ Python (sqlglot.lineage engine)
+raw SQL string ─────────────────→ Python (sqlglot.lineage engine)
+duckplyr frame ──→ duckdb SQL ──→ Python (sqlglot.lineage engine)
                                   ↓
               Column Lineage Metadata (per output column)
                                   ↓
                     R (create nodes &amp; edges)
                                   ↓
                  React Flow Visualization</code></pre>
-<p>Both engines emit the same lineage metadata, so everything downstream
+<p>Every path emits the same lineage metadata, so everything downstream
 is shared. Which one runs is controlled by the <code>engine</code>
-argument of <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code>: <code>"auto"</code> (the
-default) picks the R engine for lazy tables and sqlglot for SQL strings,
-falling back to sqlglot if a pipeline uses something the R engine cannot
-trace. <code>metadata$engine</code> in the result records which one
-ran.</p>
+argument of <code><a href="../reference/extract_lineage.html">extract_lineage()</a></code>. <code>"auto"</code> (the
+default) picks by input: the R walkers for dbplyr, dtplyr, and arrow
+pipelines, and sqlglot for SQL strings and duckplyr frames. A dbplyr
+pipeline that uses something its walker cannot trace falls back to
+sqlglot. dtplyr and arrow pipelines have no such fallback, because they
+compile to data.table code and Acero plans, not SQL, so an untraceable
+construct there is an error. <code>metadata$engine</code> in the result
+records which one ran.</p>
 </div>
 <div class="section level3">
 <h3 id="key-components">Key components<a class="anchor" aria-label="anchor" href="#key-components"></a>
 </h3>
 <ol style="list-style-type: decimal">
 <li>
-<strong>R/lineage_r_engine.R</strong>: The pure-R engine
+<strong>R/lineage_r_engine.R</strong>: The pure-R engine for dbplyr
 <ul>
 <li>Walks dbplyr’s lazy query tree, reading exact column provenance
 through selects, mutates, window functions, joins, and set operations:
 no SQL parsing, no Python</li>
+</ul>
+</li>
+<li>
+<strong>R/lineage_dtplyr_engine.R</strong> and
+<strong>R/lineage_arrow_engine.R</strong>: The other R walkers
+<ul>
+<li>Walk dtplyr’s <code>lazy_dt()</code> step tree and arrow’s query
+objects the same way, reading the translated forms each backend produces
+(<code><a href="https://dplyr.tidyverse.org/reference/context.html" class="external-link">n()</a></code> arrives as <code>.N</code> on dtplyr, for instance).
+No Python here either</li>
+</ul>
+</li>
+<li>
+<strong>R/lineage_duckplyr_engine.R</strong>: The duckplyr route
+<ul>
+<li>Renders the frame’s duckdb relation to SQL, rewrites it into a form
+sqlglot can bind without a live database, and hands it to the sqlglot
+engine</li>
+</ul>
+</li>
+<li>
+<strong>R/lineage_engines.R</strong>: Engine dispatch
+<ul>
+<li>Maps each input to its kind and holds the registry of native
+engines, including which <code>engine =</code> values each one
+accepts</li>
 </ul>
 </li>
 <li>
@@ -215,11 +248,14 @@ and edges</li>
 <h2 id="schemas-and-attribution-accuracy">Schemas and attribution accuracy<a class="anchor" aria-label="anchor" href="#schemas-and-attribution-accuracy"></a>
 </h2>
 <p>SQL alone does not always say which table an unqualified column
-belongs to. dbplyr lazy tables sidestep the problem entirely: the R
-engine reads provenance from the query tree, so no schema is ever
-needed. (When a lazy table falls back to sqlglot, dplyneage lists the
-columns of each referenced table from the live connection and hands that
-schema to sqlglot automatically.)</p>
+belongs to. Pipelines walked in R (dbplyr, dtplyr, arrow) sidestep the
+problem entirely: the walker reads provenance from the query tree, so no
+schema is ever needed. (When a dbplyr table falls back to sqlglot,
+dplyneage lists the columns of each referenced table from the live
+connection and hands that schema to sqlglot automatically. duckplyr
+frames do the equivalent for their file readers, so a
+<code>read_parquet_duckdb()</code> source binds its columns without
+help.)</p>
 <p>For raw SQL strings, you can pass a schema yourself:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span></span>
@@ -237,8 +273,9 @@ be expanded (you’ll get a warning).</p>
 <h2 id="sql-dialects">SQL dialects<a class="anchor" aria-label="anchor" href="#sql-dialects"></a>
 </h2>
 <p>sqlglot supports many SQL dialects. A dbplyr pipeline that reaches
-the sqlglot engine infers its dialect from the database connection; for
-SQL strings, pass it explicitly:</p>
+the sqlglot engine infers its dialect from the database connection, and
+a duckplyr frame is always parsed as <code>"duckdb"</code>. For SQL
+strings, pass it explicitly:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="va">query</span>, dialect <span class="op">=</span> <span class="st">"duckdb"</span><span class="op">)</span>     <span class="co"># default for SQL strings</span></span>
 <span><span class="fu"><a href="../reference/extract_lineage.html">extract_lineage</a></span><span class="op">(</span><span class="va">query</span>, dialect <span class="op">=</span> <span class="st">"postgres"</span><span class="op">)</span></span>
@@ -254,11 +291,11 @@ documentation</a> for the full list of dialects.</p>
 </h2>
 <ul>
 <li>
-<strong>dbplyr pipelines</strong>: no Python startup cost at all;
-the R engine runs immediately</li>
+<strong>dbplyr, dtplyr, and arrow pipelines</strong>: no Python
+startup cost at all; the R walkers run immediately</li>
 <li>
-<strong>First raw-SQL call</strong>: may take a moment while the
-Python environment initializes (and, on the very first run,
+<strong>First raw-SQL or duckplyr call</strong>: may take a moment
+while the Python environment initializes (and, on the very first run,
 provisions)</li>
 <li>
 <strong>Subsequent calls</strong>: fast (&lt;100ms for typical
