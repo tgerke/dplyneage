@@ -267,8 +267,8 @@ get_ducklake_table_version("adsl", v2) |>
 #> # A tibble: 2 × 2
 #>   SAFFL     n
 #>   <chr> <dbl>
-#> 1 Y       252
-#> 2 N        54
+#> 1 N        54
+#> 2 Y       252
 ```
 
 The lineage did not:
