@@ -95,14 +95,11 @@ local_widget_page <- function(widget, wrap = identity, before_load = NULL,
   find_copy <- function(name) {
     normalizePath(list.files(dir, pattern = paste0("^", name, "$"), recursive = TRUE, full.names = TRUE))
   }
-  bundle_copy <- find_copy("reactflow-bundle[.]min[.]js")
+  built_bundle <- NULL
   bundle_dir <- env_dir("DPLYNEAGE_BROWSER_BUNDLE_DIR")
   if (!is.null(bundle_dir)) {
-    # The widget dependency copies only the bundle itself, so the source
-    # map has to be placed next to it by hand
-    built <- file.path(bundle_dir, c("reactflow-bundle.min.js", "reactflow-bundle.min.js.map"))
-    stopifnot(file.exists(built))
-    file.copy(built, dirname(bundle_copy), overwrite = TRUE)
+    built_bundle <- file.path(bundle_dir, "reactflow-bundle.min.js")
+    stopifnot(file.copy(built_bundle, find_copy("reactflow-bundle[.]min[.]js"), overwrite = TRUE))
   }
 
   b <- chromote::ChromoteSession$new(width = 1400, height = 1000)
@@ -139,7 +136,7 @@ local_widget_page <- function(widget, wrap = identity, before_load = NULL,
       try(b$screenshot(tempfile("page-", shots, ".png"), show = FALSE), silent = TRUE)
     }
     if (!is.null(cov_dir)) {
-      write_coverage(b, cov_dir, find_copy("lineage_flow[.]js"), bundle_copy, !is.null(bundle_dir))
+      write_coverage(b, cov_dir, find_copy("lineage_flow[.]js"), built_bundle)
     }
     try(b$close(), silent = TRUE)
   }, envir = env)
@@ -161,10 +158,11 @@ local_widget_page <- function(widget, wrap = identity, before_load = NULL,
   page
 }
 
-# The converter reads scripts from disk, so every url becomes a path: the
-# widget script maps back to its source in inst/ (the page holds a verbatim
-# copy), the bundle stays where its source map was placed.
-write_coverage <- function(b, cov_dir, widget_copy, bundle_copy, has_map) {
+# The converter reads scripts from disk after the pages are gone, so every
+# url becomes a lasting path. The page holds verbatim copies: the widget
+# script maps back to its source in inst/, the bundle to the built file,
+# which has its source map beside it.
+write_coverage <- function(b, cov_dir, widget_copy, built_bundle) {
   widget_src <- normalizePath(file.path(pkgload::pkg_path(), "inst", "htmlwidgets", "lineage_flow.js"))
   stopifnot(identical(unname(tools::md5sum(widget_copy)), unname(tools::md5sum(widget_src))))
 
@@ -172,8 +170,8 @@ write_coverage <- function(b, cov_dir, widget_copy, bundle_copy, has_map) {
   for (script in b$Profiler$takePreciseCoverage()$result) {
     if (endsWith(script$url, "/lineage_flow.js")) {
       script$url <- widget_src
-    } else if (has_map && endsWith(script$url, "/reactflow-bundle.min.js")) {
-      script$url <- bundle_copy
+    } else if (!is.null(built_bundle) && endsWith(script$url, "/reactflow-bundle.min.js")) {
+      script$url <- built_bundle
     } else {
       next
     }
