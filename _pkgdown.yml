@@ -65,7 +65,8 @@ reference:
 
   - title: Python Integration
     desc: >
-      Python (sqlglot) is only used for raw SQL input and is provisioned
+      Python (sqlglot) is used for raw SQL input, duckplyr frames, and
+      dbplyr pipelines that embed raw SQL. It is provisioned
       automatically; this helper checks availability
     contents:
     - has_sqlglot
