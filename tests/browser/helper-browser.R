@@ -22,6 +22,11 @@ env_dir <- function(name) {
   if (!nzchar(path)) {
     return(NULL)
   }
+  # testthat runs from tests/browser, so anchor relative paths at the
+  # package root, where the person typing them was standing
+  if (!grepl("^(/|~|[A-Za-z]:)", path)) {
+    path <- file.path(pkgload::pkg_path(), path)
+  }
   dir.create(path, showWarnings = FALSE, recursive = TRUE)
   normalizePath(path)
 }

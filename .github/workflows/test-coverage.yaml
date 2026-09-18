@@ -94,7 +94,7 @@ jobs:
 
   # Unit tests for the parts of the widget JS that run without a browser.
   # They use Node's built-in runner, so no npm install. The React Flow render
-  # path needs a browser and is not measured yet.
+  # path needs a browser; browser-coverage below measures it.
   js-coverage:
     runs-on: ubuntu-latest
 
@@ -122,3 +122,68 @@ jobs:
           plugins: noop
           disable_search: true
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  # Renders real widgets in headless Chrome (tests/browser). The suite runs
+  # twice: against the shipped bundle, which is what users get, and against a
+  # source-mapped build of the same sources, so coverage of the bundle can be
+  # attributed to srcjs/src/index.js.
+  browser-coverage:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: srcjs/package-lock.json
+
+      # npm ci applies the @xyflow/system patch through the postinstall script
+      - name: Build the source-mapped bundle
+        working-directory: srcjs
+        env:
+          DPLYNEAGE_BUNDLE_OUT: ${{ runner.temp }}/bundle
+        run: |
+          npm ci
+          npx webpack --config webpack.coverage.config.js
+
+      - uses: r-lib/actions/setup-r@v2
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::chromote
+          needs: coverage
+
+      - name: Browser tests against the shipped bundle
+        env:
+          DPLYNEAGE_BROWSER_SHOTS: ${{ runner.temp }}/shots
+        run: Rscript .github/scripts/browser-tests.R
+
+      - name: Browser tests against the source-mapped bundle, with coverage
+        env:
+          DPLYNEAGE_BROWSER_BUNDLE_DIR: ${{ runner.temp }}/bundle
+          DPLYNEAGE_BROWSER_COVERAGE: ${{ runner.temp }}/v8
+          DPLYNEAGE_BROWSER_SHOTS: ${{ runner.temp }}/shots
+        run: Rscript .github/scripts/browser-tests.R
+
+      - name: Convert V8 coverage to lcov
+        run: node srcjs/scripts/v8-to-lcov.js "$RUNNER_TEMP/v8" coverage-browser.lcov
+
+      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
+        with:
+          fail_ci_if_error: ${{ github.event_name != 'pull_request' || secrets.CODECOV_TOKEN }}
+          files: ./coverage-browser.lcov
+          flags: js
+          plugins: noop
+          disable_search: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload page screenshots
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-test-pages
+          path: ${{ runner.temp }}/shots
