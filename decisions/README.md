@@ -22,3 +22,4 @@ A record is not edited after the fact except to fix errors. If a decision change
 | [0004](0004-generate-ci-config-instead-of-recalling-it.md) | Generate CI configuration instead of recalling it | 2026-09-17 |
 | [0005](0005-browser-tests-with-chromote.md) | Test the rendered widget with chromote, outside `tests/testthat` | 2026-09-18 |
 | [0006](0006-bundle-coverage-and-two-bundle-ci.md) | Attribute bundle coverage through a separate source-mapped build | 2026-09-18 |
+| [0007](0007-readme-tracks-the-development-version.md) | The README tracks the development version, with a temporary CRAN note | 2026-09-18 |
